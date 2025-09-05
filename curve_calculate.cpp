@@ -264,7 +264,7 @@ std::vector<double> calculatePSF(const std::vector<double>& erf, int windowSize 
 
 
 
-void fft(std::vector<std::complex<double>>& a) {
+void m_fft(std::vector<std::complex<double>>& a) {
     int n = a.size();
     if (n <= 1) return;
 
@@ -278,8 +278,8 @@ void fft(std::vector<std::complex<double>>& a) {
     }
 
     for (int len = 2; len <= n; len <<= 1) {
-		double M_PI = 3.14159265358979323846;   
-        double ang = -2 * M_PI / len;
+		double My_PI = 3.14159265358979323846;   
+        double ang = -2 * My_PI / len;
         std::complex<double> wlen(cos(ang), sin(ang));
         for (int i = 0; i < n; i += len) {
             std::complex<double> w(1);
@@ -315,7 +315,7 @@ std::vector<double> calculateMTF(const std::vector<double>& psf) {
     }
 
     // Perform the FFT
-    fft(a);
+    m_fft(a);
     int mtf_size = n_orig;
     std::vector<double> mtf(mtf_size);
 
@@ -835,6 +835,7 @@ int main(int argc, char* argv[]) {
     // 6. 程序成功运行，返回0
     return 0;
 }
+
 
 
 
