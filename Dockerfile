@@ -3,7 +3,6 @@ FROM debian:bookworm as builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 【已修改】在原来的基础上增加了 ca-certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     g++ \
@@ -22,19 +21,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 RUN wget http://dlib.net/files/dlib-19.24.tar.bz2
-
 RUN tar xvf dlib-19.24.tar.bz2
-
 RUN mv dlib-19.24 dlib
 
+RUN mkdir -p nlohmann
+RUN wget https://github.com/nlohmann/json/releases/latest/download/json.hpp -O nlohmann/json.hpp
 
-RUN wget https://github.com/nlohmann/json/releases/latest/download/json.hpp -O json.hpp
+COPY curve_calculate.cpp . # 注意：这里的文件名应和您自己的文件名一致
 
-
-COPY curve_calculate.cpp .
-
-# 编译C++应用程序 (此行保持不变)
-RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -o curve_calculate_app curve_calculate.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread -lX11
+# 【已修改】在 g++ 命令中增加了 -DDLIB_NO_GUI_SUPPORT 参数
+RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -DDLIB_NO_GUI_SUPPORT -o curve_calculate_app curve_calculate.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread
 
 # --- Stage 2: Final Production Environment ---
 # (第二阶段完全保持不变)
@@ -44,8 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-core406 \
     libopencv-imgproc406 \
     libopencv-imgcodecs406 \
-    libopencv-highgui406 \
     && rm -rf /var/lib/apt/lists/*
+    # 删除了 libopencv-highgui, 因为 highgui 模块主要用于GUI
 
 WORKDIR /app
 
@@ -58,6 +54,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 10000
 
-CMD ["waitress-serve", "--host=0.-0.0.0", "--port=10000", "app:app"]
-
-
+CMD ["waitress-serve", "--host=0.0.0.0", "--port=10000", "app:app"]
