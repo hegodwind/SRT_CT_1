@@ -10,9 +10,9 @@ UPLOAD_FOLDER = 'temp_uploads'
 ALLOWED_EXTENSIONS = {'csr'}
 
 # Linux/macOS:
-#CPP_EXECUTABLE_PATH = './process_csr_app' 
+CPP_EXECUTABLE_PATH = './curve_calculate_app' 
 # Windows :
-CPP_EXECUTABLE_PATH = './curve_calculate.exe'
+#CPP_EXECUTABLE_PATH = './curve_calculate.exe'
 
 # --- Flask应用初始化 ---           
 app = Flask(__name__)
@@ -82,4 +82,5 @@ def process_csr_file():
 
 # --- 启动应用 ---
 if __name__ == '__main__':
+
     app.run(host='0.0.0.0', port=5000, debug=True)
