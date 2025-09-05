@@ -27,7 +27,7 @@ RUN mv dlib-19.24 dlib
 RUN mkdir -p nlohmann
 RUN wget https://github.com/nlohmann/json/releases/latest/download/json.hpp -O nlohmann/json.hpp
 
-COPY curve_calculate.cpp . # 注意：这里的文件名应和您自己的文件名一致
+COPY curve_calculate.cpp . 
 
 # 【已修改】在 g++ 命令中增加了 -DDLIB_NO_GUI_SUPPORT 参数
 RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -DDLIB_NO_GUI_SUPPORT -o curve_calculate_app curve_calculate.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread
@@ -55,3 +55,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 10000
 
 CMD ["waitress-serve", "--host=0.0.0.0", "--port=10000", "app:app"]
+
