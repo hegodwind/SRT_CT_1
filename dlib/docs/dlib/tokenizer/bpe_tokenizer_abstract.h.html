@@ -1,0 +1,138 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - bpe_tokenizer_abstract.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2025 Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#undef</font> DLIB_BPE_TOKENIZER_ABSTRACT_
+<font color='#0000FF'>#ifdef</font> DLIB_BPE_TOKENIZER_ABSTRACT_
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>map<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>unordered_map<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>mutex<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>thread<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>future<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>queue<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+    <font color='#0000FF'>class</font> <b><a name='bpe_tokenizer'></a>bpe_tokenizer</b>
+    <b>{</b>
+        <font color='#009900'>/*!
+            WHAT THIS OBJECT REPRESENTS
+                This class implements a Byte Pair Encoding (BPE) tokenizer, which is a subword
+                tokenization algorithm commonly used in natural language processing (NLP). The
+                BPE algorithm iteratively merges the most frequent pairs of bytes or characters
+                to form a vocabulary of subword units. This approach is particularly useful for
+                handling out-of-vocabulary words and reducing the size of the vocabulary while
+                maintaining the ability to represent any text.
+
+                The tokenizer supports special tokens, which can be used to mark specific elements
+                in the text (e.g., `&lt;text&gt;`, `&lt;url&gt;`, `&lt;image&gt;`, etc.). These special tokens are
+                treated as atomic units during tokenization and are not subject to further splitting.
+
+                The class provides methods for training the tokenizer on a given text corpus, encoding
+                text into subword tokens, and decoding tokens back into text. The tokenizer can be
+                serialized and deserialized to/from a file, allowing for easy storage and reuse.
+
+                REFERENCES
+                    - Sennrich, R., Haddow, B., &amp; Birch, A. (2016). Neural Machine Translation of
+                      Rare Words with Subword Units. In Proceedings of the 54th Annual Meeting of
+                      the Association for Computational Linguistics (ACL 2016).
+
+            INITIAL VALUE
+                - The base vocabulary is initialized with single-byte tokens (0-255).
+                - Special tokens are pre-defined and assigned IDs starting from 256.
+                - The maximum token length is set to 8 bytes.
+        !*/</font>
+
+    <font color='#0000FF'>public</font>:
+        <b><a name='bpe_tokenizer'></a>bpe_tokenizer</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Initializes the tokenizer with a base vocabulary of single-byte tokens (0-255).
+                - Pre-defines special tokens and assigns them unique IDs starting from 256.
+        !*/</font>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='train'></a>train</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> text,
+            <font color='#0000FF'><u>int</u></font> vocab_size,
+            <font color='#0000FF'><u>bool</u></font> verbose <font color='#5555FF'>=</font> <font color='#979000'>false</font>
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            requires
+                - vocab_size &gt;= 256
+            ensures
+                - Trains the tokenizer on the provided text corpus.
+                - Iteratively merges the most frequent pairs of tokens to form a subword vocabulary
+                  of size `vocab_size`.
+                - If `verbose` is true, progress information is printed to the standard output.
+        !*/</font>
+
+        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <b><a name='encode'></a>encode</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> text
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Encodes the input text into a sequence of subword tokens.
+                - Special tokens are automatically added to mark the beginning and end of paragraphs.
+                - Returns a vector of token IDs representing the encoded text.
+        !*/</font>
+
+        std::string <b><a name='decode'></a>decode</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> ids,
+            <font color='#0000FF'><u>bool</u></font> display_special_tokens <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Decodes a sequence of token IDs back into a human-readable string.
+                - If `display_special_tokens` is true, special tokens are included in the output.
+                - Returns the decoded text as a UTF-8 encoded string.
+        !*/</font>
+
+        std::string <b><a name='decode'></a>decode</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> id, <font color='#0000FF'><u>bool</u></font> display_special_tokens <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>decode</font><font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><b>{</b> id <b>}</b><font face='Lucida Console'>)</font>, display_special_tokens<font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#009900'>/*!
+            ensures
+                - decode a single token back into text.
+        !*/</font>
+
+        <font color='#0000FF'><u>int</u></font> <b><a name='get_special_token_id'></a>get_special_token_id</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> token
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns the ID of the specified special token.
+                - Throws an exception if the token is not found in the special tokens map.
+        !*/</font>
+
+        <font color='#0000FF'><u>size_t</u></font> <b><a name='get_vocab_size'></a>get_vocab_size</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns the total size of the vocabulary, including base tokens and special tokens.
+        !*/</font>
+    <b>}</b>;
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='serialize'></a>serialize</b><font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> bpe_tokenizer<font color='#5555FF'>&amp;</font> tok,
+        std::ostream<font color='#5555FF'>&amp;</font> out
+    <font face='Lucida Console'>)</font>;
+    <font color='#009900'>/*!
+        ensures
+            - Saves the entire state of tok to out.
+    !*/</font>
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='deserialize'></a>deserialize</b><font face='Lucida Console'>(</font>
+        bpe_tokenizer<font color='#5555FF'>&amp;</font> tok,
+        std::istream<font color='#5555FF'>&amp;</font> in
+    <font face='Lucida Console'>)</font>;
+    <font color='#009900'>/*!
+        ensures
+            - Restores the state of a bpe_tokenizer from a serialized state.
+    !*/</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_BPE_TOKENIZER_ABSTRACT_
+</font>
+</pre></body></html>

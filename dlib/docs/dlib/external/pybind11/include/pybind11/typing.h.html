@@ -1,0 +1,128 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - typing.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+    pybind11/typing.h: Convenience wrapper classes for basic Python types
+    with more explicit annotations.
+
+    Copyright (c) 2023 Dustin Spicuzza &lt;dustin@virtualroadside.com&gt;
+
+    All rights reserved. Use of this source code is governed by a
+    BSD-style license that can be found in the LICENSE file.
+*/</font>
+
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='detail/common.h.html'>detail/common.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='cast.h.html'>cast.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='pytypes.h.html'>pytypes.h</a>"
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>typing<font face='Lucida Console'>)</font>
+
+<font color='#009900'>/*
+    The following types can be used to direct pybind11-generated docstrings
+    to have have more explicit types (e.g., `list[str]` instead of `list`).
+    Just use these in place of existing types.
+
+    There is no additional enforcement of types at runtime.
+*/</font>
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font>... Types<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Tuple'></a>Tuple</b> : <font color='#0000FF'>public</font> tuple <b>{</b>
+    <font color='#0000FF'>using</font> tuple::tuple;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> K, <font color='#0000FF'>typename</font> V<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Dict'></a>Dict</b> : <font color='#0000FF'>public</font> dict <b>{</b>
+    <font color='#0000FF'>using</font> dict::dict;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='List'></a>List</b> : <font color='#0000FF'>public</font> list <b>{</b>
+    <font color='#0000FF'>using</font> list::list;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Set'></a>Set</b> : <font color='#0000FF'>public</font> set <b>{</b>
+    <font color='#0000FF'>using</font> set::set;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Iterable'></a>Iterable</b> : <font color='#0000FF'>public</font> iterable <b>{</b>
+    <font color='#0000FF'>using</font> iterable::iterable;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Iterator'></a>Iterator</b> : <font color='#0000FF'>public</font> iterator <b>{</b>
+    <font color='#0000FF'>using</font> iterator::iterator;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Signature<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Callable'></a>Callable</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Return, <font color='#0000FF'>typename</font>... Args<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='Callable'></a>Callable</b><font color='#5555FF'>&lt;</font><b><a name='Return'></a>Return</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> : <font color='#0000FF'>public</font> function <b>{</b>
+    <font color='#0000FF'>using</font> function::function;
+<b>}</b>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>typing<font face='Lucida Console'>)</font>
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font>... Types<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Tuple<font color='#5555FF'>&lt;</font>Types...<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>tuple[</font>"<font face='Lucida Console'>)</font>
+                                 <font color='#5555FF'>+</font> ::pybind11::detail::<b><a name='concat'></a>concat</b><font face='Lucida Console'>(</font>make_caster<font color='#5555FF'>&lt;</font>Types<font color='#5555FF'>&gt;</font>::name...<font face='Lucida Console'>)</font>
+                                 <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Tuple<font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#009900'>// PEP 484 specifies this syntax for an empty tuple
+</font>    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>tuple[()]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Tuple<font color='#5555FF'>&lt;</font>T, ellipsis<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#009900'>// PEP 484 specifies this syntax for a variable-length tuple
+</font>    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name
+        <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>tuple[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>, ...]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> K, <font color='#0000FF'>typename</font> V<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Dict<font color='#5555FF'>&lt;</font>K, V<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>dict[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>K<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>, </font>"<font face='Lucida Console'>)</font>
+                                 <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>V<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::List<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>list[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Set<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>set[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Iterable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>Iterable[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Iterator<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>Iterator[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Return, <font color='#0000FF'>typename</font>... Args<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='handle_type_name'></a>handle_type_name</b><font color='#5555FF'>&lt;</font>typing::Callable<font color='#5555FF'>&lt;</font><b><a name='Return'></a>Return</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>using</font> retval_type <font color='#5555FF'>=</font> conditional_t<font color='#5555FF'>&lt;</font>std::is_same<font color='#5555FF'>&lt;</font>Return, <font color='#0000FF'><u>void</u></font><font color='#5555FF'>&gt;</font>::value, void_type, Return<font color='#5555FF'>&gt;</font>;
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name
+        <font color='#5555FF'>=</font> <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Callable[[</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> ::pybind11::detail::<font color='#BB00BB'>concat</font><font face='Lucida Console'>(</font>make_caster<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font>::name...<font face='Lucida Console'>)</font>
+          <font color='#5555FF'>+</font> <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>], </font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>retval_type<font color='#5555FF'>&gt;</font>::name <font color='#5555FF'>+</font> <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

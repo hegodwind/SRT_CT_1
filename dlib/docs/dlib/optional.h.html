@@ -1,0 +1,1027 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - optional.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_OPTIONAL_H
+<font color='#0000FF'>#define</font> DLIB_OPTIONAL_H
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>exception<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>initializer_list<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='functional.h.html'>functional.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>class</font> <b><a name='bad_optional_access'></a>bad_optional_access</b> : <font color='#0000FF'>public</font> std::exception 
+    <b>{</b>
+    <font color='#0000FF'>public</font>:
+        <b><a name='bad_optional_access'></a>bad_optional_access</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><b><a name='what'></a>what</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> "<font color='#CC0000'>Optional has no value</font>"; <b>}</b>
+    <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>struct</font> <b><a name='nullopt_t'></a>nullopt_t</b> 
+    <b>{</b>
+        <b><a name='nullopt_t'></a>nullopt_t</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        constexpr <font color='#0000FF'>explicit</font> <b><a name='nullopt_t'></a>nullopt_t</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> noexcept <b>{</b><b>}</b>
+    <b>}</b>;
+
+    <font color='#0000FF'>static</font> constexpr nullopt_t nullopt<b>{</b><font color='#0000FF'><u>int</u></font><b>{</b><b>}</b><b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>class</font> <b><a name='optional'></a>optional</b>;
+    <font color='#009900'>/*!
+        WHAT THIS OBJECT REPRESENTS 
+            This is a standard's compliant backport of std::optional that works with C++14.
+            It includes C++23 monadic interfaces
+
+            Therefore, refer to https://en.cppreference.com/w/cpp/utility/optional for docs on the
+            interface of optional.
+    !*/</font>
+
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font><font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font><font color='#009900'>//                                IMPLEMENTATION DETAILS BELOW
+</font><font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font><font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> details
+    <b>{</b>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='is_optional'></a>is_optional</b> : std::false_type<b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='is_optional'></a>is_optional</b><font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> : std::true_type<b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_constructible_from <font color='#5555FF'>=</font> And<font color='#5555FF'>&lt;</font>
+            <font color='#5555FF'>!</font>std::is_constructible<font color='#5555FF'>&lt;</font>T,       dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_constructible<font color='#5555FF'>&lt;</font>T, <font color='#0000FF'>const</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_constructible<font color='#5555FF'>&lt;</font>T,       dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_constructible<font color='#5555FF'>&lt;</font>T, <font color='#0000FF'>const</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font>      dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font>      dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value,
+            <font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_assignable_from <font color='#5555FF'>=</font> And<font color='#5555FF'>&lt;</font>
+            is_constructible_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font>::value,
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>,       dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>, <font color='#0000FF'>const</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>,       dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>, <font color='#0000FF'>const</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_copy_convertible <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font>
+            is_constructible_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            std::is_constructible<font color='#5555FF'>&lt;</font>T, <font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#0000FF'><u>bool</u></font>
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_move_convertible <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font>
+            is_constructible_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            std::is_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#0000FF'><u>bool</u></font>
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_copy_assignable <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font>
+            is_assignable_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font>::value              <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            std::is_constructible<font color='#5555FF'>&lt;</font>T, <font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value   <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>, <font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#0000FF'><u>bool</u></font>
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_move_assignable <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font>
+            is_assignable_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font>::value      <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            std::is_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font>::value  <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>, U<font color='#5555FF'>&gt;</font>::value,
+            <font color='#0000FF'><u>bool</u></font>
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, <font color='#0000FF'>class</font> <b><a name='U_'></a>U_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_construct_convertible_from <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font>
+            std::is_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            <font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U_, in_place_t<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            <font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U_, dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,
+            <font color='#0000FF'><u>bool</u></font>
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, <font color='#0000FF'>class</font> <b><a name='U_'></a>U_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> is_assign_convertible_from <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font>
+            std::is_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font>::value  <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> 
+            std::is_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>, U<font color='#5555FF'>&gt;</font>::value    <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            <font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U_, dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+            <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_scalar<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>T, U_<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>,
+            <font color='#0000FF'><u>bool</u></font>
+        <font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+          <font color='#0000FF'><u>bool</u></font> <font color='#5555FF'>=</font> std::is_trivially_destructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_storage'></a>optional_storage</b>
+        <b>{</b>
+            constexpr <b><a name='optional_storage'></a>optional_storage</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> noexcept
+            : e<b>{</b><b>}</b>, active<b>{</b><font color='#979000'>false</font><b>}</b>
+            <b>{</b><b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> ...<b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+            constexpr <b><a name='optional_storage'></a>optional_storage</b><font face='Lucida Console'>(</font>in_place_t, U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ...u<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,U...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            : val<b>{</b>std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font>...<b>}</b>, active<b>{</b><font color='#979000'>true</font><b>}</b> 
+            <b>{</b><b>}</b>
+
+            ~<b><a name='optional_storage'></a>optional_storage</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_destructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>active<font face='Lucida Console'>)</font>
+                    val.~<font color='#BB00BB'>T</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>           
+
+            <font color='#0000FF'>struct</font> <b><a name='empty'></a>empty</b><b>{</b><b>}</b>;
+            <font color='#0000FF'>union</font> <b>{</b>T val; empty e;<b>}</b>;
+            <font color='#0000FF'><u>bool</u></font> active<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_storage'></a>optional_storage</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>true</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <b><a name='optional_storage'></a>optional_storage</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> noexcept
+            : e<b>{</b><b>}</b>, active<b>{</b><font color='#979000'>false</font><b>}</b>
+            <b>{</b><b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> ...<b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+            constexpr <b><a name='optional_storage'></a>optional_storage</b><font face='Lucida Console'>(</font>in_place_t, U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ...u<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,U...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            : val<b>{</b>std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font>...<b>}</b>, active<b>{</b><font color='#979000'>true</font><b>}</b> 
+            <b>{</b><b>}</b>
+
+            <font color='#0000FF'>struct</font> <b><a name='empty'></a>empty</b><b>{</b><b>}</b>;
+            <font color='#0000FF'>union</font> <b>{</b>T val; empty e;<b>}</b>;
+            <font color='#0000FF'><u>bool</u></font> active<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_ops'></a>optional_ops</b> : optional_storage<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_storage<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_storage;
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>... <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font> 
+            constexpr <font color='#0000FF'><u>void</u></font> <b><a name='construct'></a>construct</b><font face='Lucida Console'>(</font>U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... u<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,U...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>new</font> <font face='Lucida Console'>(</font>std::<font color='#BB00BB'>addressof</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#BB00BB'>T</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Optional'></a>Optional</b><font color='#5555FF'>&gt;</font>
+            constexpr <font color='#0000FF'><u>void</u></font> <b><a name='assign'></a>assign</b><font face='Lucida Console'>(</font>Optional<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,Optional<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                                                           std::is_nothrow_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font>,Optional<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs.active<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val <font color='#5555FF'>=</font> std::forward<font color='#5555FF'>&lt;</font>Optional<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>.val;
+                <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs.active<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Optional<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>.val<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>rhs.active<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>destruct</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            constexpr <font color='#0000FF'><u>void</u></font> <b><a name='destruct'></a>destruct</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_destructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val.~<font color='#BB00BB'>T</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                <b>}</b>
+            <b>}</b>
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'><u>bool</u></font> <font color='#5555FF'>=</font> std::is_trivially_copy_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_copy'></a>optional_copy</b> : optional_ops<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_ops<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_ops;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_copy'></a>optional_copy</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font> : optional_ops<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_ops<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_ops;
+
+            constexpr <b><a name='optional_copy'></a>optional_copy</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                       <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_copy'></a>optional_copy</b><font face='Lucida Console'>(</font>optional_copy<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>                    <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_copy <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_copy<font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_copy <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_copy<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>         <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+            constexpr <b><a name='optional_copy'></a>optional_copy</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_copy<font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_copy_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            : optional_ops<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> 
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rhs.active<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>rhs.val<font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'><u>bool</u></font> <font color='#5555FF'>=</font> std::is_trivially_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_move'></a>optional_move</b> : optional_copy<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_copy<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_copy;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_move'></a>optional_move</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font> : optional_copy<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_copy<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_copy;
+
+            constexpr <b><a name='optional_move'></a>optional_move</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                       <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_move'></a>optional_move</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_move<font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>               <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_move<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_move<font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_move<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_move<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>         <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+            constexpr <b><a name='optional_move'></a>optional_move</b><font face='Lucida Console'>(</font>optional_move<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rhs.active<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>rhs.val<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, 
+          <font color='#0000FF'><u>bool</u></font> <font color='#5555FF'>=</font> std::is_trivially_copy_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value       <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                 std::is_trivially_copy_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value    <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                 std::is_trivially_destructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_copy_assign'></a>optional_copy_assign</b> : optional_move<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_move<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_move;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_copy_assign'></a>optional_copy_assign</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font> : optional_move<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_move<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_move;
+
+            constexpr <b><a name='optional_copy_assign'></a>optional_copy_assign</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                        <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_copy_assign'></a>optional_copy_assign</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_copy_assign<font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>         <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_copy_assign'></a>optional_copy_assign</b><font face='Lucida Console'>(</font>optional_copy_assign<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>              <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_copy_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_copy_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+            constexpr optional_copy_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_copy_assign <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+            <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_copy_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> 
+                    std::is_nothrow_copy_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>assign</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>        
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, 
+          <font color='#0000FF'><u>bool</u></font> <font color='#5555FF'>=</font> std::is_trivially_destructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value       <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                 std::is_trivially_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                 std::is_trivially_move_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_move_assign'></a>optional_move_assign</b> : optional_copy_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_copy_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_copy_assign;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_move_assign'></a>optional_move_assign</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font> : optional_copy_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> optional_copy_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::optional_copy_assign;
+
+            constexpr <b><a name='optional_move_assign'></a>optional_move_assign</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                              <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_move_assign'></a>optional_move_assign</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_move_assign <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>               <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_move_assign'></a>optional_move_assign</b><font face='Lucida Console'>(</font>optional_move_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>                    <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_move_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_move_assign <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+            constexpr optional_move_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_move_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+            <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> 
+                    std::is_nothrow_move_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>assign</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, 
+          <font color='#0000FF'><u>bool</u></font> copyable <font color='#5555FF'>=</font> std::is_copy_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value,
+          <font color='#0000FF'><u>bool</u></font> moveable <font color='#5555FF'>=</font> std::is_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                                <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font>optional_delete_constructors<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_constructors <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>true</font>, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font> 
+        <b>{</b>
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                                <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font>optional_delete_constructors<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_constructors <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font>, <font color='#979000'>true</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                                <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font>optional_delete_constructors<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_constructors <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font>, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                                <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+            constexpr <b><a name='optional_delete_constructors'></a>optional_delete_constructors</b><font face='Lucida Console'>(</font>optional_delete_constructors<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_constructors<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_constructors<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_constructors <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+          <font color='#0000FF'><u>bool</u></font> copyable <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> std::is_copy_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>,
+          <font color='#0000FF'><u>bool</u></font> moveable <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> std::is_move_assignable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_assign'></a>optional_delete_assign</b>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                          <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>            <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                 <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>true</font>, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                          <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>            <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                 <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font>, <font color='#979000'>true</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                          <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>            <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                 <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font> 
+        <font color='#0000FF'>struct</font> <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font color='#5555FF'>&lt;</font>T, <font color='#979000'>false</font>, <font color='#979000'>false</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                          <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>            <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr <b><a name='optional_delete_assign'></a>optional_delete_assign</b><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                 <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_delete_assign <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+            constexpr optional_delete_assign<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_delete_assign <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>class</font> <b><a name='optional'></a>optional</b> : <font color='#0000FF'>private</font> details::optional_move_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                     <font color='#0000FF'>private</font> details::optional_delete_constructors<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                     <font color='#0000FF'>private</font> details::optional_delete_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> 
+    <b>{</b>
+        <font color='#0000FF'>using</font> base <font color='#5555FF'>=</font> details::optional_move_assign<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+        <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_reference<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value,         "<font color='#CC0000'>optional&lt;T&amp;&gt; not allowed</font>"<font face='Lucida Console'>)</font>;
+        <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>T, in_place_t<font color='#5555FF'>&gt;</font>::value,  "<font color='#CC0000'>optional&lt;in_place_t&gt; not allowed</font>"<font face='Lucida Console'>)</font>;
+        <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>T, nullopt_t<font color='#5555FF'>&gt;</font>::value,   "<font color='#CC0000'>optional&lt;nullopt_t&gt; not allowed</font>"<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>public</font>:
+        <font color='#0000FF'>using</font> value_type <font color='#5555FF'>=</font> T;
+        
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font>optional <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        constexpr optional<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        constexpr optional<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        ~<b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                         <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font>nullopt_t<font face='Lucida Console'>)</font> noexcept <b>{</b><b>}</b>
+
+        constexpr optional<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>nullopt_t<font face='Lucida Console'>)</font> noexcept 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, 
+          details::is_copy_convertible<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>explicit</font> <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,<font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, 
+          details::is_copy_convertible<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_convertible<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,<font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, 
+          details::is_move_convertible<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>explicit</font> <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font>optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, 
+          details::is_move_convertible<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_convertible<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font>optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_constructible<font color='#5555FF'>&lt;</font>T, Args...<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>explicit</font> <b><a name='optional'></a>optional</b> <font face='Lucida Console'>(</font>
+            in_place_t,
+            Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args
+        <font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        : base<font face='Lucida Console'>(</font>in_place, std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>
+        <b>{</b>
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, 
+          <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_constructible<font color='#5555FF'>&lt;</font>T, std::initializer_list<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font>, Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>explicit</font> <b><a name='optional'></a>optional</b> <font face='Lucida Console'>(</font>
+            in_place_t,
+            std::initializer_list<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> il,
+            Args <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args
+        <font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T,std::initializer_list<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font>,Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>il, std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>,
+          details::is_construct_convertible_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_convertible<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>explicit</font> <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font>U <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>u<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        : base<font face='Lucida Console'>(</font>in_place, std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+        <b>}</b>
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>,
+          details::is_construct_convertible_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_convertible<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <b><a name='optional'></a>optional</b><font face='Lucida Console'>(</font>U <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>u<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        : base<font face='Lucida Console'>(</font>in_place, std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+        <b>}</b>      
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>,
+          details::is_copy_assignable<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr optional <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T, <font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                                                                       std::is_nothrow_assignable<font color='#5555FF'>&lt;</font>T, <font color='#0000FF'>const</font> U<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>assign</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>,
+          details::is_move_assignable<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr optional <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                                                                  std::is_nothrow_assignable<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>assign</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+        
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, 
+          details::is_assign_convertible_from<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr optional<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>U <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>u<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                                                      std::is_nothrow_assignable<font color='#5555FF'>&lt;</font>T, U<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>=</font> std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font> 
+        constexpr T<font color='#5555FF'>&amp;</font> <b><a name='emplace'></a>emplace</b><font face='Lucida Console'>(</font>Args <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T, Args...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        constexpr T<font color='#5555FF'>&amp;</font> <b><a name='emplace'></a>emplace</b><font face='Lucida Console'>(</font>std::initializer_list<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> il, Args <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args<font face='Lucida Console'>)</font> 
+        <b>{</b>
+            <font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>construct</font><font face='Lucida Console'>(</font>il, std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font>;   
+        <b>}</b>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='swap'></a>swap</b><font face='Lucida Console'>(</font>optional<font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                                          dlib::is_nothrow_swappable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font> 
+        <b>{</b>
+            <font color='#0000FF'>using</font> std::swap;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font>, <font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+            <b>}</b>
+                
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>rhs<font face='Lucida Console'>)</font>
+            <b>{</b>
+                rhs <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+            
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+                rhs.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>
+
+        constexpr <font color='#0000FF'>const</font> T<font color='#5555FF'>*</font>  <b><a name='operator'></a>operator</b><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>  noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#5555FF'>&amp;</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val; <b>}</b>
+        constexpr T<font color='#5555FF'>*</font>        <b><a name='operator'></a>operator</b><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#5555FF'>&amp;</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val; <b>}</b>
+        constexpr T<font color='#5555FF'>&amp;</font>        <b><a name='operator'></a>operator</b><font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font>       noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val; <b>}</b>
+        constexpr <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font>  <b><a name='operator'></a>operator</b><font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font>  noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val; <b>}</b>
+        constexpr T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>       <b><a name='operator'></a>operator</b><font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>      noexcept <b>{</b> <font color='#0000FF'>return</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val<font face='Lucida Console'>)</font>; <b>}</b>
+        constexpr <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> noexcept <b>{</b> <font color='#0000FF'>return</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>val<font face='Lucida Console'>)</font>; <b>}</b>
+        constexpr <font color='#0000FF'>explicit</font>  <b><a name='operator'></a>operator</b> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active; <b>}</b>
+        constexpr <font color='#0000FF'><u>bool</u></font>      <b><a name='has_value'></a>has_value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>active; <b>}</b>
+
+        constexpr T<font color='#5555FF'>&amp;</font> <b><a name='value'></a>value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font> 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>bad_optional_access</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        constexpr <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font> <b><a name='value'></a>value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <font color='#5555FF'>&amp;</font> 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>bad_optional_access</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        constexpr T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <b><a name='value'></a>value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>bad_optional_access</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        constexpr <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <b><a name='value'></a>value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>bad_optional_access</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font> 
+        constexpr T <b><a name='value_or'></a>value_or</b><font face='Lucida Console'>(</font>U <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>u<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <font color='#5555FF'>&amp;</font> 
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font> ? <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font> : <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font> 
+        constexpr T <b><a name='value_or'></a>value_or</b><font face='Lucida Console'>(</font>U <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>u<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> 
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font> ? std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font> : <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>u<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='reset'></a>reset</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_destructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>destruct</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='Return'></a>Return</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>details::is_optional<font color='#5555FF'>&lt;</font>Return<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>auto</font> <b><a name='and_then'></a>and_then</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> Return<b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='Return'></a>Return</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F,<font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>details::is_optional<font color='#5555FF'>&lt;</font>Return<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>auto</font> <b><a name='and_then'></a>and_then</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> Return<b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='Return'></a>Return</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F,T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>details::is_optional<font color='#5555FF'>&lt;</font>Return<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>auto</font> <b><a name='and_then'></a>and_then</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> Return<b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='Return'></a>Return</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F,<font color='#0000FF'>const</font> T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>details::is_optional<font color='#5555FF'>&lt;</font>Return<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr <font color='#0000FF'>auto</font> <b><a name='and_then'></a>and_then</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> Return<b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F, T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::in_place_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::nullopt_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <b><a name='transform'></a>transform</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F, <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::in_place_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::nullopt_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <b><a name='transform'></a>transform</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F,T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::in_place_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::nullopt_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <b><a name='transform'></a>transform</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F,<font color='#0000FF'>const</font> T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::in_place_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::nullopt_t<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <b><a name='transform'></a>transform</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>invoke</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> 
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr optional <b><a name='or_else'></a>or_else</b><font face='Lucida Console'>(</font> F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font> ? <font color='#5555FF'>*</font><font color='#0000FF'>this</font> : std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> 
+          <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>,
+          <font color='#0000FF'>class</font> <b><a name='U'></a>U</b> <font color='#5555FF'>=</font> dlib::remove_cvref_t<font color='#5555FF'>&lt;</font>dlib::invoke_result_t<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>std::is_same<font color='#5555FF'>&lt;</font>U, dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        constexpr optional <b><a name='or_else'></a>or_else</b><font face='Lucida Console'>(</font> F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f <font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font> ? std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font> : std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>        
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#5555FF'>*</font>lhs <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font> 
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b> 
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font face='Lucida Console'>(</font>lhs <font color='#5555FF'>=</font><font color='#5555FF'>=</font> rhs<font face='Lucida Console'>)</font>; 
+    <b>}</b>
+        
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font> 
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font> std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#5555FF'>*</font>lhs <font color='#5555FF'>&lt;</font> <font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font face='Lucida Console'>(</font>lhs <font color='#5555FF'>&lt;</font> rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font> std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#5555FF'>*</font>lhs <font color='#5555FF'>&gt;</font> <font color='#5555FF'>*</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font face='Lucida Console'>(</font>lhs <font color='#5555FF'>&gt;</font> rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, nullopt_t<font face='Lucida Console'>)</font> noexcept
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>nullopt_t, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+        
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, nullopt_t<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>nullopt_t, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+        
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>, nullopt_t<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+    <b>}</b>
+        
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font face='Lucida Console'>(</font>nullopt_t, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, nullopt_t<font face='Lucida Console'>)</font> noexcept
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>nullopt_t, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, nullopt_t<font face='Lucida Console'>)</font> noexcept
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>nullopt_t, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>, nullopt_t<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>nullopt_t, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> noexcept 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>!</font>rhs.<font color='#BB00BB'>has_value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> ? <font color='#5555FF'>*</font>lhs <font color='#5555FF'>=</font><font color='#5555FF'>=</font> rhs : <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> ? lhs <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#5555FF'>*</font>rhs : <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> ? <font color='#5555FF'>*</font>lhs <font color='#5555FF'>!</font><font color='#5555FF'>=</font> rhs : <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> ? lhs <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>*</font>rhs : <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> ? <font color='#5555FF'>*</font>lhs <font color='#5555FF'>&lt;</font> rhs : <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> ? lhs <font color='#5555FF'>&lt;</font> <font color='#5555FF'>*</font>rhs : <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> ? <font color='#5555FF'>*</font>lhs <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> rhs : <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> ? lhs <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#5555FF'>*</font>rhs : <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> ? <font color='#5555FF'>*</font>lhs <font color='#5555FF'>&gt;</font> rhs : <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> ? lhs <font color='#5555FF'>&gt;</font> <font color='#5555FF'>*</font>rhs : <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>lhs<font face='Lucida Console'>)</font> ? <font color='#5555FF'>*</font>lhs <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> rhs : <font color='#979000'>false</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b><font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> U <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font> ? lhs <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#5555FF'>*</font>rhs : <font color='#979000'>true</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+        std::enable_if_t<font color='#5555FF'>&lt;</font>
+        std::is_move_constructible<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+        dlib::is_swappable<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value,
+        <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+    <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='swap'></a>swap</b><font face='Lucida Console'>(</font>dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> lhs, dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> rhs<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>lhs.<font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>return</font> lhs.<font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font>rhs<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font> <font color='#0000FF'>class</font> <b><a name='T'></a>T</b> <font color='#5555FF'>&gt;</font>
+    constexpr dlib::optional<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b><a name='make_optional'></a>make_optional</b><font face='Lucida Console'>(</font> T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> value <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>value<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font> <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b> <font color='#5555FF'>&gt;</font>
+    constexpr dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <b><a name='make_optional'></a>make_optional</b><font face='Lucida Console'>(</font> Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>dlib::in_place, std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font> <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='U'></a>U</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b> <font color='#5555FF'>&gt;</font>
+    constexpr dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> <b><a name='make_optional'></a>make_optional</b><font face='Lucida Console'>(</font> std::initializer_list<font color='#5555FF'>&lt;</font>U<font color='#5555FF'>&gt;</font> il, Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>dlib::in_place, il, std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font>
+
+</pre></body></html>

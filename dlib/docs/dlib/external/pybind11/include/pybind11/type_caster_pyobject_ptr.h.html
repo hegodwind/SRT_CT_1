@@ -1,0 +1,64 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - type_caster_pyobject_ptr.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (c) 2023 The pybind Community.
+</font>
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='detail/common.h.html'>detail/common.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='detail/descr.h.html'>detail/descr.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='cast.h.html'>cast.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='pytypes.h.html'>pytypes.h</a>"
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='type_caster'></a>type_caster</b><font color='#5555FF'>&lt;</font>PyObject<font color='#5555FF'>&gt;</font> <b>{</b>
+<font color='#0000FF'>public</font>:
+    <font color='#0000FF'>static</font> constexpr <font color='#0000FF'>auto</font> name <font color='#5555FF'>=</font> <b><a name='const_name'></a>const_name</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>object</font>"<font face='Lucida Console'>)</font>; <font color='#009900'>// See discussion under PR #4601.
+</font>
+    <font color='#009900'>// This overload is purely to guard against accidents.
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T,
+              detail::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>is_same_ignoring_cvref<font color='#5555FF'>&lt;</font>T, PyObject <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>0</font><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>static</font> handle <b><a name='cast'></a>cast</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>, return_value_policy, handle <font color='#009900'>/*parent*/</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>is_same_ignoring_cvref<font color='#5555FF'>&lt;</font>T, PyObject <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font>::value,
+                      "<font color='#CC0000'>Invalid C++ type T for to-Python conversion (type_caster&lt;PyObject&gt;).</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> nullptr; <font color='#009900'>// Unreachable.
+</font>    <b>}</b>
+
+    <font color='#0000FF'>static</font> handle <b><a name='cast'></a>cast</b><font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>src, return_value_policy policy, handle <font color='#009900'>/*parent*/</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>src <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nullptr<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>error_already_set</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyErr_Occurred</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>raise_from</font><font face='Lucida Console'>(</font>PyExc_SystemError, "<font color='#CC0000'>src != nullptr but PyErr_Occurred()</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>error_already_set</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>policy <font color='#5555FF'>=</font><font color='#5555FF'>=</font> return_value_policy::take_ownership<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> src;
+        <b>}</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>policy <font color='#5555FF'>=</font><font color='#5555FF'>=</font> return_value_policy::reference
+            <font color='#5555FF'>|</font><font color='#5555FF'>|</font> policy <font color='#5555FF'>=</font><font color='#5555FF'>=</font> return_value_policy::automatic_reference<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>handle</font><font face='Lucida Console'>(</font>src<font face='Lucida Console'>)</font>.<font color='#BB00BB'>inc_ref</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>type_caster&lt;PyObject&gt;::cast(): unsupported return_value_policy: </font>"
+                      <font color='#5555FF'>+</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>policy<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'><u>bool</u></font> <b><a name='load'></a>load</b><font face='Lucida Console'>(</font>handle src, <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>)</font> <b>{</b>
+        value <font color='#5555FF'>=</font> reinterpret_borrow<font color='#5555FF'>&lt;</font>object<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>src<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> cast_op_type <font color='#5555FF'>=</font> PyObject <font color='#5555FF'>*</font>;
+
+    <font color='#0000FF'>explicit</font> <b><a name='operator'></a>operator</b> PyObject <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> value.<font color='#BB00BB'>ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+
+<font color='#0000FF'>private</font>:
+    object value;
+<b>}</b>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

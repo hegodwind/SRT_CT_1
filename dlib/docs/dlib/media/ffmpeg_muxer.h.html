@@ -1,0 +1,1465 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_muxer.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#ifndef</font> DLIB_VIDEO_MUXER
+<font color='#0000FF'>#define</font> DLIB_VIDEO_MUXER
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>chrono<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>queue<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>functional<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>unordered_map<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='ffmpeg_utils.h.html'>ffmpeg_utils.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../functional.h.html'>../functional.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../constexpr_if.h.html'>../constexpr_if.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> ffmpeg
+    <b>{</b>
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>struct</font> <b><a name='encoder_image_args'></a>encoder_image_args</b> : resizing_args
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class groups a set of arguments passed to the encoder and muxer classes.
+                    These must be set to non-zero or non-trivial values as they are used to configure 
+                    the underlying codec and optionally, an internal image scaler.
+                    Any frame that is pushed to encoder or muxer instances is resized to the codec's 
+                    pre-configured settings if their dimensions or pixel format don't match.
+                    For example, if the codec is configured to use height 512, width 384 and RGB format,
+                    using the variables below, and the frames already have these settings when pushed, 
+                    then no resizing is performed. If however they don't, then they are first resized. 
+            !*/</font>
+
+            <font color='#009900'>// Target framerate of codec/muxer
+</font>            <font color='#0000FF'><u>int</u></font> framerate<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>struct</font> <b><a name='encoder_audio_args'></a>encoder_audio_args</b> : resampling_args
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class groups a set of arguments passed to the encoder and muxer classes.
+                    These must be set to non-zero or non-trivial values as they are used to configure 
+                    the underlying codec and optionally, an internal audio resampler.
+                    Any frame that is pushed to encoder or muxer instances is resampled to the codec's
+                    pre-configured settings if their sample format, sample rate or channel layout, don't match.
+            !*/</font>
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>struct</font> <b><a name='encoder_codec_args'></a>encoder_codec_args</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class groups a set of arguments passed to the encoder and muxer classes.
+                    Some of these must be set to non-zero or non-trivial values as they are used 
+                    to configure the underlying codec. Others will only be used if non-zero or
+                    non-trivial.
+            !*/</font>
+
+            <font color='#009900'>// Codec ID used to configure the encoder. Either codec or codec_name MUST be set.
+</font>            AVCodecID codec<b>{</b>AV_CODEC_ID_NONE<b>}</b>;
+
+            <font color='#009900'>// Codec name used to configure the encoder. This is used if codec == AV_CODEC_ID_NONE.
+</font>            std::string codec_name;
+
+            <font color='#009900'>// A dictionary of AVCodecContext and codec-private options. Used by "avcodec_open2()"
+</font>            std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font> codec_options;
+
+            <font color='#009900'>// Sets AVCodecContext::bit_rate if non-negative.
+</font>            int64_t bitrate<b>{</b><font color='#5555FF'>-</font><font color='#979000'>1</font><b>}</b>;
+
+            <font color='#009900'>// Sets AVCodecContext::gop_size if non-negative.
+</font>            <font color='#0000FF'><u>int</u></font> gop_size<b>{</b><font color='#5555FF'>-</font><font color='#979000'>1</font><b>}</b>;
+
+            <font color='#009900'>// OR-ed with AVCodecContext::flags if non-negative.
+</font>            <font color='#0000FF'><u>int</u></font> flags<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>class</font> <b><a name='encoder'></a>encoder</b>
+        <b>{</b>
+        <font color='#0000FF'>public</font>:
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class is a libavcodec wrapper which encodes video or audio to raw memory.
+                    Note, if you are creating a media file, it is easier to use the muxer object
+                    as it also works with raw codec files like .h264 files.
+                    This class is suitable for example if you need to send raw packets over a socket
+                    or interface with another library that requires encoded data, not raw images
+                    or raw audio samples.
+            !*/</font>
+
+            <font color='#0000FF'>struct</font> <b><a name='args'></a>args</b>
+            <b>{</b>
+                <font color='#009900'>/*!
+                    WHAT THIS OBJECT REPRESENTS
+                        This holds constructor arguments for encoder.
+                !*/</font>
+                encoder_codec_args args_codec;
+                encoder_image_args args_image;
+                encoder_audio_args args_audio;
+            <b>}</b>;
+
+            <b><a name='encoder'></a>encoder</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - is_open() == false
+            !*/</font>
+
+            <b><a name='encoder'></a>encoder</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> args<font color='#5555FF'>&amp;</font> a<font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - a.args_codec.codec or a.args_codec.codec_name are set
+                    - Either a.args_image or a.args_audio is fully set
+                ensures
+                    - Constructs encoder from args and sink
+                    - is_open() == true
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_open'></a>is_open</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if the codec is open and user may call push()
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_image_encoder'></a>is_image_encoder</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if the codec is an image encoder.
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_audio_encoder'></a>is_audio_encoder</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if the codec is an audio encoder.
+            !*/</font>
+
+            AVCodecID <b><a name='get_codec_id'></a>get_codec_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_open() == true
+                ensures
+                    - returns the codec id. See ffmpeg documentation or libavcodec/codec_id.h
+            !*/</font>
+
+            std::string <b><a name='get_codec_name'></a>get_codec_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_open() == true
+                ensures
+                    - returns string representation of codec id.
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='height'></a>height</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_image_encoder() == true
+                ensures
+                    - returns the height of the configured codec, not necessarily the
+                      height of frames passed to push(frame)
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='width'></a>width</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_image_encoder() == true
+                ensures
+                    - returns the width of the configured codec, not necessarily the
+                      width of frames passed to push(frame)
+            !*/</font>
+
+            AVPixelFormat <b><a name='pixel_fmt'></a>pixel_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_image_encoder() == true
+                ensures
+                    - returns the pixel format of the configured codec, not necessarily the
+                      pixel format of frames passed to push(frame)
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='fps'></a>fps</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+             <font color='#009900'>/*!
+                requires
+                    - is_image_encoder() == true
+                ensures
+                    - returns the configured framerate of the codec.
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='sample_rate'></a>sample_rate</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_audio_encoder() == true
+                ensures
+                    - returns the sample rate of the configured codec, not necessarily the
+                      sample rate of frames passed to push(frame)
+            !*/</font>
+
+            uint64_t <b><a name='channel_layout'></a>channel_layout</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_audio_encoder() == true
+                ensures
+                    - returns the channel layout of the configured codec, not necessarily the
+                      channel layout of frames passed to push(frame).
+                      e.g. AV_CH_LAYOUT_STEREO, AV_CH_LAYOUT_MONO etc.
+            !*/</font>
+
+            AVSampleFormat <b><a name='sample_fmt'></a>sample_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_audio_encoder() == true
+                ensures
+                    - returns the sample format of the configured codec, not necessarily the
+                      sample format of frames passed to push(frame)
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='nchannels'></a>nchannels</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - is_audio_encoder() == true
+                ensures
+                    - returns the number of audio channels in the configured codec.
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callback'></a>Callback</b><font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'><u>bool</u></font> <b><a name='push'></a>push</b> <font face='Lucida Console'>(</font>
+                frame f,
+                Callback<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> sink
+            <font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - if is_image_encoder() == true, then f.is_image() == true
+                    - if is_audio_encoder() == true, then f.is_audio() == true
+                    - sink is set to a valid callback with signature bool(size_t, const char*)
+                      for writing packet data. dlib/media/sink.h contains callback wrappers for
+                      different buffer types.
+                    - sink does not call encoder::push() or encoder::flush(),
+                      i.e., the callback does not create a recursive loop. 
+                ensures
+                    - If f does not have matching settings to the codec, it is either
+                      resized or resampled before being pushed to the codec and encoded.
+                    - The sink callback may or may not be invoked as the underlying resampler, 
+                      audio fifo and codec all have their own buffers.
+                    - Returns true if successfully encoded, even if sink wasn't invoked.
+                    - Returns false if either EOF, i.e. flush() has been previously called,
+                      or an error occurred, in which case is_open() == false.
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+              <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>,
+              <font color='#0000FF'>class</font> <b><a name='Callback'></a>Callback</b>,
+              is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'><u>bool</u></font> <b><a name='push'></a>push</b> <font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> img,
+                Callback<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> sink
+            <font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - is_image_encoder() == true
+                    - sink is set to a valid callback with signature bool(size_t, const char*)
+                      for writing packet data. dlib/media/sink.h contains callback wrappers for
+                      different buffer types.
+                    - sink does not call encoder::push() or encoder::flush(),
+                      i.e., the callback does not create a recursive loop. 
+                ensures
+                    - Encodes img using the constructor arguments, which may incur a resizing
+                      operation if the image dimensions and pixel type don't match the codec. 
+                    - The sink callback may or may not be invoked as the underlying codec 
+                      can buffer if necessary.
+                    - Returns true if successfully encoded, even if sink wasn't invoked.
+                    - Returns false if either EOF, i.e. flush() has been previously called,
+                      or an error occurred, in which case is_open() == false.
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callback'></a>Callback</b><font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'><u>void</u></font> <b><a name='flush'></a>flush</b> <font face='Lucida Console'>(</font>
+                Callback<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> sink
+            <font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - sink is set to a valid callback with signature bool(size_t, const char*)
+                      for writing packet data. dlib/media/sink.h contains callback wrappers for
+                      different buffer types.
+                    - sink does not call encoder::push() or encoder::flush(),
+                      i.e., the callback does not create a recursive loop. 
+                ensures
+                    - Flushes the codec. This must be called when there are no more frames to be encoded.
+                    - sink will likely be invoked.
+                    - is_open() == false
+                    - Becomes a no-op after the first time you call this.
+            !*/</font>
+
+        <font color='#0000FF'>private</font>:
+            <font color='#0000FF'>friend</font> <font color='#0000FF'>class</font> <b><a name='muxer'></a>muxer</b>;
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='open'></a>open</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            args                            args_;
+            <font color='#0000FF'><u>bool</u></font>                            open_<b>{</b><font color='#979000'>false</font><b>}</b>;
+            <font color='#0000FF'><u>bool</u></font>                            encoding<b>{</b><font color='#979000'>false</font><b>}</b>;
+            details::av_ptr<font color='#5555FF'>&lt;</font>AVCodecContext<font color='#5555FF'>&gt;</font> pCodecCtx;
+            details::av_ptr<font color='#5555FF'>&lt;</font>AVPacket<font color='#5555FF'>&gt;</font>       packet;
+            <font color='#0000FF'><u>int</u></font>                             next_pts<b>{</b><font color='#979000'>0</font><b>}</b>;
+            details::resizer                resizer_image;
+            details::resampler              resizer_audio;
+            details::audio_fifo             fifo;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>class</font> <b><a name='muxer'></a>muxer</b>
+        <b>{</b>
+        <font color='#0000FF'>public</font>:
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class is a libavformat wrapper which muxes video and/or audio streams to file.
+                    It is analogous to OpenCV's cv::VideoWriter class but is more configurable, supports audio, 
+                    devices (X11, speaker, ...) and network streams such as RTSP, HTTP, and more.
+                    Note that a video file, e.g. MP4, can contain multiple streams: video, audio, subtitles, etc.
+                    This class can encode both video and audio at the same time.
+            !*/</font>
+
+            <font color='#0000FF'>struct</font> <b><a name='args'></a>args</b>
+            <b>{</b>
+                <font color='#009900'>/*!
+                    WHAT THIS OBJECT REPRESENTS
+                        This holds constructor arguments for muxer.
+                !*/</font>
+
+                <b><a name='args'></a>args</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+                <font color='#009900'>/*!
+                    ensures
+                        - Default constructor.
+                !*/</font>
+
+                <b><a name='args'></a>args</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath<font face='Lucida Console'>)</font>;
+                <font color='#009900'>/*!
+                    ensures
+                        - this-&gt;filepath = filepath
+                !*/</font>
+
+                <font color='#009900'>// Filepath, URL or device this object will write data to.
+</font>                std::string filepath;
+
+                <font color='#009900'>// Output format hint. e.g. 'rtsp', 'X11', 'alsa', etc. 99% of the time, users are not required to specify this as libavformat tries to guess it.
+</font>                std::string output_format;
+
+                <font color='#009900'>// A dictionary filled with AVFormatContext and muxer-private options. Used by "avformat_write_header()"".
+</font>                <font color='#009900'>// Please see libavformat documentation for more details
+</font>                std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font> format_options;
+
+                <font color='#009900'>// An AVDictionary filled with protocol-private options. Used by avio_open2()
+</font>                std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font> protocol_options;
+
+                <font color='#009900'>// See documentation for AVFormatContext::max_delay
+</font>                <font color='#0000FF'><u>int</u></font> max_delay<b>{</b><font color='#5555FF'>-</font><font color='#979000'>1</font><b>}</b>;
+
+                <font color='#009900'>// Only relevant to network muxers such as RTSP, HTTP etc.
+</font>                <font color='#009900'>// Connection/listening timeout. 
+</font>                std::chrono::milliseconds connect_timeout<b>{</b>std::chrono::milliseconds::<font color='#BB00BB'>max</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>;
+                
+                <font color='#009900'>// Only relevant to network muxers such as RTSP, HTTP etc
+</font>                <font color='#009900'>// Read timeout. 
+</font>                std::chrono::milliseconds read_timeout<b>{</b>std::chrono::milliseconds::<font color='#BB00BB'>max</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>;
+
+                <font color='#009900'>// Only relevant to network muxers such as RTSP, HTTP etc
+</font>                <font color='#009900'>// Connection/listening interruption callback.
+</font>                <font color='#009900'>// The constructor periodically calls interrupter() while waiting on the network. If it returns true, then
+</font>                <font color='#009900'>// the connection is aborted and the muxer is closed.
+</font>                <font color='#009900'>// So user may use this in conjunction with some thread-safe shared state to signal an abort/interrupt.
+</font>                std::function<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> interrupter;
+
+                <font color='#009900'>// Video stream arguments
+</font>                <font color='#0000FF'>struct</font> : <b><a name='encoder_codec_args'></a>encoder_codec_args</b>, encoder_image_args<b>{</b><b>}</b> args_image;
+
+                <font color='#009900'>// Audio stream arguments
+</font>                <font color='#0000FF'>struct</font> : <b><a name='encoder_codec_args'></a>encoder_codec_args</b>, encoder_audio_args<b>{</b><b>}</b> args_audio;
+                
+                <font color='#009900'>// Whether or not to encode video stream.
+</font>                <font color='#0000FF'><u>bool</u></font> enable_image<b>{</b><font color='#979000'>true</font><b>}</b>;
+
+                <font color='#009900'>// Whether or not to encode audio stream.
+</font>                <font color='#0000FF'><u>bool</u></font> enable_audio<b>{</b><font color='#979000'>true</font><b>}</b>;
+            <b>}</b>;
+
+            <b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - is_open() == false
+            !*/</font>
+
+            <b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> args<font color='#5555FF'>&amp;</font> a<font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Constructs muxer using args
+            !*/</font>
+
+            <b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font>muxer<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Move constructor
+                    - After move, other.is_open() == false
+            !*/</font>
+
+            muxer<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>muxer<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Move assignment
+                    - After move, other.is_open() == false
+            !*/</font>
+
+            ~<b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Calls flush() if not already called
+                    - Closes the underlying file/socket
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_open'></a>is_open</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if underlying container and codecs are open
+                    - User may call push()
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='audio_enabled'></a>audio_enabled</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - args.enable_audio == true
+                ensures
+                    - returns true if is_open() == true and an audio stream is available and open
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='video_enabled'></a>video_enabled</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                requires
+                    - args.enable_video == true
+                ensures
+                    - returns true if is_open() == true and a video stream is available and open
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='height'></a>height</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (video_enabled())
+                        - returns the height of the configured codec, not necessarily the height of
+                          frames passed to push(frame).
+                    - else
+                        - returns 0
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='width'></a>width</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (video_enabled())
+                        - returns the width of the configured codec, not necessarily the
+                          width of frames passed to push(frame).
+                    - else
+                        - returns 0
+            !*/</font>
+
+            AVPixelFormat <b><a name='pixel_fmt'></a>pixel_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (video_enabled())
+                        - returns the pixel format of the configured codec, not necessarily the
+                          pixel format of frames passed to push(frame).
+                    - else
+                        - returns AV_PIX_FMT_NONE
+            !*/</font>
+
+            <font color='#0000FF'><u>float</u></font> <b><a name='fps'></a>fps</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (video_enabled())
+                        - returns the framerate of the configured codec
+                    - else
+                        - returns 0
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='estimated_nframes'></a>estimated_nframes</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - returns ffmpeg's estimation of how many video frames are in the file without reading any frames
+                    - See ffmpeg's documentation for AVStream::nb_frames
+                    - Note, this is known to not always work with ffmpeg v3 with certain files. Most of the time it does
+                      Do not make your code rely on this
+            !*/</font>
+
+            AVCodecID <b><a name='get_video_codec_id'></a>get_video_codec_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures 
+                    - if (video_enabled())
+                        - returns codec ID of video stream
+                    - else
+                        - returns AV_CODEC_ID_NONE
+            !*/</font>
+
+            std::string <b><a name='get_video_codec_name'></a>get_video_codec_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures 
+                    - if (video_enabled())
+                        - returns codec name of video stream
+                    - else
+                        - returns ""
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='sample_rate'></a>sample_rate</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (audio_enabled())
+                        - returns the sample rate of the configured codec, not necessarily the
+                          sample rate of frames passed to push(frame).
+                    - else
+                        - returns 0
+            !*/</font>
+
+            uint64_t <b><a name='channel_layout'></a>channel_layout</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (audio_enabled())
+                        - returns the channel layout of the configured codec, not necessarily the
+                          channel layout of frames passed to push(frame).
+                    - else
+                        - returns 0
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='nchannels'></a>nchannels</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (audio_enabled())
+                        - returns the number of audio channels in the configured codec, not necessarily the
+                          number of channels in frames passed to push(frame).
+                    - else
+                        - returns 0
+            !*/</font>
+
+            AVSampleFormat <b><a name='sample_fmt'></a>sample_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (audio_enabled())
+                        - returns the sample format of the configured codec, not necessarily the
+                          sample format of frames passed to push(frame).
+                    - else
+                        - returns AV_SAMPLE_FMT_NONE
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='estimated_total_samples'></a>estimated_total_samples</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - if (audio_enabled())
+                        - returns an estimation fo the total number of audio samples in the audio stream
+                    - else
+                        - returns 0
+            !*/</font>
+
+            AVCodecID <b><a name='get_audio_codec_id'></a>get_audio_codec_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures 
+                    - if (audio_enabled())
+                        - returns codec ID of audio stream
+                    - else
+                        - returns AV_CODEC_ID_NONE
+            !*/</font>
+
+            std::string <b><a name='get_audio_codec_name'></a>get_audio_codec_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures 
+                    - if (audio_enabled())
+                        - returns codec name of audio stream
+                    - else
+                        - returns ""
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='push'></a>push</b><font face='Lucida Console'>(</font>frame f<font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - if is_image_encoder() == true, then f.is_image() == true
+                    - if is_audio_encoder() == true, then f.is_audio() == true
+                ensures
+                    - If f does not have matching settings to the codec, it is either
+                      resized or resampled before being pushed to the muxer.
+                    - Encodes and writes the encoded data to file/socket
+                    - Returns true if successfully encoded.
+                    - Returns false if either EOF, i.e. flush() has been previously called,
+                      or an error occurred, in which case is_open() == false.
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+              <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>,
+              is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'><u>bool</u></font> <b><a name='push'></a>push</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> img<font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - is_image_encoder() == true
+                ensures
+                    - Encodes img using the constructor arguments, which may incur a resizing
+                      operation if the image dimensions and pixel type don't match the codec. 
+                    - Encodes and writes the encoded data to file/socket
+                    - Returns true if successfully encoded.
+                    - Returns false if either EOF, i.e. flush() has been previously called,
+                      or an error occurred, in which case is_open() == false.
+            !*/</font>
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='flush'></a>flush</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Flushes the file.
+                    - is_open() == false
+            !*/</font>
+
+        <font color='#0000FF'>private</font>:
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='open'></a>open</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> args<font color='#5555FF'>&amp;</font> a<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>bool</u></font> <b><a name='interrupt_callback'></a>interrupt_callback</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>struct</font> <b>{</b>
+                args                                    args_;
+                details::av_ptr<font color='#5555FF'>&lt;</font>AVFormatContext<font color='#5555FF'>&gt;</font>        pFormatCtx;
+                encoder                                 encoder_image;
+                encoder                                 encoder_audio;
+                <font color='#0000FF'><u>int</u></font>                                     stream_id_video<b>{</b><font color='#5555FF'>-</font><font color='#979000'>1</font><b>}</b>;
+                <font color='#0000FF'><u>int</u></font>                                     stream_id_audio<b>{</b><font color='#5555FF'>-</font><font color='#979000'>1</font><b>}</b>;
+                std::chrono::system_clock::time_point   connecting_time<b>{</b><b>}</b>;
+                std::chrono::system_clock::time_point   connected_time<b>{</b><b>}</b>;
+                std::chrono::system_clock::time_point   last_read_time<b>{</b><b>}</b>;
+            <b>}</b> st;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>,
+          is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='save_frame'></a>save_frame</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> image,
+            <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> file_name,
+            <font color='#0000FF'>const</font> std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> codec_options <font color='#5555FF'>=</font> <b>{</b><b>}</b>
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            requires
+                - image_type must be a type conforming to the generic image interface.
+            ensures
+                - encodes the image into the file pointed by file_name using options described in codec_options.
+        !*/</font>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////// DEFINITIONS  ////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> ffmpeg
+    <b>{</b>
+        <font color='#0000FF'>namespace</font> details
+        <b>{</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> a, <font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> b<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> a.num <font color='#5555FF'>=</font><font color='#5555FF'>=</font> b.num <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> a.den <font color='#5555FF'>=</font><font color='#5555FF'>=</font> b.den;<b>}</b>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> a, <font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> b<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font face='Lucida Console'>(</font>a <font color='#5555FF'>=</font><font color='#5555FF'>=</font> b<font face='Lucida Console'>)</font>;<b>}</b>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> a, <font color='#0000FF'><u>int</u></font> framerate<font face='Lucida Console'>)</font>       <b>{</b><font color='#0000FF'>return</font> a.den <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font>a.num <font color='#5555FF'>/</font> a.den<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> framerate;<b>}</b>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font color='#5555FF'>!</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> a, <font color='#0000FF'><u>int</u></font> framerate<font face='Lucida Console'>)</font>       <b>{</b><font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font face='Lucida Console'>(</font>a <font color='#5555FF'>=</font><font color='#5555FF'>=</font> framerate<font face='Lucida Console'>)</font>;<b>}</b>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>  <b><a name='to_int'></a>to_int</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> a<font face='Lucida Console'>)</font>                          <b>{</b><font color='#0000FF'>return</font> a.num <font color='#5555FF'>/</font> a.den;<b>}</b>
+            <font color='#0000FF'>inline</font> AVRational <b><a name='inv'></a>inv</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVRational<font color='#5555FF'>&amp;</font> a<font face='Lucida Console'>)</font>                       <b>{</b><font color='#0000FF'>return</font> <b>{</b>a.den, a.num<b>}</b>;<b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='check_properties'></a>check_properties</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> AVCodec<font color='#5555FF'>*</font>  pCodec,
+                AVCodecContext<font color='#5555FF'>*</font> pCodecCtx
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#009900'>// Video properties
+</font>                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_framerates <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'><u>bool</u></font> framerate_supported <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_framerates[i] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AVRational<b>{</b><font color='#979000'>0</font>,<font color='#979000'>0</font><b>}</b> ; i<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_framerates[i]<font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            framerate_supported <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>framerate_supported<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO 
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Requested framerate </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate.num <font color='#5555FF'>/</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate.den
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> not supported. Changing to default </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_framerates[<font color='#979000'>0</font>].num <font color='#5555FF'>/</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_framerates[<font color='#979000'>0</font>].den;
+
+                        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate <font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_framerates[<font color='#979000'>0</font>];
+                    <b>}</b>
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmts<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'><u>bool</u></font> pix_fmt_supported <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmts[i] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_PIX_FMT_NONE ; i<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmt <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmts[i]<font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            pix_fmt_supported <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>pix_fmt_supported<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Requested pixel format </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>av_get_pix_fmt_name</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmt<font face='Lucida Console'>)</font>
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> not supported. Changing to default </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>av_get_pix_fmt_name</font><font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmts[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+
+                        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmt <font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmts[<font color='#979000'>0</font>];
+                    <b>}</b>
+                <b>}</b>
+
+                <font color='#009900'>// Audio properties
+</font>                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_samplerates<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'><u>bool</u></font> sample_rate_supported <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_samplerates[i] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_samplerates[i]<font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            sample_rate_supported <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>sample_rate_supported<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Requested sample rate </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> not supported. Changing to default </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_samplerates[<font color='#979000'>0</font>];
+
+                        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate <font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>supported_samplerates[<font color='#979000'>0</font>];
+                    <b>}</b>
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmts<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'><u>bool</u></font> sample_fmt_supported <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmts[i] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_SAMPLE_FMT_NONE ; i<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmts[i]<font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            sample_fmt_supported <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>sample_fmt_supported<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Requested sample format </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>av_get_sample_fmt_name</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt<font face='Lucida Console'>)</font>
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> not supported. Changing to default </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>av_get_sample_fmt_name</font><font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmts[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+
+                        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt <font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmts[<font color='#979000'>0</font>];
+                    <b>}</b>
+                <b>}</b>
+
+<font color='#0000FF'>#if</font> FFMPEG_HAS_CH_LAYOUT
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layouts<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'><u>bool</u></font> channel_layout_supported <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; <font color='#BB00BB'>av_channel_layout_check</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layouts[i]<font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>av_channel_layout_compare</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout, <font color='#5555FF'>&amp;</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layouts[i]<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            channel_layout_supported <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>channel_layout_supported<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Channel layout </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> details::<font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>pCodecCtx<font face='Lucida Console'>)</font>
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> not supported. Changing to default </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> details::<font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layouts[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+
+                        <font color='#BB00BB'>av_channel_layout_copy</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout, <font color='#5555FF'>&amp;</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layouts[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+                    <b>}</b>
+                <b>}</b>
+<font color='#0000FF'>#else</font>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layouts<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'><u>bool</u></font> channel_layout_supported <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layouts[i] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layouts[i]<font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            channel_layout_supported <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>channel_layout_supported<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO 
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Channel layout </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> details::<font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>pCodecCtx<font face='Lucida Console'>)</font>
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> not supported. Changing to default </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> dlib::ffmpeg::<font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layouts[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+
+                        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font> pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layouts[<font color='#979000'>0</font>];
+                    <b>}</b>
+                <b>}</b>
+<font color='#0000FF'>#endif</font>
+            <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='check_codecs'></a>check_codecs</b> <font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font>              is_video,
+                <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font>      filename,
+                <font color='#0000FF'>const</font> AVOutputFormat<font color='#5555FF'>*</font>   oformat,
+                encoder::args<font color='#5555FF'>&amp;</font>          args
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#009900'>// Check the codec is supported by this muxer
+</font>                <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> supported_codecs <font color='#5555FF'>=</font> <font color='#BB00BB'>list_codecs_for_muxer</font><font face='Lucida Console'>(</font>oformat<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> codec_supported <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>AVCodecID id, <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> name<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>return</font> std::<font color='#BB00BB'>find_if</font><font face='Lucida Console'>(</font><font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font>supported_codecs<font face='Lucida Console'>)</font>, <font color='#BB00BB'>end</font><font face='Lucida Console'>(</font>supported_codecs<font face='Lucida Console'>)</font>, [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> supported<font face='Lucida Console'>)</font> <b>{</b>
+                        <font color='#0000FF'>return</font> id <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_CODEC_ID_NONE ? id <font color='#5555FF'>=</font><font color='#5555FF'>=</font> supported.codec_id : name <font color='#5555FF'>=</font><font color='#5555FF'>=</font> supported.codec_name;
+                    <b>}</b><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>end</font><font face='Lucida Console'>(</font>supported_codecs<font face='Lucida Console'>)</font>;
+                <b>}</b>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>codec_supported</font><font face='Lucida Console'>(</font>args.args_codec.codec, args.args_codec.codec_name<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+
+                <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LWARN
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Codec </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>avcodec_get_name</font><font face='Lucida Console'>(</font>args.args_codec.codec<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> or </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> args.args_codec.codec_name
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> cannot be stored in this file</font>";
+
+                <font color='#009900'>// Pick codec based on file extension
+</font>                args.args_codec.codec <font color='#5555FF'>=</font> <font color='#BB00BB'>pick_codec_from_filename</font><font face='Lucida Console'>(</font>filename<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>codec_supported</font><font face='Lucida Console'>(</font>args.args_codec.codec, "<font color='#CC0000'></font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LWARN  <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Picking codec </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>avcodec_get_name</font><font face='Lucida Console'>(</font>args.args_codec.codec<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+                <b>}</b>
+                    
+                <font color='#009900'>// Pick the default codec as suggested by FFmpeg
+</font>                args.args_codec.codec <font color='#5555FF'>=</font> is_video ? oformat<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>video_codec : oformat<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>audio_codec;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args.args_codec.codec <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_CODEC_ID_NONE<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LWARN  <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Picking default codec </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>avcodec_get_name</font><font face='Lucida Console'>(</font>args.args_codec.codec<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+                <b>}</b>
+                    
+                <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LWARN 
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>List of supported codecs for muxer </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> oformat<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> in this installation of ffmpeg:</font>";
+
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> supported : supported_codecs<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LWARN <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>    </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> supported.codec_name;
+                        
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+            <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> encoder::<b><a name='encoder'></a>encoder</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> args<font color='#5555FF'>&amp;</font> a
+        <font face='Lucida Console'>)</font> : args_<font face='Lucida Console'>(</font>a<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                pCodecCtx <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> encoder::<b><a name='open'></a>open</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+            <font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            packet <font color='#5555FF'>=</font> <font color='#BB00BB'>make_avpacket</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> AVCodec<font color='#5555FF'>*</font> pCodec <font color='#5555FF'>=</font> nullptr;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args_.args_codec.codec <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_CODEC_ID_NONE<font face='Lucida Console'>)</font>
+                pCodec <font color='#5555FF'>=</font> <font color='#BB00BB'>avcodec_find_encoder</font><font face='Lucida Console'>(</font>args_.args_codec.codec<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>args_.args_codec.codec_name.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                pCodec <font color='#5555FF'>=</font> <font color='#BB00BB'>avcodec_find_encoder_by_name</font><font face='Lucida Console'>(</font>args_.args_codec.codec_name.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>pCodec<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Codec </font>",  <font color='#BB00BB'>avcodec_get_name</font><font face='Lucida Console'>(</font>args_.args_codec.codec<font face='Lucida Console'>)</font>, "<font color='#CC0000'> or </font>", args_.args_codec.codec_name, "<font color='#CC0000'> not found</font>"<font face='Lucida Console'>)</font>;
+
+            pCodecCtx.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font color='#BB00BB'>avcodec_alloc_context3</font><font face='Lucida Console'>(</font>pCodec<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>pCodecCtx<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>AV : failed to allocate codec context for </font>", pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name, "<font color='#CC0000'> : likely ran out of memory</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args_.args_codec.bitrate <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>bit_rate <font color='#5555FF'>=</font> args_.args_codec.bitrate;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args_.args_codec.gop_size <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>gop_size <font color='#5555FF'>=</font> args_.args_codec.gop_size;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args_.args_codec.flags <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>flags <font color='#5555FF'>|</font><font color='#5555FF'>=</font> args_.args_codec.flags;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVMEDIA_TYPE_VIDEO<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args_.args_image.h          <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>               <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    args_.args_image.w          <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>               <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    args_.args_image.fmt        <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AV_PIX_FMT_NONE <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    args_.args_image.framerate  <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name, "<font color='#CC0000'> is an image codec. height, width, fmt (pixel format) and framerate must be set</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height       <font color='#5555FF'>=</font> args_.args_image.h;
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width        <font color='#5555FF'>=</font> args_.args_image.w;
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmt      <font color='#5555FF'>=</font> args_.args_image.fmt;
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate    <font color='#5555FF'>=</font> AVRational<b>{</b>args_.args_image.framerate, <font color='#979000'>1</font><b>}</b>;
+                <font color='#BB00BB'>check_properties</font><font face='Lucida Console'>(</font>pCodec, pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>time_base    <font color='#5555FF'>=</font> <font color='#BB00BB'>inv</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVMEDIA_TYPE_AUDIO<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>args_.args_audio.sample_rate <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    args_.args_audio.channel_layout <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    args_.args_audio.fmt <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AV_SAMPLE_FMT_NONE<font face='Lucida Console'>)</font> 
+                <b>{</b>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name, "<font color='#CC0000'> is an audio codec. sample_rate, channel_layout and fmt (sample format) must be set</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate      <font color='#5555FF'>=</font> args_.args_audio.sample_rate;
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt       <font color='#5555FF'>=</font> args_.args_audio.fmt;
+                <font color='#BB00BB'>set_layout</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, args_.args_audio.channel_layout<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>check_properties</font><font face='Lucida Console'>(</font>pCodec, pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>time_base        <font color='#5555FF'>=</font> AVRational<b>{</b> <font color='#979000'>1</font>, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate <b>}</b>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codec_id <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AV_CODEC_ID_AAC<font face='Lucida Console'>)</font> <b>{</b>
+                    pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>strict_std_compliance <font color='#5555FF'>=</font> FF_COMPLIANCE_EXPERIMENTAL;
+                <b>}</b>
+            <b>}</b>
+
+            av_dict opt <font color='#5555FF'>=</font> args_.args_codec.codec_options;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avcodec_open2</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, pCodec, opt.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>avcodec_open2() failed : </font>", <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVMEDIA_TYPE_AUDIO<font face='Lucida Console'>)</font>
+            <b>{</b>
+                fifo <font color='#5555FF'>=</font> <font color='#BB00BB'>audio_fifo</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>frame_size,
+                                  pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt,
+                                  <font color='#BB00BB'>get_nchannels</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            open_ <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+            <font color='#0000FF'>return</font> open_;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>            encoder::<b><a name='is_open'></a>is_open</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>          <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx <font color='#5555FF'>!</font><font color='#5555FF'>=</font> nullptr <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> open_; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>            encoder::<b><a name='is_image_encoder'></a>is_image_encoder</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codec_type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVMEDIA_TYPE_VIDEO; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>            encoder::<b><a name='is_audio_encoder'></a>is_audio_encoder</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codec_type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVMEDIA_TYPE_AUDIO; <b>}</b>
+        <font color='#0000FF'>inline</font> AVCodecID       encoder::<b><a name='get_codec_id'></a>get_codec_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codec_id : AV_CODEC_ID_NONE; <b>}</b>
+        <font color='#0000FF'>inline</font> std::string     encoder::<b><a name='get_codec_name'></a>get_codec_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? <font color='#BB00BB'>avcodec_get_name</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codec_id<font face='Lucida Console'>)</font> : "<font color='#CC0000'>NONE</font>"; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>             encoder::<b><a name='fps'></a>fps</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>              <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? details::<font color='#BB00BB'>to_int</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>framerate<font face='Lucida Console'>)</font> : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>             encoder::<b><a name='height'></a>height</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>           <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height            : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>             encoder::<b><a name='width'></a>width</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>            <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width             : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVPixelFormat   encoder::<b><a name='pixel_fmt'></a>pixel_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmt           : AV_PIX_FMT_NONE; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>             encoder::<b><a name='sample_rate'></a>sample_rate</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>      <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate       : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVSampleFormat  encoder::<b><a name='sample_fmt'></a>sample_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt        : AV_SAMPLE_FMT_NONE; <b>}</b>
+        <font color='#0000FF'>inline</font> uint64_t        encoder::<b><a name='channel_layout'></a>channel_layout</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> details::<font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>             encoder::<b><a name='nchannels'></a>nchannels</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> details::<font color='#BB00BB'>get_nchannels</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; <b>}</b>
+
+        <font color='#0000FF'>enum</font> <b><a name='encoding_state'></a>encoding_state</b>
+        <b>{</b>
+            ENCODE_SEND_FRAME,
+            ENCODE_READ_PACKET_THEN_DONE,
+            ENCODE_READ_PACKET_THEN_SEND_FRAME,
+            ENCODE_DONE,
+            ENCODE_ERROR <font color='#5555FF'>=</font> <font color='#5555FF'>-</font><font color='#979000'>1</font>
+        <b>}</b>;
+        
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callback'></a>Callback</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> encoder::<b><a name='push'></a>push</b> <font face='Lucida Console'>(</font>
+            frame f_,
+            Callback<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> clb
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>encoding, "<font color='#CC0000'>Recursion in push() not supported</font>"<font face='Lucida Console'>)</font>;
+            encoding <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+
+            std::vector<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> frames;
+
+            <font color='#009900'>// Resize if image. Resample if audio. Push through audio fifo if necessary (some audio codecs requires fixed size frames)
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f_.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                resizer_image.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>f_, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pix_fmt, f_<font face='Lucida Console'>)</font>;
+                frames.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f_<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f_.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                resizer_audio.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>f_, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate, <font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_fmt, f_<font face='Lucida Console'>)</font>;
+                frames <font color='#5555FF'>=</font> fifo.<font color='#BB00BB'>push_pull</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f_<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                <font color='#009900'>// FLUSH
+</font>                frames.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f_<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#009900'>// Set pts based on tracked state. Ignore timestamps for now
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> f : frames<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.f<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    f.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pts <font color='#5555FF'>=</font> next_pts;
+                    next_pts <font color='#5555FF'>+</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? <font color='#979000'>1</font> : f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> send_frame <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>encoding_state<font color='#5555FF'>&amp;</font> state, frame<font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avcodec_send_frame</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+                    state   <font color='#5555FF'>=</font> ENCODE_READ_PACKET_THEN_DONE;
+                <b>}</b> <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#BB00BB'>AVERROR</font><font face='Lucida Console'>(</font>EAGAIN<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                    state   <font color='#5555FF'>=</font> ENCODE_READ_PACKET_THEN_SEND_FRAME;
+                <b>}</b> <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVERROR_EOF<font face='Lucida Console'>)</font> <b>{</b>
+                    open_   <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                    state   <font color='#5555FF'>=</font> ENCODE_DONE;
+                <b>}</b> <font color='#0000FF'>else</font> <b>{</b>
+                    open_   <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                    state   <font color='#5555FF'>=</font> ENCODE_ERROR;
+                    <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LERROR <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>avcodec_send_frame() failed : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> recv_packet <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>encoding_state<font color='#5555FF'>&amp;</font> state, <font color='#0000FF'><u>bool</u></font> resend<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avcodec_receive_packet</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, packet.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#BB00BB'>AVERROR</font><font face='Lucida Console'>(</font>EAGAIN<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> resend<font face='Lucida Console'>)</font>
+                    state   <font color='#5555FF'>=</font> ENCODE_SEND_FRAME;
+                <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#BB00BB'>AVERROR</font><font face='Lucida Console'>(</font>EAGAIN<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    state   <font color='#5555FF'>=</font> ENCODE_DONE;
+                <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AVERROR_EOF<font face='Lucida Console'>)</font> <b>{</b>
+                    open_   <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                    state   <font color='#5555FF'>=</font> ENCODE_DONE;
+                <b>}</b>
+                <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    open_   <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                    state   <font color='#5555FF'>=</font> ENCODE_ERROR;
+                    <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LERROR <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>avcodec_receive_packet() failed : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>else</font>
+                <b>{</b>
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>switch_</font><font face='Lucida Console'>(</font><font color='#BB00BB'>bools</font><font face='Lucida Console'>(</font>dlib::is_invocable_r<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, Callback, std::<font color='#0000FF'><u>size_t</u></font>, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b>,
+                                       dlib::is_invocable_r<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, Callback, AVCodecContext<font color='#5555FF'>*</font>, AVPacket<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b><font face='Lucida Console'>)</font>,
+                        [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>true_t, false_t, <font color='#0000FF'>auto</font> _<font face='Lucida Console'>)</font> <b>{</b>
+                            <font color='#0000FF'>return</font> <font color='#BB00BB'>_</font><font face='Lucida Console'>(</font>clb<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>packet<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>size, <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>packet<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>data<font face='Lucida Console'>)</font>;
+                        <b>}</b>,
+                        [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>false_t, true_t, <font color='#0000FF'>auto</font> _<font face='Lucida Console'>)</font> <b>{</b>
+                            <font color='#0000FF'>return</font> <font color='#BB00BB'>_</font><font face='Lucida Console'>(</font>clb<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, packet.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                        <b>}</b>,
+                        [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>false_t, false_t, <font color='#0000FF'>auto</font> _<font face='Lucida Console'>)</font> <b>{</b>
+                            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>_</font><font face='Lucida Console'>(</font><font color='#979000'>false</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>Callback is a bad callback type</font>"<font face='Lucida Console'>)</font>;
+                            <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+                        <b>}</b>
+                    <font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        open_   <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                        state   <font color='#5555FF'>=</font> ENCODE_ERROR;
+                    <b>}</b>
+                <b>}</b>
+            <b>}</b>;
+
+            encoding_state state <font color='#5555FF'>=</font> ENCODE_SEND_FRAME;
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> frames.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                state <font color='#5555FF'>=</font> ENCODE_SEND_FRAME;
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>state <font color='#5555FF'>!</font><font color='#5555FF'>=</font> ENCODE_DONE <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> state <font color='#5555FF'>!</font><font color='#5555FF'>=</font> ENCODE_ERROR<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>switch</font><font face='Lucida Console'>(</font>state<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>case</font> ENCODE_SEND_FRAME:                     <font color='#BB00BB'>send_frame</font><font face='Lucida Console'>(</font>state, frames[i]<font face='Lucida Console'>)</font>;   <font color='#0000FF'>break</font>;
+                        <font color='#0000FF'>case</font> ENCODE_READ_PACKET_THEN_DONE:          <font color='#BB00BB'>recv_packet</font><font face='Lucida Console'>(</font>state, <font color='#979000'>false</font><font face='Lucida Console'>)</font>;      <font color='#0000FF'>break</font>;
+                        <font color='#0000FF'>case</font> ENCODE_READ_PACKET_THEN_SEND_FRAME:    <font color='#BB00BB'>recv_packet</font><font face='Lucida Console'>(</font>state, <font color='#979000'>true</font><font face='Lucida Console'>)</font>;       <font color='#0000FF'>break</font>;
+                        <font color='#0000FF'>default</font>: <font color='#0000FF'>break</font>;
+                    <b>}</b>
+                <b>}</b>
+            <b>}</b>
+
+            encoding <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+            <font color='#0000FF'>return</font> state <font color='#5555FF'>!</font><font color='#5555FF'>=</font> ENCODE_ERROR;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+            <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>,
+            <font color='#0000FF'>class</font> <b><a name='Callback'></a>Callback</b>,
+            is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> encoder::<b><a name='push'></a>push</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> img,
+            Callback<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> sink
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#009900'>// Unfortunately, FFmpeg assumes all data is over-aligned, and therefore,
+</font>            <font color='#009900'>// even though the API has facilities to convert img directly to a frame object,
+</font>            <font color='#009900'>// we cannot use it because it assumes the data in img is over-aligned, and of 
+</font>            <font color='#009900'>// course, it is not. Shame. At some point, I'll more digging to see if we 
+</font>            <font color='#009900'>// can get around this without doing a brute force copy like below.
+</font>            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+            frame f;
+            <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>img, f<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, std::forward<font color='#5555FF'>&lt;</font>Callback<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>sink<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callback'></a>Callback</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> encoder::<b><a name='flush'></a>flush</b><font face='Lucida Console'>(</font>Callback<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> clb<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>frame<b>{</b><b>}</b>, std::forward<font color='#5555FF'>&lt;</font>Callback<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>clb<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>namespace</font> details
+        <b>{</b>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='muxer_sink'></a>muxer_sink</b><font face='Lucida Console'>(</font>AVFormatContext<font color='#5555FF'>*</font> pFormatCtx, <font color='#0000FF'><u>int</u></font> stream_id<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> [<font color='#5555FF'>=</font>]<font face='Lucida Console'>(</font>AVCodecContext<font color='#5555FF'>*</font> pCodecCtx, AVPacket<font color='#5555FF'>*</font> pkt<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    AVStream<font color='#5555FF'>*</font> stream <font color='#5555FF'>=</font> pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>streams[stream_id];
+                    <font color='#BB00BB'>av_packet_rescale_ts</font><font face='Lucida Console'>(</font>pkt, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>time_base, stream<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>time_base<font face='Lucida Console'>)</font>;
+                    pkt<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>stream_index <font color='#5555FF'>=</font> stream_id;
+                    <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_interleaved_write_frame</font><font face='Lucida Console'>(</font>pFormatCtx, pkt<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                        <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LERROR <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>av_interleaved_write_frame() failed : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>return</font> ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+                <b>}</b>;
+            <b>}</b>
+        <b>}</b>   
+        
+        <font color='#0000FF'>inline</font> muxer::<b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> args <font color='#5555FF'>&amp;</font>a<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>open</font><font face='Lucida Console'>(</font>a<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                st.pFormatCtx <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> muxer::<b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font>muxer <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> noexcept
+        : st<b>{</b>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other.st<font face='Lucida Console'>)</font><b>}</b>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.pFormatCtx<font face='Lucida Console'>)</font>
+                st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>opaque <font color='#5555FF'>=</font> <font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> muxer<font color='#5555FF'>&amp;</font> muxer::<b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>muxer <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> noexcept
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                st <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other.st<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.pFormatCtx<font face='Lucida Console'>)</font>
+                    st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>opaque <font color='#5555FF'>=</font> <font color='#0000FF'>this</font>;
+            <b>}</b>
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> muxer::~<b><a name='muxer'></a>muxer</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> muxer::<b><a name='open'></a>open</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> args<font color='#5555FF'>&amp;</font> a<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+            <font color='#0000FF'>using</font> std::chrono::system_clock;
+
+            st <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+            st.args_ <font color='#5555FF'>=</font> a;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>st.args_.enable_audio <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>st.args_.enable_image<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>You need to set at least one of `enable_audio` or `enable_image`</font>"<font face='Lucida Console'>)</font>;
+
+            <b>{</b>
+                st.connecting_time <font color='#5555FF'>=</font> system_clock::<font color='#BB00BB'>now</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                st.connected_time  <font color='#5555FF'>=</font> system_clock::time_point::<font color='#BB00BB'>max</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> <font color='#0000FF'>const</font> format_name   <font color='#5555FF'>=</font> st.args_.output_format.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? nullptr : st.args_.output_format.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> <font color='#0000FF'>const</font> filename      <font color='#5555FF'>=</font> st.args_.filepath.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>      ? nullptr : st.args_.filepath.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                AVFormatContext<font color='#5555FF'>*</font> pFormatCtx <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avformat_alloc_output_context2</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>pFormatCtx, nullptr, format_name, filename<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>avformat_alloc_output_context2() failed : </font>", <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                st.pFormatCtx.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font>pFormatCtx<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>int</u></font> stream_counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> setup_stream <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> is_video<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#009900'>// Setup encoder for this stream
+</font>                <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font>   enc       <font color='#5555FF'>=</font> is_video ? st.encoder_image     : st.encoder_audio;
+                <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&amp;</font>    stream_id <font color='#5555FF'>=</font> is_video ? st.stream_id_video   : st.stream_id_audio;
+
+                encoder::args args;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>is_video<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    args.args_codec <font color='#5555FF'>=</font> st.args_.args_image;
+                    args.args_image <font color='#5555FF'>=</font> st.args_.args_image;
+                <b>}</b>
+                <font color='#0000FF'>else</font>
+                <b>{</b>
+                    args.args_codec <font color='#5555FF'>=</font> st.args_.args_audio;
+                    args.args_audio <font color='#5555FF'>=</font> st.args_.args_audio;
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oformat<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>flags <font color='#5555FF'>&amp;</font> AVFMT_GLOBALHEADER<font face='Lucida Console'>)</font>
+                    args.args_codec.flags <font color='#5555FF'>|</font><font color='#5555FF'>=</font> AV_CODEC_FLAG_GLOBAL_HEADER;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>check_codecs</font><font face='Lucida Console'>(</font>is_video, st.args_.filepath, st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oformat, args<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+
+                <font color='#009900'>// Codec is supported by muxer, so create encoder
+</font>                enc <font color='#5555FF'>=</font> <font color='#BB00BB'>encoder</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>enc.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+
+                AVStream<font color='#5555FF'>*</font> stream <font color='#5555FF'>=</font> <font color='#BB00BB'>avformat_new_stream</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, enc.pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codec<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>stream<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>avformat_new_stream() failed</font>"<font face='Lucida Console'>)</font>;
+
+                stream_id           <font color='#5555FF'>=</font> stream_counter;
+                stream<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>id          <font color='#5555FF'>=</font> stream_counter;
+                stream<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>time_base   <font color='#5555FF'>=</font> enc.pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>time_base;
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>stream_counter;
+
+                <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avcodec_parameters_from_context</font><font face='Lucida Console'>(</font>stream<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>codecpar, enc.pCodecCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>avcodec_parameters_from_context() failed : </font>", <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+            <b>}</b>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.args_.enable_image <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font><font color='#BB00BB'>setup_stream</font><font face='Lucida Console'>(</font><font color='#979000'>true</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.args_.enable_audio <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font><font color='#BB00BB'>setup_stream</font><font face='Lucida Console'>(</font><font color='#979000'>false</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+
+            st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>opaque <font color='#5555FF'>=</font> <font color='#0000FF'>this</font>;
+            st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interrupt_callback.opaque    <font color='#5555FF'>=</font> st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interrupt_callback.callback  <font color='#5555FF'>=</font> []<font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> ctx<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'><u>int</u></font> <b>{</b>
+                AVFormatContext<font color='#5555FF'>*</font> pFormatCtx <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>AVFormatContext<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>ctx;
+                muxer<font color='#5555FF'>*</font> me <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>muxer<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>opaque;
+                <font color='#0000FF'>return</font> me<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>interrupt_callback</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.args_.max_delay <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_delay <font color='#5555FF'>=</font> st.args_.max_delay;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oformat<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>flags <font color='#5555FF'>&amp;</font> AVFMT_NOFILE<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                av_dict opt <font color='#5555FF'>=</font> st.args_.protocol_options;
+
+                <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avio_open2</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pb, st.args_.filepath.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, AVIO_FLAG_WRITE, <font color='#5555FF'>&amp;</font>st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interrupt_callback, opt.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>avio_open2() failed : </font>", <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            av_dict opt <font color='#5555FF'>=</font> st.args_.format_options;
+
+            <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>avformat_write_header</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, opt.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>avformat_write_header() failed : </font>", <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            st.connected_time <font color='#5555FF'>=</font> system_clock::<font color='#BB00BB'>now</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> muxer::<b><a name='interrupt_callback'></a>interrupt_callback</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> now <font color='#5555FF'>=</font> std::chrono::system_clock::<font color='#BB00BB'>now</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.args_.connect_timeout <font color='#5555FF'>&lt;</font> std::chrono::milliseconds::<font color='#BB00BB'>max</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#009900'>// check there is a timeout
+</font>                now <font color='#5555FF'>&lt;</font> st.connected_time <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>                                     <font color='#009900'>// we haven't already connected
+</font>                now <font color='#5555FF'>&gt;</font> <font face='Lucida Console'>(</font>st.connecting_time <font color='#5555FF'>+</font> st.args_.connect_timeout<font face='Lucida Console'>)</font>          <font color='#009900'>// we've timed-out
+</font>            <font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.args_.read_timeout <font color='#5555FF'>&lt;</font> std::chrono::milliseconds::<font color='#BB00BB'>max</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>   <font color='#009900'>// check there is a timeout
+</font>                now <font color='#5555FF'>&gt;</font> <font face='Lucida Console'>(</font>st.last_read_time <font color='#5555FF'>+</font> st.args_.read_timeout<font face='Lucida Console'>)</font>             <font color='#009900'>// we've timed-out
+</font>            <font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>st.args_.interrupter <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> st.args_.<font color='#BB00BB'>interrupter</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>               <font color='#009900'>// check user-specified callback
+</font>                <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+
+            <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> muxer::<b><a name='push'></a>push</b><font face='Lucida Console'>(</font>frame f<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>st.encoder_image.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>frame is an image type but image encoder is not initialized</font>"<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>return</font> st.encoder_image.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#BB00BB'>muxer_sink</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, st.stream_id_video<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>st.encoder_audio.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font> <font color='#BB00BB'>fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>frame is of audio type but audio encoder is not initialized</font>"<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#BB00BB'>muxer_sink</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, st.stream_id_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+            <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>,
+            is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>bool</u></font> muxer::<b><a name='push'></a>push</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> img<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                   st.encoder_image.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+                   st.encoder_image.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>img, <font color='#BB00BB'>muxer_sink</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, st.stream_id_video<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> muxer::<b><a name='flush'></a>flush</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+            
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font>;
+
+            <font color='#009900'>// Flush the encoder but don't actually close the underlying AVCodecContext
+</font>            st.encoder_image.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>muxer_sink</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, st.stream_id_video<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            st.encoder_audio.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>muxer_sink</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, st.stream_id_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_write_trailer</font><font face='Lucida Console'>(</font>st.pFormatCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LERROR <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>av_write_trailer() failed : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> details::<font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oformat<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>flags <font color='#5555FF'>&amp;</font> AVFMT_NOFILE<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>avio_closep</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>st.pFormatCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pb<font face='Lucida Console'>)</font>;
+
+            st.pFormatCtx <font color='#5555FF'>=</font> nullptr;
+            st.encoder_image <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+            st.encoder_audio <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>             muxer::<b><a name='is_open'></a>is_open</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>             muxer::<b><a name='video_enabled'></a>video_enabled</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>          <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.pFormatCtx <font color='#5555FF'>!</font><font color='#5555FF'>=</font> nullptr <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> st.encoder_image.<font color='#BB00BB'>is_image_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>             muxer::<b><a name='audio_enabled'></a>audio_enabled</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>          <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.pFormatCtx <font color='#5555FF'>!</font><font color='#5555FF'>=</font> nullptr <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> st.encoder_audio.<font color='#BB00BB'>is_audio_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>              muxer::<b><a name='height'></a>height</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                 <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_image.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>              muxer::<b><a name='width'></a>width</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                  <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_image.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVPixelFormat    muxer::<b><a name='pixel_fmt'></a>pixel_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>              <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_image.<font color='#BB00BB'>pixel_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVCodecID        muxer::<b><a name='get_video_codec_id'></a>get_video_codec_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_image.<font color='#BB00BB'>get_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> std::string      muxer::<b><a name='get_video_codec_name'></a>get_video_codec_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_image.<font color='#BB00BB'>get_codec_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>              muxer::<b><a name='sample_rate'></a>sample_rate</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>            <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> uint64_t         muxer::<b><a name='channel_layout'></a>channel_layout</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>         <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>channel_layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>              muxer::<b><a name='nchannels'></a>nchannels</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>              <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVSampleFormat   muxer::<b><a name='sample_fmt'></a>sample_fmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>             <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>sample_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVCodecID        muxer::<b><a name='get_audio_codec_id'></a>get_audio_codec_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>get_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> std::string      muxer::<b><a name='get_audio_codec_name'></a>get_audio_codec_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> st.encoder_audio.<font color='#BB00BB'>get_codec_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>,
+          is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='save_frame'></a>save_frame</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> image,
+            <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> file_name,
+            <font color='#0000FF'>const</font> std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> codec_options
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            muxer <font color='#BB00BB'>writer</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+                muxer::args args;
+                args.filepath               <font color='#5555FF'>=</font> file_name;
+                args.enable_image           <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                args.enable_audio           <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                args.args_image.h           <font color='#5555FF'>=</font> <font color='#BB00BB'>num_rows</font><font face='Lucida Console'>(</font>image<font face='Lucida Console'>)</font>;
+                args.args_image.w           <font color='#5555FF'>=</font> <font color='#BB00BB'>num_columns</font><font face='Lucida Console'>(</font>image<font face='Lucida Console'>)</font>;
+                args.args_image.framerate   <font color='#5555FF'>=</font> <font color='#979000'>1</font>;
+                args.args_image.fmt         <font color='#5555FF'>=</font> pix_traits<font color='#5555FF'>&lt;</font>pixel_type_t<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::fmt;
+                args.args_image.codec_options <font color='#5555FF'>=</font> codec_options;
+                args.format_options["<font color='#CC0000'>update</font>"] <font color='#5555FF'>=</font> "<font color='#CC0000'>1</font>";
+                <font color='#0000FF'>return</font> args;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>writer.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>image<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>throw</font> <font color='#BB00BB'>error</font><font face='Lucida Console'>(</font>EIMAGE_SAVE, "<font color='#CC0000'>ffmpeg::save_frame: error while saving </font>" <font color='#5555FF'>+</font> file_name<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_VIDEO_MUXER
+</font>
+</pre></body></html>

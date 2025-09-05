@@ -1,0 +1,1519 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_utils.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#ifndef</font> DLIB_FFMPEG_UTILS
+<font color='#0000FF'>#define</font> DLIB_FFMPEG_UTILS
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../test_for_odr_violations.h.html'>../test_for_odr_violations.h</a>"
+
+<font color='#0000FF'>#ifndef</font> DLIB_USE_FFMPEG
+<b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#979000'>false</font>, "<font color='#CC0000'>This version of dlib isn't built with the FFMPEG wrappers</font>"<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdint<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>stdexcept<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>memory<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>algorithm<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>chrono<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>array<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>unordered_map<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../image_processing/generic_image.h.html'>../image_processing/generic_image.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../pixel.h.html'>../pixel.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../assert.h.html'>../assert.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='ffmpeg_details.h.html'>ffmpeg_details.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> ffmpeg
+    <b>{</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        std::string <b><a name='get_pixel_fmt_str'></a>get_pixel_fmt_str</b><font face='Lucida Console'>(</font>AVPixelFormat fmt<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns a string description of AVPixelFormat
+        !*/</font>
+
+        std::string <b><a name='get_audio_fmt_str'></a>get_audio_fmt_str</b><font face='Lucida Console'>(</font>AVSampleFormat fmt<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns a string description of AVSampleFormat
+        !*/</font>
+
+        std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font>uint64_t layout<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns a string description of a channel layout, where layout is e.g. AV_CH_LAYOUT_STEREO
+        !*/</font>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        dlib::logger<font color='#5555FF'>&amp;</font> <b><a name='logger_ffmpeg'></a>logger_ffmpeg</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns a global logger used by the internal ffmpeg libraries. 
+                - You may set the logging level using .set_level() to supress or enable certain logs.
+        !*/</font>
+
+        dlib::logger<font color='#5555FF'>&amp;</font> <b><a name='logger_dlib_wrapper'></a>logger_dlib_wrapper</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - Returns a global logger used by dlib's ffmpeg wrappers.
+                - You may set the logging level using .set_level() to supress or enable certain logs.
+        !*/</font>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>namespace</font> details <b>{</b> <font color='#0000FF'>class</font> <b><a name='resampler'></a>resampler</b>; <b>}</b>
+
+        <font color='#0000FF'>class</font> <b><a name='frame'></a>frame</b>
+        <b>{</b>
+        <font color='#0000FF'>public</font>:
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class wraps AVFrame* into a std::unique_ptr with an appropriate deleter.
+                    It also has a std::chrono timestamp which closely matches the AVFrame's internal pts.
+                    It has a bunch of helper functions for retrieving the frame's properties.
+                    We strongly recommend you read ffmegs documentation on AVFrame.
+
+                    FFmpeg's AVFrame object is basically a type-erased frame object, which can contain, 
+                    image, audio or other types of streamable data.
+                    The pixel format (image), sample format (audio), number of channels (audio), 
+                    pixel/sample type (u8, s16, f32, etc) are also erased and defined as runtime parameters.
+
+                    Users should avoid using this object directly if they can, instead use the conversion functions
+                    dlib::ffmpeg::convert() which will convert to and back appropriate dlib objects.
+                    For example, when using dlib::ffmpeg::decoder or dlib::ffmpeg::demuxer, directly after calling
+                    .read(), use convert() to get a dlib object which you can then use for your computer vision,
+                    or DNN application.
+
+                    If users need to use frame objects directly, maybe because RGB or BGR aren't appropriate, 
+                    and they would rather use the default format returned by their codec, then use
+                    frame::get_frame().data and frame::get_frame().linesize to iterate or copy the data.
+                    Please carefully read FFMpeg's documentation on how to interpret those fields.
+                    Also, users must not copy AVFrame directly. It is a C object, and therefore does not
+                    support RAII. If you need to make copies, use the frame object (which wraps AVFrame)
+                    which has well defined copy (and move) semantics.
+            !*/</font>
+
+            <b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - is_empty() == true
+            !*/</font>
+
+            <b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font>frame<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Move constructor
+                    - After move, ori.is_empty() == true
+            !*/</font>
+
+            frame<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>frame<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Move assign operator
+                    - After move, ori.is_empty() == true
+            !*/</font>
+
+            <b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Copy constructor
+            !*/</font>
+
+            frame<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Copy assign operator
+            !*/</font>
+
+            <b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'><u>int</u></font>                                     h,
+                <font color='#0000FF'><u>int</u></font>                                     w,
+                AVPixelFormat                           pixfmt,
+                std::chrono::system_clock::time_point   timestamp_us
+            <font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Create a an image frame object with these parameters.
+                    - is_image() == true
+                    - is_audio() == false
+                    - is_empty() == false
+            !*/</font>
+
+            <b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'><u>int</u></font>                                     sample_rate,
+                <font color='#0000FF'><u>int</u></font>                                     nb_samples,
+                uint64_t                                channel_layout,
+                AVSampleFormat                          samplefmt,
+                std::chrono::system_clock::time_point   timestamp
+            <font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - Create a an audio frame object with these parameters.
+                    - is_image() == false
+                    - is_audio() == true
+                    - is_empty() == false
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_empty'></a>is_empty</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if is_image() == false and is_audio() == false
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_image'></a>is_image</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if underlying AVFrame* != nullptr, height() &gt; 0, width() &gt; 0 and pixfmt() != AV_PIX_FMT_NONE
+            !*/</font>
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_audio'></a>is_audio</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - Returns true if underlying AVFrame* != nullptr, height() &gt; 0, width() &gt; 0 and pixfmt() != AV_PIX_FMT_NONE
+            !*/</font>
+
+            AVPixelFormat <b><a name='pixfmt'></a>pixfmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is image type, returns pixel format, otherwise, returns AV_PIX_FMT_NONE
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='height'></a>height</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is image type, returns height, otherwise 0
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='width'></a>width</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is image type, returns width, otherwise 0
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='nsamples'></a>nsamples</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is audio type, returns number of samples, otherwise 0
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font>  <b><a name='nchannels'></a>nchannels</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is audio type, returns number of channels, e.g. 1 for mono, 2 for stereo, otherwise 0
+            !*/</font>
+
+            uint64_t <b><a name='layout'></a>layout</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is audio type, returns channel layout, e.g. AV_CH_LAYOUT_MONO or AV_CH_LAYOUT_STEREO, otherwise 0
+            !*/</font>
+
+            AVSampleFormat <b><a name='samplefmt'></a>samplefmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is audio type, returns sample format, otherwise, returns AV_SAMPLE_FMT_NONE
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font> <b><a name='sample_rate'></a>sample_rate</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If underlying AVFrame* is audio type, returns sample rate, otherwise, returns 0
+            !*/</font>
+
+            std::chrono::system_clock::time_point <b><a name='get_timestamp'></a>get_timestamp</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept;
+            <font color='#009900'>/*!
+                ensures
+                    - If possible, returns a timestamp associtated with this frame. This is not always possible, it depends on whether the information
+                      is provided by the codec and/or the muxer. dlib will do it's best to get a timestamp for you.
+            !*/</font>
+
+            <font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>&amp;</font> <b><a name='get_frame'></a>get_frame</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+
+                ensures
+                    - Returns a const reference to the underyling AVFrame object. DO NOT COPY THIS OBJECT! RAII is not supported on this sub-object.
+                      Use with care! Prefer to use dlib's convert() functions to convert to and back dlib objects.
+            !*/</font>
+
+            AVFrame<font color='#5555FF'>&amp;</font> <b><a name='get_frame'></a>get_frame</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+                ensures
+                    - Returns a non-const reference to the underlying AVFrame object. DO NOT COPY THIS OBJECT! RAII is not supported on this sub-object.
+                      Use with care! Prefer to use dlib's convert() functions to convert to and back dlib objects.
+            !*/</font>
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='set_params'></a>set_params</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'><u>int</u></font>                                     h,
+                <font color='#0000FF'><u>int</u></font>                                     w,
+                AVPixelFormat                           pixfmt,
+                <font color='#0000FF'><u>int</u></font>                                     sample_rate,
+                <font color='#0000FF'><u>int</u></font>                                     nb_samples,
+                uint64_t                                channel_layout,
+                AVSampleFormat                          samplefmt,
+                std::chrono::system_clock::time_point   timestamp
+            <font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                requires
+                    - For images, set sample_rate = nb_samples = channel_layout = 0, and samplefmt = AV_SAMPLE_FMT_NONE
+                    - For audio, set h = w = 0 and pixfmt = AV_PIX_FMT_NONE
+                ensures
+                    - Resizes the frame to the corresponding dims.
+                    - is_empty()        == false
+                    - is_image()        == (h &gt; 0 &amp;&amp; w &gt; 0 &amp;&amp; pixfmt != AV_PIX_FMT_NONE)
+                    - is_audio()        == (sample_rate &gt; 0 &amp;&amp; nb_samples &gt; 0 &amp;&amp; channel_layout &gt; 0 &amp;&amp; samplefmt != AV_SAMPLE_FMT_NONE)
+                    - height()          == h
+                    - width()           == w
+                    - pixfmt()          == pixfmt
+                    - sample_rate()     == sample_rate
+                    - layout()          == channel_layout
+                    - samplefmt()       == samplefmt
+                    - get_timestamp()   == timestamp
+            !*/</font>
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - is_empty() == true
+            !*/</font>
+
+        <font color='#0000FF'>private</font>:
+
+            <font color='#0000FF'>friend</font> <font color='#0000FF'>class</font> <b><a name='details'></a>details</b>::resampler;
+            <font color='#0000FF'>friend</font> <font color='#0000FF'>class</font> <b><a name='encoder'></a>encoder</b>;
+            <font color='#0000FF'>friend</font> <font color='#0000FF'>class</font> <b><a name='decoder'></a>decoder</b>;
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='copy_from'></a>copy_from</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>;
+
+            details::av_ptr<font color='#5555FF'>&lt;</font>AVFrame<font color='#5555FF'>&gt;</font> f;
+            std::chrono::system_clock::time_point timestamp;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='PixelType'></a>PixelType</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='pix_traits'></a>pix_traits</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This is a type trait for converting a sample type to ffmpeg's AVPixelFormat obj.
+            !*/</font>
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='pix_traits'></a>pix_traits</b><font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font>           <b>{</b> constexpr <font color='#0000FF'>static</font> AVPixelFormat fmt <font color='#5555FF'>=</font> AV_PIX_FMT_GRAY8; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='pix_traits'></a>pix_traits</b><font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font>         <b>{</b> constexpr <font color='#0000FF'>static</font> AVPixelFormat fmt <font color='#5555FF'>=</font> AV_PIX_FMT_RGB24; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='pix_traits'></a>pix_traits</b><font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font>         <b>{</b> constexpr <font color='#0000FF'>static</font> AVPixelFormat fmt <font color='#5555FF'>=</font> AV_PIX_FMT_BGR24; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='pix_traits'></a>pix_traits</b><font color='#5555FF'>&lt;</font>rgb_alpha_pixel<font color='#5555FF'>&gt;</font>   <b>{</b> constexpr <font color='#0000FF'>static</font> AVPixelFormat fmt <font color='#5555FF'>=</font> AV_PIX_FMT_RGBA;  <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='pix_traits'></a>pix_traits</b><font color='#5555FF'>&lt;</font>bgr_alpha_pixel<font color='#5555FF'>&gt;</font>   <b>{</b> constexpr <font color='#0000FF'>static</font> AVPixelFormat fmt <font color='#5555FF'>=</font> AV_PIX_FMT_BGRA;  <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='SampleType'></a>SampleType</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='sample_traits'></a>sample_traits</b> 
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This is a type trait for converting a sample type to ffmpeg's AVSampleFormat obj.
+            !*/</font>
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='sample_traits'></a>sample_traits</b><font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font> <b>{</b> constexpr <font color='#0000FF'>static</font> AVSampleFormat fmt <font color='#5555FF'>=</font> AV_SAMPLE_FMT_U8; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='sample_traits'></a>sample_traits</b><font color='#5555FF'>&lt;</font>int16_t<font color='#5555FF'>&gt;</font> <b>{</b> constexpr <font color='#0000FF'>static</font> AVSampleFormat fmt <font color='#5555FF'>=</font> AV_SAMPLE_FMT_S16; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='sample_traits'></a>sample_traits</b><font color='#5555FF'>&lt;</font>int32_t<font color='#5555FF'>&gt;</font> <b>{</b> constexpr <font color='#0000FF'>static</font> AVSampleFormat fmt <font color='#5555FF'>=</font> AV_SAMPLE_FMT_S32; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='sample_traits'></a>sample_traits</b><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>float</u></font><font color='#5555FF'>&gt;</font>   <b>{</b> constexpr <font color='#0000FF'>static</font> AVSampleFormat fmt <font color='#5555FF'>=</font> AV_SAMPLE_FMT_FLT; <b>}</b>;
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='sample_traits'></a>sample_traits</b><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>double</u></font><font color='#5555FF'>&gt;</font>  <b>{</b> constexpr <font color='#0000FF'>static</font> AVSampleFormat fmt <font color='#5555FF'>=</font> AV_SAMPLE_FMT_DBL; <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='SampleType'></a>SampleType</b>, std::<font color='#0000FF'><u>size_t</u></font> Channels<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='audio'></a>audio</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object is a typed audio buffer which can convert to and back dlib::ffmpeg::frame.
+            !*/</font>
+
+            <font color='#0000FF'>using</font> sample <font color='#5555FF'>=</font> std::array<font color='#5555FF'>&lt;</font>SampleType, Channels<font color='#5555FF'>&gt;</font>;
+            <font color='#0000FF'>using</font> format <font color='#5555FF'>=</font> SampleType;
+            constexpr <font color='#0000FF'>static</font> std::<font color='#0000FF'><u>size_t</u></font> nchannels <font color='#5555FF'>=</font> Channels;
+
+            std::vector<font color='#5555FF'>&lt;</font>sample<font color='#5555FF'>&gt;</font>                     samples;
+            <font color='#0000FF'><u>float</u></font>                                   sample_rate<b>{</b><font color='#979000'>0</font><b>}</b>;
+            std::chrono::system_clock::time_point   timestamp<b>{</b><b>}</b>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>struct</font> <b><a name='codec_details'></a>codec_details</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object informs on available codecs provided by the installation of ffmpeg dlib is linked against.
+            !*/</font>
+
+            AVCodecID   codec_id<b>{</b>AV_CODEC_ID_NONE<b>}</b>;
+            std::string codec_name;
+            <font color='#0000FF'><u>bool</u></font> supports_encoding<b>{</b><font color='#979000'>false</font><b>}</b>;
+            <font color='#0000FF'><u>bool</u></font> supports_decoding<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='muxer_details'></a>muxer_details</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object informs on available muxers provided by the installation of ffmpeg dlib is linked against.
+            !*/</font>
+
+            std::string name;
+            std::vector<font color='#5555FF'>&lt;</font>codec_details<font color='#5555FF'>&gt;</font> supported_codecs;
+        <b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='device_details'></a>device_details</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object informs on available device types provided by the installation of ffmpeg dlib is linked against.
+            !*/</font>
+
+            std::string device_type;
+            <font color='#0000FF'><u>bool</u></font>        is_audio_type<b>{</b><font color='#979000'>false</font><b>}</b>;
+            <font color='#0000FF'><u>bool</u></font>        is_video_type<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='device_instance'></a>device_instance</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object informs on the currently available device instances readable by ffmpeg.
+            !*/</font>
+
+            std::string name;
+            std::string description;
+        <b>}</b>;
+
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_protocols'></a>list_protocols</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg protocols
+        !*/</font>
+
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_demuxers'></a>list_demuxers</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg demuxers
+        !*/</font>
+
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>muxer_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_muxers'></a>list_muxers</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg muxers
+        !*/</font>
+        
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>codec_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_codecs'></a>list_codecs</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg codecs with information on whether decoding and/or encoding is supported.
+                  Note that not all codecs support encoding, unless your installation of ffmpeg is built with third party library
+                  dependencies like libx264, libx265, etc.
+        !*/</font>
+
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>device_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_input_device_types'></a>list_input_device_types</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg input device types (e.g. alsa, v4l2, etc)
+        !*/</font>
+
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>device_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_output_device_types'></a>list_output_device_types</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg output device types (e.g. alsa, v4l2, etc)
+        !*/</font>
+
+        std::vector<font color='#5555FF'>&lt;</font>device_instance<font color='#5555FF'>&gt;</font> <b><a name='list_input_device_instances'></a>list_input_device_instances</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> device_type<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg input device instances for device type *device_type (e.g. hw:0,0, /dev/video0, etc)
+        !*/</font>
+
+        std::vector<font color='#5555FF'>&lt;</font>device_instance<font color='#5555FF'>&gt;</font> <b><a name='list_output_device_instances'></a>list_output_device_instances</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> device_type<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns a list of all available ffmpeg output device instances for device type *device_type (e.g. hw:0,0, /dev/video0, etc)
+        !*/</font>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>    
+        <font color='#0000FF'>struct</font> <b><a name='video_enabled_t'></a>video_enabled_t</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This is a strong type which controls whether or not we want
+                    to enable video decoding in demuxer or video encoding in muxer.
+
+                    For example, you can now use the convenience constructor:
+
+                        demuxer cap(filename, video_enabled, audio_disabled);
+            !*/</font>
+
+            constexpr <font color='#0000FF'>explicit</font> <b><a name='video_enabled_t'></a>video_enabled_t</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> enabled_<font face='Lucida Console'>)</font> : enabled<b>{</b>enabled_<b>}</b> <b>{</b><b>}</b>
+            <font color='#0000FF'><u>bool</u></font> enabled<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+        constexpr video_enabled_t video_enabled<b>{</b><font color='#979000'>true</font><b>}</b>;
+        constexpr video_enabled_t video_disabled<b>{</b><font color='#979000'>false</font><b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='audio_enabled_t'></a>audio_enabled_t</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This is a strong type which controls whether or not we want
+                    to enable audio decoding in demuxer or audio encoding in muxer
+            !*/</font>
+
+            constexpr <font color='#0000FF'>explicit</font> <b><a name='audio_enabled_t'></a>audio_enabled_t</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> enabled_<font face='Lucida Console'>)</font> : enabled<b>{</b>enabled_<b>}</b> <b>{</b><b>}</b>
+            <font color='#0000FF'><u>bool</u></font> enabled<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+        constexpr audio_enabled_t audio_enabled<b>{</b><font color='#979000'>true</font><b>}</b>;
+        constexpr audio_enabled_t audio_disabled<b>{</b><font color='#979000'>false</font><b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>, 
+          is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> f, image_type<font color='#5555FF'>&amp;</font> image<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            requires
+                - image_type == an image object that implements the interface defined in
+                  dlib/image_processing/generic_image.h 
+                - f.is_image() == true
+                - f.pixfmt() == pix_traits&lt;pixel_type_t&lt;image_type&gt;&gt;::fmt
+            ensures
+                - converts a frame object into array2d&lt;rgb_pixel&gt;
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>, 
+          is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> img, frame<font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            requires
+                - image_type == an image object that implements the interface defined in
+                  dlib/image_processing/generic_image.h
+            ensures
+                - converts a dlib image into a frame object
+        !*/</font>
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='SampleFmt'></a>SampleFmt</b>, std::<font color='#0000FF'><u>size_t</u></font> Channels<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> f, audio<font color='#5555FF'>&lt;</font>SampleFmt, Channels<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> obj<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            requires
+                - f.is_audio()  == true
+                - f.samplefmt() == sample_traits&lt;SampleFmt&gt;::fmt
+                - f.nchannels() == Channels
+            ensures
+                - converts a frame object into audio object
+        !*/</font>
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='SampleFmt'></a>SampleFmt</b>, std::<font color='#0000FF'><u>size_t</u></font> Channels<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> audio<font color='#5555FF'>&lt;</font>SampleFmt, Channels<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> audio, frame<font color='#5555FF'>&amp;</font> b<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - converts a dlib audio object into a frame object
+        !*/</font>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>struct</font> <b><a name='resizing_args'></a>resizing_args</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class groups a set of arguments used for resizing an image frame.
+                    When all arguments are zero or defaulted, then no resizing is undertaken,
+                    and the src frame is memcpy'd to the dst frame.
+
+                    Note:
+                        - "fmt" can take any value starting with AV_PIX_FMT_
+                          See libavutil/pixfmt.h for options.
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font>             h<b>{</b><font color='#979000'>0</font><b>}</b>;
+            <font color='#0000FF'><u>int</u></font>             w<b>{</b><font color='#979000'>0</font><b>}</b>;
+            AVPixelFormat   fmt<b>{</b>AV_PIX_FMT_NONE<b>}</b>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>struct</font> <b><a name='resampling_args'></a>resampling_args</b>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class groups a set of arguments used for resampling an audio frame.
+                    When all arguments are zero or defaulted, then no resampling is undertaken,
+                    and the src frame is memcpy'd to the dst frame.
+
+                    Note:
+                        - "channel_layout" can take values starting with AV_CH_LAYOUT_ 
+                          See libavutil/channel_layout.h for options.
+                        - "fmt" can take any value starting with AV_SAMPLE_FMT_
+                          See libavutil/samplefmt.h for options.
+            !*/</font>
+
+            <font color='#0000FF'><u>int</u></font>             sample_rate<b>{</b><font color='#979000'>0</font><b>}</b>;
+            uint64_t        channel_layout<b>{</b><font color='#979000'>0</font><b>}</b>;
+            AVSampleFormat  fmt<b>{</b>AV_SAMPLE_FMT_NONE<b>}</b>;
+        <b>}</b>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////// DEFINITIONS  ////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> ffmpeg
+    <b>{</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>namespace</font> details
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='fail'></a>fail</b><font face='Lucida Console'>(</font>Args<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... args<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LERROR;
+<font color='#0000FF'>#ifdef</font> <font color='#BB00BB'>__cpp_fold_expressions</font>
+                <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> args<font face='Lucida Console'>)</font>,...<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#else</font>
+                <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>std::initializer_list<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><b>{</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> args<font face='Lucida Console'>)</font>, <font color='#979000'>0</font><font face='Lucida Console'>)</font>...<b>}</b>;
+<font color='#0000FF'>#endif</font>
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+            <b>}</b>
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> std::string <b><a name='get_pixel_fmt_str'></a>get_pixel_fmt_str</b><font face='Lucida Console'>(</font>AVPixelFormat fmt<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> name <font color='#5555FF'>=</font> <font color='#BB00BB'>av_get_pix_fmt_name</font><font face='Lucida Console'>(</font>fmt<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> name ? std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font> : std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>unknown</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> std::string <b><a name='get_audio_fmt_str'></a>get_audio_fmt_str</b><font face='Lucida Console'>(</font>AVSampleFormat fmt<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> name <font color='#5555FF'>=</font> <font color='#BB00BB'>av_get_sample_fmt_name</font><font face='Lucida Console'>(</font>fmt<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> name ? std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font> : std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>unknown</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font>uint64_t channel_layout<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> details::<font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font>;
+        <b>}</b>    
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> dlib::logger<font color='#5555FF'>&amp;</font> <b><a name='logger_ffmpeg'></a>logger_ffmpeg</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> details::<font color='#BB00BB'>logger_ffmpeg_private</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> dlib::logger<font color='#5555FF'>&amp;</font> <b><a name='logger_dlib_wrapper'></a>logger_dlib_wrapper</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>static</font> dlib::logger <font color='#BB00BB'>GLOBAL</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>ffmpeg.dlib</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> GLOBAL;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>namespace</font> details
+        <b>{</b>
+        
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+            <font color='#0000FF'>class</font> <b><a name='resizer'></a>resizer</b>
+            <b>{</b>
+            <font color='#0000FF'>public</font>:
+                <font color='#0000FF'><u>void</u></font> <b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                    <font color='#0000FF'>const</font> frame <font color='#5555FF'>&amp;</font>src,
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_h, <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_w, <font color='#0000FF'>const</font> AVPixelFormat dst_fmt,
+                    frame <font color='#5555FF'>&amp;</font>dst
+                <font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'><u>void</u></font> <b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                    <font color='#0000FF'>const</font> frame <font color='#5555FF'>&amp;</font>src,
+                    frame <font color='#5555FF'>&amp;</font>dst
+                <font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>private</font>:
+                av_ptr<font color='#5555FF'>&lt;</font>SwsContext<font color='#5555FF'>&gt;</font> imgConvertCtx;
+            <b>}</b>;
+
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> resizer::<b><a name='resize'></a>resize</b> <font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> src,
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_h, <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_w, <font color='#0000FF'>const</font> AVPixelFormat dst_fmt,
+                frame<font color='#5555FF'>&amp;</font> dst
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>src.is_image() == false</font>"<font face='Lucida Console'>)</font>;
+
+                imgConvertCtx.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sws_getCachedContext</font><font face='Lucida Console'>(</font>imgConvertCtx.<font color='#BB00BB'>release</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                                                         src.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                                                         dst_w,       dst_h,        dst_fmt,
+                                                         SWS_FAST_BILINEAR, NULL, NULL, NULL<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> is_same_object <font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>src <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>dst;
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> is_copy <font color='#5555FF'>=</font> std::<font color='#BB00BB'>make_tuple</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>dst_h, dst_w, dst_fmt<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>is_same_object <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> is_copy<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>return</font>;
+
+                frame<font color='#5555FF'>*</font> ptr <font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>dst;
+                frame tmp;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>is_same_object<font face='Lucida Console'>)</font>
+                    ptr <font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>tmp;
+                
+                ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>set_params</font><font face='Lucida Console'>(</font>dst_h, dst_w, dst_fmt, <font color='#979000'>0</font>, <font color='#979000'>0</font>, <font color='#979000'>0</font>, AV_SAMPLE_FMT_NONE, src.<font color='#BB00BB'>get_timestamp</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#BB00BB'>sws_scale</font><font face='Lucida Console'>(</font>imgConvertCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                          src.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data,  src.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.linesize, <font color='#979000'>0</font>, src.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                          ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data, ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.linesize<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>is_same_object<font face='Lucida Console'>)</font>
+                    dst <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>tmp<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> resizer::<b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> src,
+                frame<font color='#5555FF'>&amp;</font> dst
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>src, src.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, dst<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+            <font color='#0000FF'>class</font> <b><a name='resampler'></a>resampler</b>
+            <b>{</b>
+            <font color='#0000FF'>public</font>:
+                <font color='#0000FF'><u>void</u></font> <b><a name='reset'></a>reset</b><font face='Lucida Console'>(</font>
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> src_sample_rate, <font color='#0000FF'>const</font> uint64_t src_channel_layout, <font color='#0000FF'>const</font> AVSampleFormat src_fmt,
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_sample_rate, <font color='#0000FF'>const</font> uint64_t dst_channel_layout, <font color='#0000FF'>const</font> AVSampleFormat dst_fmt
+                <font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'><u>void</u></font> <b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                    <font color='#0000FF'>const</font> frame <font color='#5555FF'>&amp;</font>src,
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_sample_rate, <font color='#0000FF'>const</font> uint64_t dst_channel_layout, <font color='#0000FF'>const</font> AVSampleFormat dst_fmt,
+                    frame <font color='#5555FF'>&amp;</font>dst
+                <font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'><u>void</u></font> <b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                    <font color='#0000FF'>const</font> frame <font color='#5555FF'>&amp;</font>src,
+                    frame <font color='#5555FF'>&amp;</font>dst
+                <font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>private</font>:
+
+                <font color='#0000FF'><u>int</u></font>             src_sample_rate<b>{</b><font color='#979000'>0</font><b>}</b>;
+                uint64_t        src_channel_layout<b>{</b>AV_CH_LAYOUT_STEREO<b>}</b>;
+                AVSampleFormat  src_fmt<b>{</b>AV_SAMPLE_FMT_NONE<b>}</b>;
+
+                <font color='#0000FF'><u>int</u></font>             dst_sample_rate<b>{</b><font color='#979000'>0</font><b>}</b>;
+                uint64_t        dst_channel_layout<b>{</b>AV_CH_LAYOUT_STEREO<b>}</b>;
+                AVSampleFormat  dst_fmt<b>{</b>AV_SAMPLE_FMT_NONE<b>}</b>;
+
+                av_ptr<font color='#5555FF'>&lt;</font>SwrContext<font color='#5555FF'>&gt;</font>  audioResamplerCtx;
+                uint64_t            tracked_samples<b>{</b><font color='#979000'>0</font><b>}</b>;
+            <b>}</b>;
+
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> resampler::<b><a name='reset'></a>reset</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> src_sample_rate_, <font color='#0000FF'>const</font> uint64_t src_channel_layout_, <font color='#0000FF'>const</font> AVSampleFormat src_fmt_,
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> dst_sample_rate_, <font color='#0000FF'>const</font> uint64_t dst_channel_layout_, <font color='#0000FF'>const</font> AVSampleFormat dst_fmt_
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+                <font color='#0000FF'>auto</font> this_params <font color='#5555FF'>=</font> std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>src_sample_rate,
+                                            src_channel_layout,
+                                            src_fmt,
+                                            dst_sample_rate,
+                                            dst_channel_layout,
+                                            dst_fmt<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>auto</font> new_params  <font color='#5555FF'>=</font> std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>src_sample_rate_,
+                                            src_channel_layout_,
+                                            src_fmt_,
+                                            dst_sample_rate_,
+                                            dst_channel_layout_,
+                                            dst_fmt_<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>this_params <font color='#5555FF'>!</font><font color='#5555FF'>=</font> new_params<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    this_params <font color='#5555FF'>=</font> new_params;
+
+                    audioResamplerCtx <font color='#5555FF'>=</font> nullptr;
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>src_sample_rate, src_channel_layout, src_fmt<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font>
+                        std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>dst_sample_rate, dst_channel_layout, dst_fmt<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+<font color='#0000FF'>#if</font> LIBSWRESAMPLE_VERSION_INT <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>4</font>, <font color='#979000'>5</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font> 
+                        AVChannelLayout layout_src <font color='#5555FF'>=</font> <font color='#BB00BB'>convert_layout</font><font face='Lucida Console'>(</font>src_channel_layout<font face='Lucida Console'>)</font>;
+                        AVChannelLayout layout_dst <font color='#5555FF'>=</font> <font color='#BB00BB'>convert_layout</font><font face='Lucida Console'>(</font>dst_channel_layout<font face='Lucida Console'>)</font>;
+                        
+                        SwrContext<font color='#5555FF'>*</font> ptr<b>{</b>nullptr<b>}</b>;
+                        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>swr_alloc_set_opts2</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr,
+                            <font color='#5555FF'>&amp;</font>layout_dst, dst_fmt, dst_sample_rate,
+                            <font color='#5555FF'>&amp;</font>layout_src, src_fmt, src_sample_rate,
+                            <font color='#979000'>0</font>, nullptr
+                        <font face='Lucida Console'>)</font>;
+                        <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>, "<font color='#CC0000'>swr_alloc_set_opts2() failed : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                        audioResamplerCtx.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#else</font>
+                        audioResamplerCtx.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font color='#BB00BB'>swr_alloc_set_opts</font><font face='Lucida Console'>(</font>NULL,
+                                                                   dst_channel_layout, dst_fmt_, dst_sample_rate_,
+                                                                   src_channel_layout, src_fmt_, src_sample_rate_,
+                                                                   <font color='#979000'>0</font>, NULL<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font>  <font color='#BB00BB'>swr_init</font><font face='Lucida Console'>(</font>audioResamplerCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                        <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>, "<font color='#CC0000'>swr_init() failed : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+                    <b>}</b>
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> resampler::<b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font>            src,
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>               dst_sample_rate_,
+                <font color='#0000FF'>const</font> uint64_t          dst_channel_layout_,
+                <font color='#0000FF'>const</font> AVSampleFormat    dst_samplefmt_,
+                frame<font color='#5555FF'>&amp;</font>                  dst
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+                <font color='#0000FF'>using</font> std::chrono::system_clock;
+
+                <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>src.is_audio() == false</font>"<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> is_same_object <font color='#5555FF'>=</font> std::<font color='#BB00BB'>addressof</font><font face='Lucida Console'>(</font>src<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> std::<font color='#BB00BB'>addressof</font><font face='Lucida Console'>(</font>dst<font face='Lucida Console'>)</font>;
+
+                <font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,         src.<font color='#BB00BB'>layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                      dst_sample_rate_,  dst_channel_layout_,  dst_samplefmt_<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>audioResamplerCtx<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    av_ptr<font color='#5555FF'>&lt;</font>AVFrame<font color='#5555FF'>&gt;</font> tmp <font color='#5555FF'>=</font> <font color='#BB00BB'>make_avframe</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    tmp<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate    <font color='#5555FF'>=</font> dst_sample_rate;
+                    tmp<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format         <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>dst_fmt;
+                    <font color='#BB00BB'>set_layout</font><font face='Lucida Console'>(</font>tmp.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, dst_channel_layout<font face='Lucida Console'>)</font>;
+
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>swr_convert_frame</font><font face='Lucida Console'>(</font>audioResamplerCtx.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, tmp.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font>src.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                        <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>swr_convert_frame() failed : </font>" <font color='#5555FF'>+</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                    dst.f           <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>tmp<font face='Lucida Console'>)</font>;
+                    dst.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pts      <font color='#5555FF'>=</font> tracked_samples;
+                    dst.timestamp   <font color='#5555FF'>=</font> system_clock::time_point<b>{</b>system_clock::duration<b>{</b><font color='#BB00BB'>av_rescale_q</font><font face='Lucida Console'>(</font>tracked_samples,
+                                                                                        <b>{</b><font color='#979000'>1</font>, dst_sample_rate<b>}</b>,
+                                                                                        <b>{</b>system_clock::duration::period::num, system_clock::duration::period::den<b>}</b><font face='Lucida Console'>)</font><b>}</b><b>}</b>;
+                    tracked_samples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> dst.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                <b>}</b>
+                <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>is_same_object<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    dst <font color='#5555FF'>=</font> src;
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> resampler::<b><a name='resize'></a>resize</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> src,
+                frame<font color='#5555FF'>&amp;</font> dst
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>src, dst_sample_rate, dst_channel_layout, dst_fmt, dst<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+            <font color='#0000FF'>class</font> <b><a name='audio_fifo'></a>audio_fifo</b>
+            <b>{</b>
+            <font color='#0000FF'>public</font>:
+                <b><a name='audio_fifo'></a>audio_fifo</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+                <b><a name='audio_fifo'></a>audio_fifo</b><font face='Lucida Console'>(</font>
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>            codec_frame_size,
+                    <font color='#0000FF'>const</font> AVSampleFormat sample_format,
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>            nchannels
+                <font face='Lucida Console'>)</font>;
+
+                std::vector<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> <b><a name='push_pull'></a>push_pull</b><font face='Lucida Console'>(</font>
+                    frame <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>in
+                <font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>private</font>:
+
+                <font color='#0000FF'><u>int</u></font>                 frame_size<b>{</b><font color='#979000'>0</font><b>}</b>;
+                AVSampleFormat      fmt<b>{</b>AV_SAMPLE_FMT_NONE<b>}</b>;
+                <font color='#0000FF'><u>int</u></font>                 nchannels<b>{</b><font color='#979000'>0</font><b>}</b>;
+                uint64_t            sample_count<b>{</b><font color='#979000'>0</font><b>}</b>;
+                av_ptr<font color='#5555FF'>&lt;</font>AVAudioFifo<font color='#5555FF'>&gt;</font> fifo;
+            <b>}</b>;
+
+            <font color='#0000FF'>inline</font> audio_fifo::<b><a name='audio_fifo'></a>audio_fifo</b><font face='Lucida Console'>(</font>
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>            codec_frame_size_,
+                <font color='#0000FF'>const</font> AVSampleFormat sample_format_,
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>            nchannels_
+            <font face='Lucida Console'>)</font> : frame_size<font face='Lucida Console'>(</font>codec_frame_size_<font face='Lucida Console'>)</font>,
+                fmt<font face='Lucida Console'>(</font>sample_format_<font face='Lucida Console'>)</font>,
+                nchannels<font face='Lucida Console'>(</font>nchannels_<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>frame_size <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    fifo.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font color='#BB00BB'>av_audio_fifo_alloc</font><font face='Lucida Console'>(</font>fmt, nchannels, frame_size<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>fifo<font face='Lucida Console'>)</font>
+                        <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>av_audio_fifo_alloc() failed</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>inline</font> std::vector<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> audio_fifo::<b><a name='push_pull'></a>push_pull</b><font face='Lucida Console'>(</font>
+                frame<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> in
+            <font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>using</font> std::chrono::system_clock;
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>this isn't an audio frame</font>"<font face='Lucida Console'>)</font>;
+
+                std::vector<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> outs;
+
+                <font color='#009900'>//check that the configuration hasn't suddenly changed this would be exceptional
+</font>                <font color='#0000FF'>auto</font> current_params <font color='#5555FF'>=</font> std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>fmt, nchannels<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>auto</font> new_params     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>make_tuple</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, in.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>current_params <font color='#5555FF'>!</font><font color='#5555FF'>=</font> new_params<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>new audio frame params differ from first </font>"<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>frame_size <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    outs.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>in<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>else</font>
+                <b>{</b>
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>av_audio_fifo_write</font><font face='Lucida Console'>(</font>fifo.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>in.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data, in.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> in.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                        <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>av_audio_fifo_write() failed to write all samples</font>"<font face='Lucida Console'>)</font>;
+
+                    <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>av_audio_fifo_size</font><font face='Lucida Console'>(</font>fifo.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> frame_size<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>const</font> system_clock::time_point timestamp<b>{</b>system_clock::duration<b>{</b><font color='#BB00BB'>av_rescale_q</font><font face='Lucida Console'>(</font>
+                                sample_count,
+                                <b>{</b><font color='#979000'>1</font>, in.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>,
+                                <b>{</b>system_clock::duration::period::num, system_clock::duration::period::den<b>}</b><font face='Lucida Console'>)</font><b>}</b><b>}</b>;
+
+                        frame <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, frame_size, in.<font color='#BB00BB'>layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, in.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, timestamp<font face='Lucida Console'>)</font>;
+
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>av_audio_fifo_read</font><font face='Lucida Console'>(</font>fifo.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>out.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data, out.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> out.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                            <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>av_audio_fifo_read() failed to read all requested samples</font>"<font face='Lucida Console'>)</font>;
+
+                        sample_count <font color='#5555FF'>+</font><font color='#5555FF'>=</font> out.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                        outs.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>out<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                    <b>}</b>
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> outs;
+            <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> frame::<b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            f <font color='#5555FF'>=</font> nullptr;
+            timestamp <font color='#5555FF'>=</font> std::chrono::system_clock::time_point<b>{</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> frame::<b><a name='set_params'></a>set_params</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'><u>int</u></font>             h,
+            <font color='#0000FF'><u>int</u></font>             w,
+            AVPixelFormat   pixfmt,
+            <font color='#0000FF'><u>int</u></font>             sample_rate,
+            <font color='#0000FF'><u>int</u></font>             nb_samples,
+            uint64_t        channel_layout,
+            AVSampleFormat  samplefmt,
+            std::chrono::system_clock::time_point timestamp_
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> format <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>h <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> w <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> ? <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>pixfmt : <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>samplefmt;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>f <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height, f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width, f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate, f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples, f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> 
+                std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>   h,         w,        sample_rate,    nb_samples,    format<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                <font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> channel_layout<font face='Lucida Console'>)</font>
+            <b>{</b>
+                f <font color='#5555FF'>=</font> <font color='#BB00BB'>make_avframe</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height           <font color='#5555FF'>=</font> h;
+                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width            <font color='#5555FF'>=</font> w;
+                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate      <font color='#5555FF'>=</font> sample_rate;
+                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples       <font color='#5555FF'>=</font> nb_samples;
+                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format           <font color='#5555FF'>=</font> h <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> w <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> ? <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>pixfmt : <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>samplefmt;
+                <font color='#BB00BB'>set_layout</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, channel_layout<font face='Lucida Console'>)</font>;
+
+                <font color='#009900'>// The ffmpeg documentation recommends you always use align==0.
+</font>                <font color='#009900'>// However, in ffmpeg 3.2, there is a bug where if you do that, data buffers don't get allocated.
+</font>                <font color='#009900'>// So workaround is to manually set align==32
+</font>                <font color='#009900'>// Not ideal, but i've checked the source code in ffmpeg 3.3, 4.4 and 5.0 libavutil/frame.c
+</font>                <font color='#009900'>// and in every case, if align==0, then align=32
+</font>                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> align <font color='#5555FF'>=</font> <font color='#979000'>32</font>;
+
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_frame_get_buffer</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, align<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    f <font color='#5555FF'>=</font> nullptr;
+                    <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>av_frame_get_buffer() failed : </font>" <font color='#5555FF'>+</font> <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            timestamp <font color='#5555FF'>=</font> timestamp_;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pts <font color='#5555FF'>=</font> <font color='#BB00BB'>av_rescale_q</font><font face='Lucida Console'>(</font>timestamp.<font color='#BB00BB'>time_since_epoch</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>count</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                                      <b>{</b><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>timestamp<font face='Lucida Console'>)</font>::period::num, <font face='Lucida Console'>(</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>timestamp<font face='Lucida Console'>)</font>::period::den<font face='Lucida Console'>)</font><b>}</b>,
+                                      <b>{</b><font color='#979000'>1</font>, f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate<b>}</b><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> frame::<b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'><u>int</u></font> h,
+            <font color='#0000FF'><u>int</u></font> w,
+            AVPixelFormat fmt,
+            std::chrono::system_clock::time_point timestamp
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>set_params</font><font face='Lucida Console'>(</font>h, w, fmt, <font color='#979000'>0</font>, <font color='#979000'>0</font>, <font color='#979000'>0</font>, AV_SAMPLE_FMT_NONE, timestamp<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> frame::<b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font>
+            <font color='#0000FF'><u>int</u></font>             sample_rate,
+            <font color='#0000FF'><u>int</u></font>             nb_samples,
+            uint64_t        channel_layout,
+            AVSampleFormat  fmt,
+            std::chrono::system_clock::time_point timestamp
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>set_params</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font>,AV_PIX_FMT_NONE, sample_rate, nb_samples, channel_layout, fmt, timestamp<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> frame::<b><a name='frame'></a>frame</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame <font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>copy_from</font><font face='Lucida Console'>(</font>ori<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> frame<font color='#5555FF'>&amp;</font> frame::<b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>copy_from</font><font face='Lucida Console'>(</font>ori<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> frame::<b><a name='copy_from'></a>copy_from</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ori.<font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>    f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height,     f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width,     f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format,     f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate,     f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font>
+                    std::<font color='#BB00BB'>tie</font><font face='Lucida Console'>(</font>ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height, ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width, ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format, ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate, ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                    <font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>ori.f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#BB00BB'>set_params</font><font face='Lucida Console'>(</font>ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height,
+                               ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width,
+                               <font face='Lucida Console'>(</font>AVPixelFormat<font face='Lucida Console'>)</font>ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format,
+                               ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate,
+                               ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples,
+                               ori.<font color='#BB00BB'>layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                               <font face='Lucida Console'>(</font>AVSampleFormat<font face='Lucida Console'>)</font>ori.f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format,
+                               ori.timestamp<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#BB00BB'>av_frame_copy</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, ori.f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>av_frame_copy_props</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, ori.f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#009900'>// The following silences a warning message about too many b-frames.
+</font>                f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pict_type <font color='#5555FF'>=</font> AV_PICTURE_TYPE_NONE;
+            <b>}</b>
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> frame::<b><a name='is_image'></a>is_image</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept
+        <b>{</b>
+            <font color='#0000FF'>return</font> f <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_PIX_FMT_NONE;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> frame::<b><a name='is_audio'></a>is_audio</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept
+        <b>{</b>
+            <font color='#0000FF'>return</font> f <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format <font color='#5555FF'>!</font><font color='#5555FF'>=</font> AV_SAMPLE_FMT_NONE <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>details::<font color='#BB00BB'>channel_layout_empty</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font>                 frame::<b><a name='is_empty'></a>is_empty</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font><font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVPixelFormat        frame::<b><a name='pixfmt'></a>pixfmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? <font face='Lucida Console'>(</font>AVPixelFormat<font face='Lucida Console'>)</font>f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format : AV_PIX_FMT_NONE; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>                  frame::<b><a name='height'></a>height</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>height : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>                  frame::<b><a name='width'></a>width</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>      <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>width : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> AVSampleFormat       frame::<b><a name='samplefmt'></a>samplefmt</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? <font face='Lucida Console'>(</font>AVSampleFormat<font face='Lucida Console'>)</font>f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>format : AV_SAMPLE_FMT_NONE; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>                  frame::<b><a name='nsamples'></a>nsamples</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_samples : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>                  frame::<b><a name='sample_rate'></a>sample_rate</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept<b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? f<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sample_rate : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> uint64_t             frame::<b><a name='layout'></a>layout</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? details::<font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> : <font color='#979000'>0</font>; <b>}</b>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font>                  frame::<b><a name='nchannels'></a>nchannels</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? details::<font color='#BB00BB'>get_nchannels</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> : <font color='#979000'>0</font>; <b>}</b> 
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>&amp;</font>       frame::<b><a name='get_frame'></a>get_frame</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#0000FF'>const</font> <b>{</b> <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>f, "<font color='#CC0000'>is_empty() == true</font>"<font face='Lucida Console'>)</font>; <font color='#0000FF'>return</font> <font color='#5555FF'>*</font>f; <b>}</b>
+        <font color='#0000FF'>inline</font> AVFrame<font color='#5555FF'>&amp;</font>             frame::<b><a name='get_frame'></a>get_frame</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        <b>{</b> <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>f, "<font color='#CC0000'>is_empty() == true</font>"<font face='Lucida Console'>)</font>; <font color='#0000FF'>return</font> <font color='#5555FF'>*</font>f; <b>}</b>
+        <font color='#0000FF'>inline</font> std::chrono::system_clock::time_point frame::<b><a name='get_timestamp'></a>get_timestamp</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept <b>{</b> <font color='#0000FF'>return</font> timestamp; <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_protocols'></a>list_protocols</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> protocols <font color='#5555FF'>=</font> []
+            <b>{</b>
+                details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font> protocols;
+                <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> opaque <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> name <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>name <font color='#5555FF'>=</font> <font color='#BB00BB'>avio_enum_protocols</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>opaque, <font color='#979000'>0</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    protocols.<font color='#BB00BB'>emplace_back</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>;
+
+                opaque  <font color='#5555FF'>=</font> nullptr;
+                name    <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>name <font color='#5555FF'>=</font> <font color='#BB00BB'>avio_enum_protocols</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>opaque, <font color='#979000'>1</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    protocols.<font color='#BB00BB'>emplace_back</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>return</font> protocols;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> protocols;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_demuxers'></a>list_demuxers</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> demuxers <font color='#5555FF'>=</font> []
+            <b>{</b>
+                details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font> demuxers;
+                <font color='#0000FF'>const</font> AVInputFormat<font color='#5555FF'>*</font> demuxer <font color='#5555FF'>=</font> nullptr;
+
+<font color='#0000FF'>#if</font> LIBAVFORMAT_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>58</font>, <font color='#979000'>9</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+                <font color='#009900'>// See https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+</font>                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>demuxer <font color='#5555FF'>=</font> <font color='#BB00BB'>av_iformat_next</font><font face='Lucida Console'>(</font>demuxer<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#else</font>
+                <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> opaque <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>demuxer <font color='#5555FF'>=</font> <font color='#BB00BB'>av_demuxer_iterate</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>opaque<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#endif</font>
+                    demuxers.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>demuxer<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>return</font> demuxers;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> demuxers;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> std::vector<font color='#5555FF'>&lt;</font>codec_details<font color='#5555FF'>&gt;</font> <b><a name='list_codecs_for_muxer'></a>list_codecs_for_muxer</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> AVOutputFormat<font color='#5555FF'>*</font> oformat
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            std::vector<font color='#5555FF'>&lt;</font>codec_details<font color='#5555FF'>&gt;</font> supported_codecs;
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> codec : <font color='#BB00BB'>list_codecs</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>avformat_query_codec</font><font face='Lucida Console'>(</font>oformat, codec.codec_id, FF_COMPLIANCE_STRICT<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>
+                    supported_codecs.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>codec<font face='Lucida Console'>)</font>;
+            
+            <font color='#0000FF'>return</font> supported_codecs;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>muxer_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_muxers'></a>list_muxers</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> []
+            <b>{</b>
+                details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                std::vector<font color='#5555FF'>&lt;</font>muxer_details<font color='#5555FF'>&gt;</font> all_details;
+                <font color='#0000FF'>const</font> AVOutputFormat<font color='#5555FF'>*</font> muxer <font color='#5555FF'>=</font> nullptr;
+
+<font color='#0000FF'>#if</font> LIBAVFORMAT_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>58</font>, <font color='#979000'>9</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+                <font color='#009900'>// See https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+</font>                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>muxer <font color='#5555FF'>=</font> <font color='#BB00BB'>av_oformat_next</font><font face='Lucida Console'>(</font>muxer<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#else</font>
+                <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> opaque <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>muxer <font color='#5555FF'>=</font> <font color='#BB00BB'>av_muxer_iterate</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>opaque<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#endif</font>
+                <b>{</b>
+                    muxer_details details;
+                    details.name                <font color='#5555FF'>=</font> muxer<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name;
+                    details.supported_codecs    <font color='#5555FF'>=</font> <font color='#BB00BB'>list_codecs_for_muxer</font><font face='Lucida Console'>(</font>muxer<font face='Lucida Console'>)</font>;
+                    all_details.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>details<font face='Lucida Console'>)</font>;
+                <b>}</b>      
+            
+                <font color='#0000FF'>return</font> all_details;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> ret;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>codec_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_codecs'></a>list_codecs</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> []
+            <b>{</b>
+                details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>codec_details<font color='#5555FF'>&gt;</font> details;
+
+        <font color='#0000FF'>#if</font> LIBAVCODEC_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>58</font>, <font color='#979000'>10</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+                <font color='#009900'>// See https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L91
+</font>                AVCodec<font color='#5555FF'>*</font> codec <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>codec <font color='#5555FF'>=</font> <font color='#BB00BB'>av_codec_next</font><font face='Lucida Console'>(</font>codec<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <font color='#0000FF'>#else</font>
+                <font color='#0000FF'>const</font> AVCodec<font color='#5555FF'>*</font> codec <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> opaque <font color='#5555FF'>=</font> nullptr;
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>codec <font color='#5555FF'>=</font> <font color='#BB00BB'>av_codec_iterate</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>opaque<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <font color='#0000FF'>#endif</font>
+                <b>{</b>
+                    codec_details detail;
+                    detail.codec_id     <font color='#5555FF'>=</font> codec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>id;
+                    detail.codec_name   <font color='#5555FF'>=</font> codec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name;
+                    detail.supports_encoding <font color='#5555FF'>=</font> <font color='#BB00BB'>av_codec_is_encoder</font><font face='Lucida Console'>(</font>codec<font face='Lucida Console'>)</font>;
+                    detail.supports_decoding <font color='#5555FF'>=</font> <font color='#BB00BB'>av_codec_is_decoder</font><font face='Lucida Console'>(</font>codec<font face='Lucida Console'>)</font>;
+                    details.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#009900'>//sort
+</font>                std::<font color='#BB00BB'>sort</font><font face='Lucida Console'>(</font>details.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, details.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, []<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> codec_details<font color='#5555FF'>&amp;</font> a, <font color='#0000FF'>const</font> codec_details<font color='#5555FF'>&amp;</font> b<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> a.codec_name <font color='#5555FF'>&lt;</font> b.codec_name;<b>}</b><font face='Lucida Console'>)</font>;
+                <font color='#009900'>//merge
+</font>                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> details.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> j <font color='#5555FF'>=</font> i <font color='#5555FF'>+</font> <font color='#979000'>1</font> ; j <font color='#5555FF'>&lt;</font> details.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>j<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>details[i].codec_name <font color='#5555FF'>=</font><font color='#5555FF'>=</font> details[j].codec_name<font face='Lucida Console'>)</font>
+                        <b>{</b>
+                            details[i].supports_encoding <font color='#5555FF'>|</font><font color='#5555FF'>=</font> details[j].supports_encoding;
+                            details[i].supports_decoding <font color='#5555FF'>|</font><font color='#5555FF'>=</font> details[j].supports_decoding;
+                            details[j] <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+                        <b>}</b>
+                    <b>}</b>
+                <b>}</b>
+                
+                details.<font color='#BB00BB'>erase</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>remove_if</font><font face='Lucida Console'>(</font>details.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, details.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, []<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> d<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> d.codec_name.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;<b>}</b><font face='Lucida Console'>)</font>, details.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>return</font> details;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> ret;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>device_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_input_device_types'></a>list_input_device_types</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> []
+            <b>{</b>
+                details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>device_details<font color='#5555FF'>&gt;</font> devices;
+
+<font color='#0000FF'>#if</font> LIBAVDEVICE_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>59</font>, <font color='#979000'>0</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>using</font> AVInputFormatPtr <font color='#5555FF'>=</font> AVInputFormat<font color='#5555FF'>*</font>;
+<font color='#0000FF'>#else</font>
+                <font color='#0000FF'>using</font> AVInputFormatPtr <font color='#5555FF'>=</font> <font color='#0000FF'>const</font> AVInputFormat<font color='#5555FF'>*</font>;
+<font color='#0000FF'>#endif</font>
+
+                AVInputFormatPtr device<b>{</b>nullptr<b>}</b>;
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>device <font color='#5555FF'>=</font> <font color='#BB00BB'>av_input_audio_device_next</font><font face='Lucida Console'>(</font>device<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    device_details details;
+                    details.device_type     <font color='#5555FF'>=</font> device<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name;
+                    details.is_audio_type   <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                    devices.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>details<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                device <font color='#5555FF'>=</font> nullptr;
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>device <font color='#5555FF'>=</font> <font color='#BB00BB'>av_input_video_device_next</font><font face='Lucida Console'>(</font>device<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    device_details details;
+                    details.device_type     <font color='#5555FF'>=</font> device<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name;
+                    details.is_video_type   <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                    devices.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>details<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> devices;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> ret;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> std::vector<font color='#5555FF'>&lt;</font>device_instance<font color='#5555FF'>&gt;</font> <b><a name='list_input_device_instances'></a>list_input_device_instances</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> device_type<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> types <font color='#5555FF'>=</font> <font color='#BB00BB'>list_input_device_types</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> std::<font color='#BB00BB'>find_if</font><font face='Lucida Console'>(</font>types.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, types.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> type<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> type.device_type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> device_type;<b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> types.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <b>{</b><b>}</b>;
+
+            std::vector<font color='#5555FF'>&lt;</font>device_instance<font color='#5555FF'>&gt;</font> instances;
+
+            details::av_ptr<font color='#5555FF'>&lt;</font>AVDeviceInfoList<font color='#5555FF'>&gt;</font> managed;
+            AVDeviceInfoList<font color='#5555FF'>*</font> device_list <font color='#5555FF'>=</font> nullptr;
+            <font color='#BB00BB'>avdevice_list_input_sources</font><font face='Lucida Console'>(</font>nullptr, ret<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>device_type.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, nullptr, <font color='#5555FF'>&amp;</font>device_list<font face='Lucida Console'>)</font>;
+            managed.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font>device_list<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>device_list<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> device_list<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_devices ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    device_instance instance;
+                    instance.name        <font color='#5555FF'>=</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>device_list<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>devices[i]<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>device_name<font face='Lucida Console'>)</font>;
+                    instance.description <font color='#5555FF'>=</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>device_list<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>devices[i]<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>device_description<font face='Lucida Console'>)</font>;
+                    instances.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>instance<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>return</font> instances;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>device_details<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> <b><a name='list_output_device_types'></a>list_output_device_types</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> []
+            <b>{</b>
+                details::<font color='#BB00BB'>register_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>device_details<font color='#5555FF'>&gt;</font> devices;
+
+    <font color='#0000FF'>#if</font> LIBAVDEVICE_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>59</font>, <font color='#979000'>0</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>using</font> AVOutputFormatPtr <font color='#5555FF'>=</font> AVOutputFormat<font color='#5555FF'>*</font>;
+    <font color='#0000FF'>#else</font>
+                <font color='#0000FF'>using</font> AVOutputFormatPtr <font color='#5555FF'>=</font> <font color='#0000FF'>const</font> AVOutputFormat<font color='#5555FF'>*</font>;
+    <font color='#0000FF'>#endif</font>
+
+                AVOutputFormatPtr device<b>{</b>nullptr<b>}</b>;
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>device <font color='#5555FF'>=</font> <font color='#BB00BB'>av_output_audio_device_next</font><font face='Lucida Console'>(</font>device<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    device_details details;
+                    details.device_type     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>device<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name<font face='Lucida Console'>)</font>;
+                    details.is_audio_type   <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                    devices.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>details<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                device <font color='#5555FF'>=</font> nullptr;
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>device <font color='#5555FF'>=</font> <font color='#BB00BB'>av_output_video_device_next</font><font face='Lucida Console'>(</font>device<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    device_details details;
+                    details.device_type     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>device<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>name<font face='Lucida Console'>)</font>;
+                    details.is_video_type   <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                    devices.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>details<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> devices;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> ret;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> std::vector<font color='#5555FF'>&lt;</font>device_instance<font color='#5555FF'>&gt;</font> <b><a name='list_output_device_instances'></a>list_output_device_instances</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> device_type<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> types <font color='#5555FF'>=</font> <font color='#BB00BB'>list_output_device_types</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> ret <font color='#5555FF'>=</font> std::<font color='#BB00BB'>find_if</font><font face='Lucida Console'>(</font>types.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, types.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> type<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> type.device_type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> device_type;<b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> types.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> <b>{</b><b>}</b>;
+
+            std::vector<font color='#5555FF'>&lt;</font>device_instance<font color='#5555FF'>&gt;</font> instances;
+
+            details::av_ptr<font color='#5555FF'>&lt;</font>AVDeviceInfoList<font color='#5555FF'>&gt;</font> managed;
+            AVDeviceInfoList<font color='#5555FF'>*</font> device_list <font color='#5555FF'>=</font> nullptr;
+            <font color='#BB00BB'>avdevice_list_output_sinks</font><font face='Lucida Console'>(</font>nullptr, ret<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>device_type.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, nullptr, <font color='#5555FF'>&amp;</font>device_list<font face='Lucida Console'>)</font>;
+            managed.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font>device_list<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>device_list<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> device_list<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>nb_devices ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    device_instance instance;
+                    instance.name        <font color='#5555FF'>=</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>device_list<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>devices[i]<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>device_name<font face='Lucida Console'>)</font>;
+                    instance.description <font color='#5555FF'>=</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>device_list<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>devices[i]<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>device_description<font face='Lucida Console'>)</font>;
+                    instances.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>instance<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>return</font> instances;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>, 
+          is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> f, image_type<font color='#5555FF'>&amp;</font> image<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> pixel <font color='#5555FF'>=</font> pixel_type_t<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>;
+            
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>frame isn't an image type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pix_traits<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font>::fmt, "<font color='#CC0000'>frame doesn't have correct format</font>"<font face='Lucida Console'>)</font>;
+        
+            image.<font color='#BB00BB'>set_size</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> imgsize <font color='#5555FF'>=</font> image.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font>image.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>pixel<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> expsize <font color='#5555FF'>=</font> <font color='#BB00BB'>av_image_get_buffer_size</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>imgsize <font color='#5555FF'>=</font><font color='#5555FF'>=</font> expsize, "<font color='#CC0000'>image size in bytes != expected buffer size required by ffmpeg to do a copy</font>"<font face='Lucida Console'>)</font>;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>imgsize;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>expsize;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_image_copy_to_buffer</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>uint8_t<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>image.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, 
+                                                    imgsize, 
+                                                    f.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data, 
+                                                    f.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.linesize, 
+                                                    f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, 
+                                                    f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, 
+                                                    f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, 
+                                                    <font color='#979000'>1</font><font face='Lucida Console'>)</font>;    
+            
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>expsize, "<font color='#CC0000'>av_image_copy_to_buffer() error : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> details::<font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>ret;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>, 
+          is_image_check<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> image_type<font color='#5555FF'>&amp;</font> img, frame<font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> pixel <font color='#5555FF'>=</font> pixel_type_t<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>!</font><font color='#5555FF'>=</font> img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> pix_traits<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font>::fmt<font face='Lucida Console'>)</font>
+            <b>{</b>
+                f.<font color='#BB00BB'>set_params</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, pix_traits<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font>::fmt, <font color='#979000'>0</font>, <font color='#979000'>0</font>, <font color='#979000'>0</font>, AV_SAMPLE_FMT_NONE, <b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> imgsize            <font color='#5555FF'>=</font> img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font>img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>pixel<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>int</u></font>         src_linesizes[<font color='#979000'>4</font>]    <font color='#5555FF'>=</font> <b>{</b><font color='#979000'>0</font><b>}</b>;
+            uint8_t<font color='#5555FF'>*</font>    src_pointers[<font color='#979000'>4</font>]     <font color='#5555FF'>=</font> <b>{</b>nullptr<b>}</b>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_image_fill_arrays</font><font face='Lucida Console'>(</font>src_pointers, src_linesizes, <font face='Lucida Console'>(</font>uint8_t<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>img.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font><font color='#5555FF'>=</font> imgsize, "<font color='#CC0000'>av_image_fill_arrays()  error : </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> details::<font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>imgsize;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>ret;
+            
+            <font color='#BB00BB'>av_image_copy</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data,
+                          f.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.linesize,
+                          <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint8_t<font color='#5555FF'>*</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>src_pointers,
+                          src_linesizes,
+                          f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                          f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,
+                          f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='SampleFmt'></a>SampleFmt</b>, std::<font color='#0000FF'><u>size_t</u></font> Channels<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> f, audio<font color='#5555FF'>&lt;</font>SampleFmt, Channels<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> obj<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> sample <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> audio<font color='#5555FF'>&lt;</font>SampleFmt, Channels<font color='#5555FF'>&gt;</font>::sample;
+
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>frame must be of audio type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sample_traits<font color='#5555FF'>&lt;</font>SampleFmt<font color='#5555FF'>&gt;</font>::fmt, "<font color='#CC0000'>audio buffer has wrong format for this type. Make sure correct args are passed to constructor of decoder/demuxer/encoder/muxer</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> Channels, "<font color='#CC0000'>wrong number of channels</font>"<font face='Lucida Console'>)</font>;
+
+            obj.timestamp   <font color='#5555FF'>=</font> f.<font color='#BB00BB'>get_timestamp</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            obj.sample_rate <font color='#5555FF'>=</font> f.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            obj.samples.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            uint8_t<font color='#5555FF'>*</font> dst_pointers[<font color='#979000'>8</font>]    <font color='#5555FF'>=</font> <b>{</b>nullptr<b>}</b>; 
+            <font color='#0000FF'><u>int</u></font>      dst_linesize       <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> bufsize  <font color='#5555FF'>=</font> obj.samples.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>sample<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> expsize1 <font color='#5555FF'>=</font> <font color='#BB00BB'>av_samples_get_buffer_size</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>dst_linesize, f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> expsize2 <font color='#5555FF'>=</font> <font color='#BB00BB'>av_samples_fill_arrays</font><font face='Lucida Console'>(</font>dst_pointers, <font color='#5555FF'>&amp;</font>dst_linesize, <font face='Lucida Console'>(</font>uint8_t<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>obj.samples.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>bufsize <font color='#5555FF'>=</font><font color='#5555FF'>=</font> expsize1, "<font color='#CC0000'>audio size in bytes != expected buffer size required by ffmpeg to do a copy</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>expsize1 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> expsize2, "<font color='#CC0000'>inconsistent audio buffer sizes returned by ffmpeg</font>"<font face='Lucida Console'>)</font>;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>bufsize;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>expsize1;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>expsize2;
+
+            <font color='#BB00BB'>av_samples_copy</font><font face='Lucida Console'>(</font>dst_pointers, f.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data, <font color='#979000'>0</font>, <font color='#979000'>0</font>, f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='SampleFmt'></a>SampleFmt</b>, std::<font color='#0000FF'><u>size_t</u></font> Channels<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='convert'></a>convert</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> audio<font color='#5555FF'>&lt;</font>SampleFmt, Channels<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> obj, frame<font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> details;
+            <font color='#0000FF'>using</font> sample <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> audio<font color='#5555FF'>&lt;</font>SampleFmt, Channels<font color='#5555FF'>&gt;</font>::sample;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>!</font><font color='#5555FF'>=</font> sample_traits<font color='#5555FF'>&lt;</font>SampleFmt<font color='#5555FF'>&gt;</font>::fmt <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                f.<font color='#BB00BB'>layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>get_layout_from_channels</font><font face='Lucida Console'>(</font>Channels<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                f.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> obj.sample_rate <font color='#5555FF'>|</font><font color='#5555FF'>|</font>
+                f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>    <font color='#5555FF'>!</font><font color='#5555FF'>=</font> obj.samples.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                f <font color='#5555FF'>=</font> <font color='#BB00BB'>frame</font><font face='Lucida Console'>(</font>obj.sample_rate, 
+                          obj.samples.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, 
+                          <font color='#BB00BB'>get_layout_from_channels</font><font face='Lucida Console'>(</font>Channels<font face='Lucida Console'>)</font>, 
+                          sample_traits<font color='#5555FF'>&lt;</font>SampleFmt<font color='#5555FF'>&gt;</font>::fmt, 
+                          obj.timestamp<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            uint8_t<font color='#5555FF'>*</font> src_pointers[<font color='#979000'>8</font>]    <font color='#5555FF'>=</font> <b>{</b>nullptr<b>}</b>; 
+            <font color='#0000FF'><u>int</u></font>      src_linesize       <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> bufsize  <font color='#5555FF'>=</font> obj.samples.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>sample<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> expsize1 <font color='#5555FF'>=</font> <font color='#BB00BB'>av_samples_get_buffer_size</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>src_linesize, f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> expsize2 <font color='#5555FF'>=</font> <font color='#BB00BB'>av_samples_fill_arrays</font><font face='Lucida Console'>(</font>src_pointers, <font color='#5555FF'>&amp;</font>src_linesize, <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint8_t<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>obj.samples.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>bufsize <font color='#5555FF'>=</font><font color='#5555FF'>=</font> expsize1, "<font color='#CC0000'>audio size in bytes != expected buffer size required by ffmpeg to do a copy</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>expsize1 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> expsize2, "<font color='#CC0000'>inconsistent audio buffer sizes returned by ffmpeg</font>"<font face='Lucida Console'>)</font>;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>bufsize;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>expsize1;
+            <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>expsize2;
+
+            <font color='#BB00BB'>av_samples_copy</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data, src_pointers, <font color='#979000'>0</font>, <font color='#979000'>0</font>, f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_FFMPEG_UTILS
+</font>
+</pre></body></html>

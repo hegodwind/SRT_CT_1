@@ -1,0 +1,58 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_screen_grab_ex.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// The contents of this file are in the public domain. See LICENSE_FOR_EXAMPLE_PROGRAMS.txt
+</font><font color='#009900'>/*
+
+    This is an example that illustrates how to use the ffmpeg wrappers
+    for taking screen grabs and plotting to a GUI window.
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdio<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>media.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>gui_widgets.h<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>try</font>
+<b>{</b>
+    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> demuxers              <font color='#5555FF'>=</font> ffmpeg::<font color='#BB00BB'>list_demuxers</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> screen_grab_available <font color='#5555FF'>=</font> std::<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font><font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font>demuxers<font face='Lucida Console'>)</font>, <font color='#BB00BB'>end</font><font face='Lucida Console'>(</font>demuxers<font face='Lucida Console'>)</font>, "<font color='#CC0000'>x11grab</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> demuxers.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>screen_grab_available<font face='Lucida Console'>)</font>
+    <b>{</b>
+        ffmpeg::demuxer::args args;
+        args.filepath       <font color='#5555FF'>=</font> "<font color='#CC0000'></font>";
+        args.input_format   <font color='#5555FF'>=</font> "<font color='#CC0000'>x11grab</font>";
+
+        ffmpeg::demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#5555FF'>!</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Failed to open demuxer for screen grab\n</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> EXIT_FAILURE;
+        <b>}</b>
+
+        image_window win;
+
+        ffmpeg::frame frame;
+        array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font> img;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>frame<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>frame, img<font face='Lucida Console'>)</font>;
+            win.<font color='#BB00BB'>set_image</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+    <font color='#0000FF'>else</font>
+    <b>{</b>
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Sorry your installation of ffmpeg doesn't support screen grab\n</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>return</font> EXIT_SUCCESS;
+<b>}</b>
+<font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font>
+<b>{</b>
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>%s\n</font>", e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> EXIT_FAILURE;
+<b>}</b>
+</pre></body></html>

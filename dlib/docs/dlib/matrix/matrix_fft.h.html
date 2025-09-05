@@ -1,0 +1,424 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - matrix_fft.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2013  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_FFt_Hh_
+<font color='#0000FF'>#define</font> DLIB_FFt_Hh_
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='matrix_fft_abstract.h.html'>matrix_fft_abstract.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='matrix_utilities.h.html'>matrix_utilities.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../hash.h.html'>../hash.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../algs.h.html'>../algs.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../math.h.html'>../math.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../fft/fft.h.html'>../fft/fft.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../fft/fft_stl.h.html'>../fft/fft_stl.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>     
+  
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> Alloc <font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,<font color='#979000'>0</font>,<font color='#979000'>1</font><font color='#5555FF'>&gt;</font> <b><a name='fft'></a>fft</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>, Alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//complex FFT
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,<font color='#979000'>0</font>,<font color='#979000'>1</font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font>in[<font color='#979000'>0</font>], <font color='#5555FF'>&amp;</font><font color='#BB00BB'>out</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#979000'>false</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> out;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'><u>long</u></font> NR, <font color='#0000FF'><u>long</u></font> NC, <font color='#0000FF'>typename</font> MM, <font color='#0000FF'>typename</font> L <font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font> <b><a name='fft'></a>fft</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//complex FFT
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>in</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>out</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#979000'>false</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> out;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>typename</font> EXP::matrix_type <b><a name='fft'></a>fft</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//complex FFT for expression template
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>is_complex<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>input should be complex</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>typename</font> EXP::matrix_type <font color='#BB00BB'>in</font><font face='Lucida Console'>(</font>data<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font>in<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> Alloc <font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,<font color='#979000'>0</font>,<font color='#979000'>1</font><font color='#5555FF'>&gt;</font> <b><a name='ifft'></a>ifft</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>, Alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//complex FFT
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,<font color='#979000'>0</font>,<font color='#979000'>1</font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font>in[<font color='#979000'>0</font>], <font color='#5555FF'>&amp;</font><font color='#BB00BB'>out</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#979000'>true</font><font face='Lucida Console'>)</font>;
+            out <font color='#5555FF'>/</font><font color='#5555FF'>=</font> out.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>return</font> out;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'><u>long</u></font> NR, <font color='#0000FF'><u>long</u></font> NC, <font color='#0000FF'>typename</font> MM, <font color='#0000FF'>typename</font> L <font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font> <b><a name='ifft'></a>ifft</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//inverse complex FFT
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>in</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>out</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#979000'>true</font><font face='Lucida Console'>)</font>;
+            out <font color='#5555FF'>/</font><font color='#5555FF'>=</font> out.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>return</font> out;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>typename</font> EXP::matrix_type <b><a name='ifft'></a>ifft</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//inverse complex FFT for expression template
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>is_complex<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>input should be complex</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>typename</font> EXP::matrix_type <font color='#BB00BB'>in</font><font face='Lucida Console'>(</font>data<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>ifft</font><font face='Lucida Console'>(</font>in<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'><u>long</u></font> NR, <font color='#0000FF'><u>long</u></font> NC, <font color='#0000FF'>typename</font> MM, <font color='#0000FF'>typename</font> L<font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,<b><a name='fftr_nc_size'></a>fftr_nc_size</b><font face='Lucida Console'>(</font>NC<font face='Lucida Console'>)</font>,MM,L<font color='#5555FF'>&gt;</font> <b><a name='fftr'></a>fftr</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>T,NR,NC,MM,L<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//real FFT
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>%</font> <font color='#979000'>2</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>, "<font color='#CC0000'>last dimension </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> needs to be even otherwise ifftr(fftr(data)) won't have matching dimensions</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,<font color='#BB00BB'>fftr_nc_size</font><font face='Lucida Console'>(</font>NC<font face='Lucida Console'>)</font>,MM,L<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>fftr_nc_size</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fftr</font><font face='Lucida Console'>(</font><b>{</b>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>in</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>out</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> out;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP<font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>add_complex_t<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b><a name='fftr'></a>fftr</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//real FFT for expression template
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>input should be real</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>in</font><font face='Lucida Console'>(</font>data<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>fftr</font><font face='Lucida Console'>(</font>in<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'><u>long</u></font> NR, <font color='#0000FF'><u>long</u></font> NC, <font color='#0000FF'>typename</font> MM, <font color='#0000FF'>typename</font> L<font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>T,NR,<b><a name='ifftr_nc_size'></a>ifftr_nc_size</b><font face='Lucida Console'>(</font>NC<font face='Lucida Console'>)</font>,MM,L<font color='#5555FF'>&gt;</font> <b><a name='ifftr'></a>ifftr</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//inverse real FFT
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        matrix<font color='#5555FF'>&lt;</font>T,NR,<font color='#BB00BB'>ifftr_nc_size</font><font face='Lucida Console'>(</font>NC<font face='Lucida Console'>)</font>,MM,L<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>out</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>ifftr_nc_size</font><font face='Lucida Console'>(</font>in.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>in.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>ifftr</font><font face='Lucida Console'>(</font><b>{</b>out.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,out.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>in</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>out</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            out <font color='#5555FF'>/</font><font color='#5555FF'>=</font> out.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>return</font> out;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP<font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>remove_complex_t<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b><a name='ifftr'></a>ifftr</b> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>//inverse real FFT for expression template
+</font>        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>is_complex<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>input should be complex</font>"<font face='Lucida Console'>)</font>;        
+        matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>in</font><font face='Lucida Console'>(</font>data<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>ifftr</font><font face='Lucida Console'>(</font>in<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'><u>long</u></font> NR, <font color='#0000FF'><u>long</u></font> NC, <font color='#0000FF'>typename</font> MM, <font color='#0000FF'>typename</font> L <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='fft_inplace'></a>fft_inplace</b> <font face='Lucida Console'>(</font>matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b>data.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,data.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#979000'>false</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'><u>long</u></font> NR, <font color='#0000FF'><u>long</u></font> NC, <font color='#0000FF'>typename</font> MM, <font color='#0000FF'>typename</font> L <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='ifft_inplace'></a>ifft_inplace</b> <font face='Lucida Console'>(</font>matrix<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,NR,NC,MM,L<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b>data.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>,data.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>,<font color='#979000'>0</font><font face='Lucida Console'>)</font>, <font color='#979000'>true</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> details
+    <b>{</b>
+        <font color='#0000FF'>struct</font> <b><a name='fft_func'></a>fft_func</b>
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> MAT, <font color='#0000FF'>typename</font> T <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> MAT::type, <font color='#0000FF'>typename</font> std::enable_if<font color='#5555FF'>&lt;</font>is_complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font>::type <font color='#5555FF'>=</font> <font color='#979000'>true</font><font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>auto</font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> MAT<font color='#5555FF'>&amp;</font> mat<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font>mat<font face='Lucida Console'>)</font>; <b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> MAT, <font color='#0000FF'>typename</font> T <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> MAT::type, <font color='#0000FF'>typename</font> std::enable_if<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>is_complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font>::type <font color='#5555FF'>=</font> <font color='#979000'>true</font><font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>auto</font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> MAT<font color='#5555FF'>&amp;</font> mat<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font>dlib::<font color='#BB00BB'>complex_matrix</font><font face='Lucida Console'>(</font>mat<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; <b>}</b>
+
+            <font color='#0000FF'>static</font> constexpr std::<font color='#0000FF'><u>size_t</u></font> <b><a name='freqsize'></a>freqsize</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> fftsize<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> fftsize; <b>}</b>
+        <b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='fftr_func'></a>fftr_func</b>
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> MAT<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>auto</font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> MAT<font color='#5555FF'>&amp;</font> mat<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>fftr</font><font face='Lucida Console'>(</font>mat<font face='Lucida Console'>)</font>; <b>}</b>
+
+            <font color='#0000FF'>static</font> constexpr std::<font color='#0000FF'><u>size_t</u></font> <b><a name='freqsize'></a>freqsize</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> fftsize<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>fftr_nc_size</font><font face='Lucida Console'>(</font>fftsize<font face='Lucida Console'>)</font>; <b>}</b>
+        <b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='ifft_func'></a>ifft_func</b>
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> MAT<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>auto</font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> MAT<font color='#5555FF'>&amp;</font> mat<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>ifft</font><font face='Lucida Console'>(</font>mat<font face='Lucida Console'>)</font>; <b>}</b>
+        <b>}</b>;
+
+        <font color='#0000FF'>struct</font> <b><a name='ifftr_func'></a>ifftr_func</b>
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> MAT<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>auto</font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> MAT<font color='#5555FF'>&amp;</font> mat<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> dlib::<font color='#BB00BB'>ifftr</font><font face='Lucida Console'>(</font>mat<font face='Lucida Console'>)</font>; <b>}</b>
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+            <font color='#0000FF'>typename</font> EXP,
+            <font color='#0000FF'>typename</font> WINDOW,
+            <font color='#0000FF'>typename</font> FFT_FUNC
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>auto</font> <b><a name='stft_impl'></a>stft_impl</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> signal,
+            <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+            std::<font color='#0000FF'><u>size_t</u></font> fftsize,
+            std::<font color='#0000FF'><u>size_t</u></font> wlen,
+            std::<font color='#0000FF'><u>size_t</u></font> hoplen,
+            <font color='#0000FF'>const</font> FFT_FUNC<font color='#5555FF'>&amp;</font> fft_obj
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> T <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> EXP::type;
+            <font color='#0000FF'>using</font> R <font color='#5555FF'>=</font> remove_complex_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+            <font color='#0000FF'>using</font> C <font color='#5555FF'>=</font> add_complex_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>underlying type must be real or complex floating point type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#BB00BB'>is_vector</font><font face='Lucida Console'>(</font>signal<font face='Lucida Console'>)</font>, "<font color='#CC0000'>input must be a vector type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>signal.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>wlen, "<font color='#CC0000'>signal.size() &gt;= wlen not satisfied</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>fftsize <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> wlen, "<font color='#CC0000'>fftsize &gt;= wlen not satisfied</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>wlen <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> hoplen, "<font color='#CC0000'>wlen &gt;= hoplen not satisfied</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// Input is left-padded by wlen/2 and right-padded wlen/2
+</font>            <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> total_padding <font color='#5555FF'>=</font> wlen;
+            <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> overlap       <font color='#5555FF'>=</font> wlen <font color='#5555FF'>-</font> hoplen;
+            <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> nframes       <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>signal.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> total_padding <font color='#5555FF'>-</font> overlap<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> hoplen;
+            matrix<font color='#5555FF'>&lt;</font>C<font color='#5555FF'>&gt;</font> stft <font color='#5555FF'>=</font> zeros_matrix<font color='#5555FF'>&lt;</font>C<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>nframes,
+                                             FFT_FUNC::<font color='#BB00BB'>freqsize</font><font face='Lucida Console'>(</font>fftsize<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            matrix<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>win</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>,wlen<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> wlen ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>win</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>, i<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#BB00BB'>w</font><font face='Lucida Console'>(</font>i, wlen<font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// TODO: reduce extra buffers, e.g. padded
+</font>            matrix<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font> padded;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>is_row_vector</font><font face='Lucida Console'>(</font>signal<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                padded <font color='#5555FF'>=</font> <font color='#BB00BB'>join_rows</font><font face='Lucida Console'>(</font><font color='#BB00BB'>join_rows</font><font face='Lucida Console'>(</font>zeros_matrix<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font><font face='Lucida Console'>)</font>, signal<font face='Lucida Console'>)</font>, zeros_matrix<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font>
+                padded <font color='#5555FF'>=</font> <font color='#BB00BB'>join_rows</font><font face='Lucida Console'>(</font><font color='#BB00BB'>join_rows</font><font face='Lucida Console'>(</font>zeros_matrix<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>trans</font><font face='Lucida Console'>(</font>signal<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, zeros_matrix<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> stft.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>set_rowm</font><font face='Lucida Console'>(</font>stft, i<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#BB00BB'>fft_obj</font><font face='Lucida Console'>(</font><font color='#BB00BB'>join_rows</font><font face='Lucida Console'>(</font><font color='#BB00BB'>pointwise_multiply</font><font face='Lucida Console'>(</font>win, <font color='#BB00BB'>subm</font><font face='Lucida Console'>(</font>padded, <font color='#979000'>0</font>, i<font color='#5555FF'>*</font>hoplen, <font color='#979000'>1</font>, wlen<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>,
+                                                      zeros_matrix<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, fftsize <font color='#5555FF'>-</font> wlen<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>return</font> stft;
+        <b>}</b>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+            <font color='#0000FF'>typename</font> ReturnType,
+            <font color='#0000FF'>typename</font> EXP,
+            <font color='#0000FF'>typename</font> WINDOW,
+            <font color='#0000FF'>typename</font> IFFT_FUNC
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>auto</font> <b><a name='istft_impl'></a>istft_impl</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> stft,
+            <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+            std::<font color='#0000FF'><u>size_t</u></font> wlen,
+            std::<font color='#0000FF'><u>size_t</u></font> hoplen,
+            <font color='#0000FF'>const</font> IFFT_FUNC<font color='#5555FF'>&amp;</font> ifft_obj
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> T <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> EXP::type;
+            <font color='#0000FF'>using</font> R <font color='#5555FF'>=</font> remove_complex_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>is_complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>matrix type must be complex</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>underlying type must be complex floating point type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>stft.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> stft.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>, "<font color='#CC0000'>stft must be non-empty</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#BB00BB'>ifftr_nc_size</font><font face='Lucida Console'>(</font>stft.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>wlen, "<font color='#CC0000'>fftsize &gt;= wlen not satisfied</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>wlen <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> hoplen, "<font color='#CC0000'>wlen &gt;= hoplen not satisfied</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> ntime <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>stft.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>*</font> hoplen <font color='#5555FF'>+</font> wlen;
+            matrix<font color='#5555FF'>&lt;</font>ReturnType<font color='#5555FF'>&gt;</font> signal <font color='#5555FF'>=</font> zeros_matrix<font color='#5555FF'>&lt;</font>ReturnType<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, ntime<font face='Lucida Console'>)</font>;
+            matrix<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font> norm <font color='#5555FF'>=</font> zeros_matrix<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, ntime<font face='Lucida Console'>)</font>;
+            matrix<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>win</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, wlen<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> wlen ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>win</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>, i<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#BB00BB'>w</font><font face='Lucida Console'>(</font>i, wlen<font face='Lucida Console'>)</font>;
+            matrix<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font> win2 <font color='#5555FF'>=</font> <font color='#BB00BB'>squared</font><font face='Lucida Console'>(</font>win<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> t <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; t <font color='#5555FF'>&lt;</font> stft.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>t<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>set_subm</font><font face='Lucida Console'>(</font>signal, <font color='#979000'>0</font>, t<font color='#5555FF'>*</font>hoplen, <font color='#979000'>1</font>, wlen<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font><font color='#5555FF'>=</font> <font color='#BB00BB'>pointwise_multiply</font><font face='Lucida Console'>(</font>win, <font color='#BB00BB'>subm</font><font face='Lucida Console'>(</font><font color='#BB00BB'>ifft_obj</font><font face='Lucida Console'>(</font><font color='#BB00BB'>rowm</font><font face='Lucida Console'>(</font>stft, t<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, <font color='#979000'>0</font>, <font color='#979000'>0</font>, <font color='#979000'>1</font>, wlen<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>set_subm</font><font face='Lucida Console'>(</font>norm,   <font color='#979000'>0</font>, t<font color='#5555FF'>*</font>hoplen, <font color='#979000'>1</font>, wlen<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font><font color='#5555FF'>=</font> win2;
+            <b>}</b>
+
+            <font color='#009900'>// Remove padding of wlen/2 and wlen/2 on either end
+</font>            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sum</font><font face='Lucida Console'>(</font><font color='#BB00BB'>subm</font><font face='Lucida Console'>(</font>norm, <font color='#979000'>0</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font>, <font color='#979000'>1</font>, ntime <font color='#5555FF'>-</font> wlen<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font> <font color='#979000'>1e</font><font color='#5555FF'>-</font><font color='#979000'>13</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>, "<font color='#CC0000'>NOLA constraint not satisfied</font>"<font face='Lucida Console'>)</font>;
+            signal <font color='#5555FF'>=</font> <font color='#BB00BB'>pointwise_divide</font><font face='Lucida Console'>(</font><font color='#BB00BB'>subm</font><font face='Lucida Console'>(</font>signal, <font color='#979000'>0</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font>, <font color='#979000'>1</font>, ntime <font color='#5555FF'>-</font> wlen<font face='Lucida Console'>)</font>,
+                                      <font color='#BB00BB'>subm</font><font face='Lucida Console'>(</font>norm,   <font color='#979000'>0</font>, wlen<font color='#5555FF'>/</font><font color='#979000'>2</font>, <font color='#979000'>1</font>, ntime <font color='#5555FF'>-</font> wlen<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> signal;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='make_hann'></a>make_hann</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> []<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> <font color='#BB00BB'>hann</font><font face='Lucida Console'>(</font>i, N, PERIODIC<font face='Lucida Console'>)</font>; <b>}</b>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='make_blackman'></a>make_blackman</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> []<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> <font color='#BB00BB'>blackman</font><font face='Lucida Console'>(</font>i, N, PERIODIC<font face='Lucida Console'>)</font>;<b>}</b>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='make_blackman_nuttall'></a>make_blackman_nuttall</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> []<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> <font color='#BB00BB'>blackman_nuttall</font><font face='Lucida Console'>(</font>i, N, PERIODIC<font face='Lucida Console'>)</font>;<b>}</b>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='make_blackman_harris'></a>make_blackman_harris</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> []<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>blackman_harris</font><font face='Lucida Console'>(</font>i, N, PERIODIC<font face='Lucida Console'>)</font>; <b>}</b>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='make_blackman_harris7'></a>make_blackman_harris7</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> []<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> <font color='#BB00BB'>blackman_harris7</font><font face='Lucida Console'>(</font>i, N, PERIODIC<font face='Lucida Console'>)</font>; <b>}</b>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='make_kaiser'></a>make_kaiser</b><font face='Lucida Console'>(</font>beta_t beta<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> [<font color='#5555FF'>=</font>]<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N<font face='Lucida Console'>)</font><b>{</b><font color='#0000FF'>return</font> <font color='#BB00BB'>kaiser</font><font face='Lucida Console'>(</font>i, N, beta, PERIODIC<font face='Lucida Console'>)</font>;<b>}</b>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP, <font color='#0000FF'>typename</font> WINDOW<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='stft'></a>stft</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> signal,
+        <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+        std::<font color='#0000FF'><u>size_t</u></font> fftsize,
+        std::<font color='#0000FF'><u>size_t</u></font> wlen,
+        std::<font color='#0000FF'><u>size_t</u></font> hoplen
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> details::<font color='#BB00BB'>stft_impl</font><font face='Lucida Console'>(</font>signal, w, fftsize, wlen, hoplen, details::fft_func<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> Alloc, <font color='#0000FF'>typename</font> WINDOW<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='stft'></a>stft</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>T, Alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> signal,
+        <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+        std::<font color='#0000FF'><u>size_t</u></font> fftsize,
+        std::<font color='#0000FF'><u>size_t</u></font> wlen,
+        std::<font color='#0000FF'><u>size_t</u></font> hoplen
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>stft</font><font face='Lucida Console'>(</font>dlib::<font color='#BB00BB'>mat</font><font face='Lucida Console'>(</font>signal<font face='Lucida Console'>)</font>, w, fftsize, wlen, hoplen<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP,<font color='#0000FF'>typename</font> WINDOW<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='istft'></a>istft</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> stft,
+        <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+        std::<font color='#0000FF'><u>size_t</u></font> wlen,
+        std::<font color='#0000FF'><u>size_t</u></font> hoplen
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>using</font> T <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> EXP::type;
+        <font color='#0000FF'>return</font> details::istft_impl<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>stft, w, wlen, hoplen, details::ifft_func<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP, <font color='#0000FF'>typename</font> WINDOW<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='stftr'></a>stftr</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> signal,
+        <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+        std::<font color='#0000FF'><u>size_t</u></font> fftsize,
+        std::<font color='#0000FF'><u>size_t</u></font> wlen,
+        std::<font color='#0000FF'><u>size_t</u></font> hoplen
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> details::<font color='#BB00BB'>stft_impl</font><font face='Lucida Console'>(</font>signal, w, fftsize, wlen, hoplen, details::fftr_func<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> Alloc, <font color='#0000FF'>typename</font> WINDOW<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='stftr'></a>stftr</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>T, Alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> signal,
+        <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+        std::<font color='#0000FF'><u>size_t</u></font> fftsize,
+        std::<font color='#0000FF'><u>size_t</u></font> wlen,
+        std::<font color='#0000FF'><u>size_t</u></font> hoplen
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>stftr</font><font face='Lucida Console'>(</font>dlib::<font color='#BB00BB'>mat</font><font face='Lucida Console'>(</font>signal<font face='Lucida Console'>)</font>, w, fftsize, wlen, hoplen<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP, <font color='#0000FF'>typename</font> WINDOW<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='istftr'></a>istftr</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> matrix_exp<font color='#5555FF'>&lt;</font>EXP<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> stft,
+        <font color='#0000FF'>const</font> WINDOW<font color='#5555FF'>&amp;</font> w,
+        std::<font color='#0000FF'><u>size_t</u></font> wlen,
+        std::<font color='#0000FF'><u>size_t</u></font> hoplen
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>using</font> R <font color='#5555FF'>=</font> remove_complex_t<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> EXP::type<font color='#5555FF'>&gt;</font>;
+        <font color='#0000FF'>return</font> details::istft_impl<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>stft, w, wlen, hoplen, details::ifftr_func<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font><b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_FFt_Hh_
+</font>
+
+</pre></body></html>

@@ -1,0 +1,25 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - operation_mode.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2024  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_CUDA_OPERATION_MODE_H
+<font color='#0000FF'>#define</font> DLIB_CUDA_OPERATION_MODE_H
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#009900'>/*!
+        This enum is used to determine the mode of operation for certain functions
+        (such as gemm and softmax) in Dlib. It specifies whether the calculation
+        should be performed based on the matrix field in nr()xnc() or if the matrix
+        should be considered in num_samples()xk(). This helps in organizing tensor
+        computations more efficiently according to the required dimensions.
+    */</font>
+    <font color='#0000FF'>enum</font> <font color='#0000FF'>class</font> <b><a name='operation_mode'></a>operation_mode</b> <b>{</b> CHANNEL_WISE <font color='#5555FF'>=</font> <font color='#979000'>0</font>, PLANE_WISE <font color='#5555FF'>=</font> <font color='#979000'>1</font> <b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b> <font color='#009900'>// namespace dlib
+</font>
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_CUDA_OPERATION_MODE_H</font>
+</pre></body></html>

@@ -1,0 +1,107 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - bessel.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2006  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#ifndef</font> DLIB_MATH_DETAIL_BESSEL
+<font color='#0000FF'>#define</font> DLIB_MATH_DETAIL_BESSEL
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cmath<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>limits<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>stdexcept<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>type_traits<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../../numeric_constants.h.html'>../../numeric_constants.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../../assert.h.html'>../../assert.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> detail
+    <b>{</b>
+<font color='#0000FF'>#if</font> __cpp_lib_math_special_functions
+        <font color='#0000FF'>using</font> std::cyl_bessel_i;
+        <font color='#0000FF'>using</font> std::cyl_bessel_j;
+<font color='#0000FF'>#else</font>
+        constexpr <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font> BESSEL_NITERATIONS <font color='#5555FF'>=</font> <font color='#979000'>250</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> R<font color='#5555FF'>&gt;</font>
+        R <b><a name='cyl_bessel_i'></a>cyl_bessel_i</b><font face='Lucida Console'>(</font>R nu, R x<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>template parameter must be a floating point type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>nu <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> x <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b>, "<font color='#CC0000'>bad arguments. Contract preconditions are : nu &gt;= 0 and x &gt;= 0</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>std::<font color='#BB00BB'>isnan</font><font face='Lucida Console'>(</font>nu<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::<font color='#BB00BB'>isnan</font><font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> std::numeric_limits<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font>::<font color='#BB00BB'>quiet_NaN</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font><font face='Lucida Console'>(</font>x <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> <font face='Lucida Console'>(</font>nu <font color='#5555FF'>=</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b><font face='Lucida Console'>)</font> ? R<b>{</b><font color='#979000'>1</font><b>}</b> : R<b>{</b><font color='#979000'>0</font><b>}</b>;
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font><font face='Lucida Console'>(</font>nu <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#BB00BB'>R</font><font face='Lucida Console'>(</font><font color='#979000'>0.5</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#009900'>// common special case
+</font>                <font color='#0000FF'>return</font> std::<font color='#BB00BB'>sqrt</font><font face='Lucida Console'>(</font><font color='#979000'>2</font> <font color='#5555FF'>/</font> <font face='Lucida Console'>(</font>x <font color='#5555FF'>*</font> pi<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>sinh</font><font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                <font color='#009900'>// Compute sum in log-domain to avoid overflow issues
+</font>                <font color='#0000FF'>const</font> R fact <font color='#5555FF'>=</font> nu <font color='#5555FF'>=</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b> ? R<b>{</b><font color='#979000'>1</font><b>}</b> : std::<font color='#BB00BB'>pow</font><font face='Lucida Console'>(</font><font color='#BB00BB'>R</font><font face='Lucida Console'>(</font><font color='#979000'>0.5</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font>x, nu<font face='Lucida Console'>)</font>; <font color='#009900'>//factorize (x/2)^nu
+</font>                R a<b>{</b><b>}</b>;
+                R b<b>{</b><b>}</b>;
+                R c<b>{</b><b>}</b>;
+                R sum<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font> k<font color='#5555FF'>=</font><font color='#979000'>0</font>; k <font color='#5555FF'>&lt;</font> BESSEL_NITERATIONS; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>k<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    a <font color='#5555FF'>=</font> <font color='#979000'>2</font> <font color='#5555FF'>*</font> k <font color='#5555FF'>*</font> std::<font color='#BB00BB'>log</font><font face='Lucida Console'>(</font><font color='#BB00BB'>R</font><font face='Lucida Console'>(</font><font color='#979000'>0.5</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font>x<font face='Lucida Console'>)</font>; <font color='#009900'>// log((x/2)^(2k))
+</font>                    b <font color='#5555FF'>=</font> std::<font color='#BB00BB'>lgamma</font><font face='Lucida Console'>(</font><font color='#BB00BB'>R</font><font face='Lucida Console'>(</font>k<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> R<b>{</b><font color='#979000'>1</font><b>}</b><font face='Lucida Console'>)</font>;   <font color='#009900'>// log(k!) = log(gamma(k+1)). Recall gamma(k) = (k-1)!
+</font>                    c <font color='#5555FF'>=</font> std::<font color='#BB00BB'>lgamma</font><font face='Lucida Console'>(</font>nu <font color='#5555FF'>+</font> k <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+                    sum <font color='#5555FF'>+</font><font color='#5555FF'>=</font> std::<font color='#BB00BB'>exp</font><font face='Lucida Console'>(</font> a <font color='#5555FF'>-</font> b <font color='#5555FF'>-</font> c <font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> fact <font color='#5555FF'>*</font> sum;
+            <b>}</b>
+        <b>}</b>
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> R<font color='#5555FF'>&gt;</font>
+        R <b><a name='cyl_bessel_j'></a>cyl_bessel_j</b><font face='Lucida Console'>(</font>R nu, R x<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>template parameter must be a floating point type</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>nu <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> x <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b>, "<font color='#CC0000'>bad arguments. Contract preconditions are : nu &gt;= 0 and x &gt;= 0</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>std::<font color='#BB00BB'>isnan</font><font face='Lucida Console'>(</font>nu<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::<font color='#BB00BB'>isnan</font><font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> std::numeric_limits<font color='#5555FF'>&lt;</font>R<font color='#5555FF'>&gt;</font>::<font color='#BB00BB'>quiet_NaN</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>/*! Special case !*/</font>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>x <font color='#5555FF'>=</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> <font face='Lucida Console'>(</font>nu <font color='#5555FF'>=</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b><font face='Lucida Console'>)</font> ? R<b>{</b><font color='#979000'>1</font><b>}</b> : R<b>{</b><font color='#979000'>0</font><b>}</b>;
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                <font color='#009900'>// Compute sum in log-domain to avoid overflow issues
+</font>                <font color='#0000FF'>const</font> R fact <font color='#5555FF'>=</font> nu <font color='#5555FF'>=</font><font color='#5555FF'>=</font> R<b>{</b><font color='#979000'>0</font><b>}</b> ? R<b>{</b><font color='#979000'>1</font><b>}</b> : std::<font color='#BB00BB'>pow</font><font face='Lucida Console'>(</font><font color='#BB00BB'>R</font><font face='Lucida Console'>(</font><font color='#979000'>0.5</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font>x, nu<font face='Lucida Console'>)</font>; <font color='#009900'>//factorize (x/2)^nu
+</font>                R a<b>{</b><b>}</b>;
+                R b<b>{</b><b>}</b>;
+                R c<b>{</b><b>}</b>;
+                R sum<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font> k<font color='#5555FF'>=</font><font color='#979000'>0</font>; k <font color='#5555FF'>&lt;</font> BESSEL_NITERATIONS; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>k<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    a <font color='#5555FF'>=</font> <font color='#979000'>2</font> <font color='#5555FF'>*</font> k <font color='#5555FF'>*</font> std::<font color='#BB00BB'>log</font><font face='Lucida Console'>(</font><font color='#BB00BB'>R</font><font face='Lucida Console'>(</font><font color='#979000'>0.5</font><font face='Lucida Console'>)</font><font color='#5555FF'>*</font>x<font face='Lucida Console'>)</font>; <font color='#009900'>// log((x/2)^(2k))
+</font>                    b <font color='#5555FF'>=</font> std::<font color='#BB00BB'>lgamma</font><font face='Lucida Console'>(</font><font color='#BB00BB'>R</font><font face='Lucida Console'>(</font>k<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> R<b>{</b><font color='#979000'>1</font><b>}</b><font face='Lucida Console'>)</font>;   <font color='#009900'>// log(k!) = log(gamma(k+1)). Recall gamma(k) = (k-1)!
+</font>                    c <font color='#5555FF'>=</font> std::<font color='#BB00BB'>lgamma</font><font face='Lucida Console'>(</font>nu <font color='#5555FF'>+</font> k <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>k<font color='#5555FF'>&amp;</font><font color='#979000'>1</font><font face='Lucida Console'>)</font>
+                        sum <font color='#5555FF'>-</font><font color='#5555FF'>=</font> std::<font color='#BB00BB'>exp</font><font face='Lucida Console'>(</font>a<font color='#5555FF'>-</font>b<font color='#5555FF'>-</font>c<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>else</font>
+                        sum <font color='#5555FF'>+</font><font color='#5555FF'>=</font> std::<font color='#BB00BB'>exp</font><font face='Lucida Console'>(</font>a<font color='#5555FF'>-</font>b<font color='#5555FF'>-</font>c<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> fact <font color='#5555FF'>*</font> sum;
+            <b>}</b>
+        <b>}</b>
+<font color='#0000FF'>#endif</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_MATH_DETAIL_BESSEL
+</font>
+</pre></body></html>

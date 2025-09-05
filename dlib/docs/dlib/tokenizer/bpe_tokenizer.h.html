@@ -1,0 +1,404 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - bpe_tokenizer.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2025 Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_BPE_TOKENIZER_H
+<font color='#0000FF'>#define</font> DLIB_BPE_TOKENIZER_H
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iomanip<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>future<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>mutex<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>thread<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>map<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>unordered_map<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>queue<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../base64.h.html'>../base64.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../serialize.h.html'>../serialize.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='bpe_tokenizer_abstract.h.html'>bpe_tokenizer_abstract.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    constexpr <font color='#0000FF'><u>size_t</u></font> BPE_TOKENIZER_MAX_TOKEN_LENGTH <font color='#5555FF'>=</font> <font color='#979000'>8</font>;
+    constexpr <font color='#0000FF'><u>int</u></font> BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>=</font> <font color='#979000'>256</font>;
+
+    <font color='#0000FF'>class</font> <b><a name='bpe_tokenizer'></a>bpe_tokenizer</b>
+    <b>{</b>
+    <font color='#0000FF'>public</font>:
+        <b><a name='bpe_tokenizer'></a>bpe_tokenizer</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> : vocab_size<font face='Lucida Console'>(</font>BPE_TOKENIZER_BASE_VOCAB_SIZE<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#009900'>// Initialize the base vocabulary with single bytes
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> BPE_TOKENIZER_BASE_VOCAB_SIZE; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                vocab[i] <font color='#5555FF'>=</font> std::vector<font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font><b>{</b> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>i<font face='Lucida Console'>)</font> <b>}</b>;
+            
+            <font color='#009900'>// Initialize special tokens with sequential IDs
+</font>            special_tokens <font color='#5555FF'>=</font>
+            <b>{</b>
+                <b>{</b>"<font color='#CC0000'>&lt;text&gt;</font>",      BPE_TOKENIZER_BASE_VOCAB_SIZE<b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/text&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>1</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;url&gt;</font>",       BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>2</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/url&gt;</font>",      BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>3</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;image&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>4</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/image&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>5</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;video&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>6</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/video&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>7</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;audio&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>8</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/audio&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>9</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;file&gt;</font>",      BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>10</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/file&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>11</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;code&gt;</font>",      BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>12</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/code&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>13</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;summary&gt;</font>",   BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>14</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/summary&gt;</font>",  BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>15</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;think&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>16</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;/think&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>17</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;start&gt;</font>",     BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>18</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;end&gt;</font>",       BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>19</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;user&gt;</font>",      BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>20</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;bot&gt;</font>",       BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>21</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;system&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>22</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;question&gt;</font>",  BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>23</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;answer&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>24</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;search&gt;</font>",    BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>25</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;unk&gt;</font>",       BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>26</font><b>}</b>,
+                <b>{</b>"<font color='#CC0000'>&lt;pad&gt;</font>",       BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font color='#979000'>27</font><b>}</b>
+            <b>}</b>;
+
+            <font color='#009900'>// Initialize the vector of special token IDs
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> token : special_tokens<font face='Lucida Console'>)</font>
+                special_token_map[token.second] <font color='#5555FF'>=</font> token.first;
+        <b>}</b>
+
+        <font color='#009900'>// Train the tokenizer on the given text
+</font>        <font color='#0000FF'><u>void</u></font> <b><a name='train'></a>train</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> text, <font color='#0000FF'><u>int</u></font> vocab_size, <font color='#0000FF'><u>bool</u></font> verbose <font color='#5555FF'>=</font> <font color='#979000'>false</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font>vocab_size <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> BPE_TOKENIZER_BASE_VOCAB_SIZE<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>vocab_size <font color='#5555FF'>=</font> vocab_size;
+            <font color='#0000FF'><u>int</u></font> num_merges <font color='#5555FF'>=</font> vocab_size <font color='#5555FF'>-</font> BPE_TOKENIZER_BASE_VOCAB_SIZE;
+
+            <font color='#009900'>// Convert text to byte IDs
+</font>            std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> ids;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>char</u></font> c : text<font face='Lucida Console'>)</font> ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>c<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// Perform BPE merges
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> num_merges; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#0000FF'>auto</font> stats <font color='#5555FF'>=</font> <font color='#BB00BB'>get_stats</font><font face='Lucida Console'>(</font>ids<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>stats.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#0000FF'>break</font>;
+
+                <font color='#009900'>// Find the most frequent pair that does not exceed BPE_TOKENIZER_MAX_TOKEN_LENGTH
+</font>                <font color='#0000FF'>auto</font> pair <font color='#5555FF'>=</font> <font color='#BB00BB'>get_most_frequent_pair</font><font face='Lucida Console'>(</font>stats<font face='Lucida Console'>)</font>;
+
+                <font color='#009900'>// Check if the resulting token would exceed BPE_TOKENIZER_MAX_TOKEN_LENGTH
+</font>                <font color='#0000FF'><u>size_t</u></font> new_token_length <font color='#5555FF'>=</font> vocab[pair.first].<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> vocab[pair.second].<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>new_token_length <font color='#5555FF'>&gt;</font> BPE_TOKENIZER_MAX_TOKEN_LENGTH<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>verbose<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        std::cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\r</font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>setw</font><font face='Lucida Console'>(</font><font color='#979000'>100</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::flush
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\rskipping merge </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>/</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>num_merges<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>: (</font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>pair.first<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>,</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>pair.second<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>) -&gt; new token length </font>"
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>new_token_length<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> exceeds limit of </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>BPE_TOKENIZER_MAX_TOKEN_LENGTH<font face='Lucida Console'>)</font>
+                            <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::flush;
+                    <b>}</b>
+                    <font color='#0000FF'>continue</font>; <font color='#009900'>// Skip this merge
+</font>                <b>}</b>
+
+                <font color='#0000FF'><u>int</u></font> idx <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>BPE_TOKENIZER_BASE_VOCAB_SIZE <font color='#5555FF'>+</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>special_tokens.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> i;
+                ids <font color='#5555FF'>=</font> <font color='#BB00BB'>merge</font><font face='Lucida Console'>(</font>ids, pair, idx<font face='Lucida Console'>)</font>;
+                merges[pair] <font color='#5555FF'>=</font> idx;
+                vocab[idx].<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>vocab[idx].<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, vocab[pair.first].<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, vocab[pair.first].<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                vocab[idx].<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>vocab[idx].<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, vocab[pair.second].<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, vocab[pair.second].<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>verbose<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    std::cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\r</font>"
+                        <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>setw</font><font face='Lucida Console'>(</font><font color='#979000'>100</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::flush
+                        <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\rmerge </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>/</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>num_merges<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>: (</font>"
+                        <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>pair.first<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>,</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>pair.second<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>) -&gt; </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>idx<font face='Lucida Console'>)</font>
+                        <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> (</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>bytes_to_string</font><font face='Lucida Console'>(</font>vocab[idx]<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>) had </font>"
+                        <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>stats[pair]<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> occurrences</font>"
+                        <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::endl;
+                <b>}</b>
+            <b>}</b>
+        <b>}</b>
+
+        <font color='#009900'>// Encode the given text into subword tokens
+</font>        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <b><a name='encode'></a>encode</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> text<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> result_ids;
+            std::mutex result_mutex;
+
+            <font color='#009900'>// Split the text into paragraphs based on newline characters
+</font>            std::vector<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font> paragraphs;
+            <font color='#0000FF'><u>size_t</u></font> start <font color='#5555FF'>=</font> <font color='#979000'>0</font>, end <font color='#5555FF'>=</font> text.<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font>'<font color='#FF0000'>\n</font>'<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>end <font color='#5555FF'>!</font><font color='#5555FF'>=</font> std::string::npos<font face='Lucida Console'>)</font> <b>{</b>
+                std::string paragraph <font color='#5555FF'>=</font> text.<font color='#BB00BB'>substr</font><font face='Lucida Console'>(</font>start, end <font color='#5555FF'>-</font> start<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>paragraph.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> paragraphs.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>paragraph<font face='Lucida Console'>)</font>;
+                start <font color='#5555FF'>=</font> end <font color='#5555FF'>+</font> <font color='#979000'>1</font>;
+                end <font color='#5555FF'>=</font> text.<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font>'<font color='#FF0000'>\n</font>', start<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#009900'>// Add the last paragraph (if any) and only if it's not empty
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>start <font color='#5555FF'>&lt;</font> text.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                std::string paragraph <font color='#5555FF'>=</font> text.<font color='#BB00BB'>substr</font><font face='Lucida Console'>(</font>start<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>paragraph.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> paragraphs.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>paragraph<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#009900'>// Function to encode a single paragraph
+</font>            <font color='#0000FF'>auto</font> encode_paragraph <font color='#5555FF'>=</font> [<font color='#0000FF'>this</font>]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> paragraph<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font> std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <b>{</b>
+                std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> ids;
+                ids.<font color='#BB00BB'>reserve</font><font face='Lucida Console'>(</font>paragraph.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>char</u></font> c : paragraph<font face='Lucida Console'>)</font> ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>c<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>auto</font> stats <font color='#5555FF'>=</font> <font color='#BB00BB'>get_stats</font><font face='Lucida Console'>(</font>ids<font face='Lucida Console'>)</font>;
+                std::priority_queue<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> pq;
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> stat : stats<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> pair <font color='#5555FF'>=</font> stat.first;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>merges.<font color='#BB00BB'>count</font><font face='Lucida Console'>(</font>pair<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> pq.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font><b>{</b> merges.<font color='#BB00BB'>at</font><font face='Lucida Console'>(</font>pair<font face='Lucida Console'>)</font>, pair <b>}</b><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>pq.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> top_element <font color='#5555FF'>=</font> pq.<font color='#BB00BB'>top</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> pair <font color='#5555FF'>=</font> top_element.second;
+                    pq.<font color='#BB00BB'>pop</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                    <font color='#0000FF'><u>bool</u></font> pair_found <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#979000'>1</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font> <b>{</b>
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ids[i] <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pair.first <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ids[i <font color='#5555FF'>+</font> <font color='#979000'>1</font>] <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pair.second<font face='Lucida Console'>)</font> <b>{</b>
+                            pair_found <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+                            <font color='#0000FF'>break</font>;
+                        <b>}</b>
+                    <b>}</b>
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>pair_found<font face='Lucida Console'>)</font> <font color='#0000FF'>continue</font>;
+
+                    <font color='#0000FF'><u>int</u></font> idx <font color='#5555FF'>=</font> merges.<font color='#BB00BB'>at</font><font face='Lucida Console'>(</font>pair<font face='Lucida Console'>)</font>;
+                    ids <font color='#5555FF'>=</font> <font color='#BB00BB'>merge</font><font face='Lucida Console'>(</font>ids, pair, idx<font face='Lucida Console'>)</font>;
+
+                    stats <font color='#5555FF'>=</font> <font color='#BB00BB'>get_stats</font><font face='Lucida Console'>(</font>ids<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> stat : stats<font face='Lucida Console'>)</font> <b>{</b>
+                        <font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> new_pair <font color='#5555FF'>=</font> stat.first;
+                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>merges.<font color='#BB00BB'>count</font><font face='Lucida Console'>(</font>new_pair<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> pq.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font><b>{</b> merges.<font color='#BB00BB'>at</font><font face='Lucida Console'>(</font>new_pair<font face='Lucida Console'>)</font>, new_pair <b>}</b><font face='Lucida Console'>)</font>;
+                    <b>}</b>
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> ids;
+            <b>}</b>;
+
+            <font color='#009900'>// Special case: if there's only one paragraph, no need for threads
+</font>            <font color='#0000FF'><u>int</u></font> sot_tok <font color='#5555FF'>=</font> <font color='#BB00BB'>get_special_token_id</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>&lt;text&gt;</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>int</u></font> eot_tok <font color='#5555FF'>=</font> <font color='#BB00BB'>get_special_token_id</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>&lt;/text&gt;</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>paragraphs.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <b>{</b>
+                std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> paragraph_ids <font color='#5555FF'>=</font> <font color='#BB00BB'>encode_paragraph</font><font face='Lucida Console'>(</font>paragraphs[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+                result_ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>sot_tok<font face='Lucida Console'>)</font>;
+                result_ids.<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>result_ids.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, paragraph_ids.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, paragraph_ids.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                result_ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>eot_tok<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> result_ids;
+            <b>}</b>
+
+            <font color='#009900'>// Launch encoding tasks in parallel for multiple paragraphs
+</font>            std::vector<font color='#5555FF'>&lt;</font>std::future<font color='#5555FF'>&lt;</font>std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> futures;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> paragraph : paragraphs<font face='Lucida Console'>)</font>
+                futures.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>async</font><font face='Lucida Console'>(</font>std::launch::async, encode_paragraph, paragraph<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// Collect results in order
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> future : futures<font face='Lucida Console'>)</font> <b>{</b>
+                std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> paragraph_ids <font color='#5555FF'>=</font> future.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                std::lock_guard<font color='#5555FF'>&lt;</font>std::mutex<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>lock</font><font face='Lucida Console'>(</font>result_mutex<font face='Lucida Console'>)</font>;
+                result_ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>sot_tok<font face='Lucida Console'>)</font>;
+                result_ids.<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>result_ids.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, paragraph_ids.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, paragraph_ids.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                result_ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>eot_tok<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>return</font> result_ids;
+        <b>}</b>
+
+        <font color='#009900'>// Decode a single token ID back into text
+</font>        std::string <b><a name='decode'></a>decode</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> id, <font color='#0000FF'><u>bool</u></font> display_special_tokens <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>decode</font><font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><b>{</b> id <b>}</b><font face='Lucida Console'>)</font>, display_special_tokens<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Decode a sequence of token IDs back into text
+</font>        std::string <b><a name='decode'></a>decode</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> ids, <font color='#0000FF'><u>bool</u></font> display_special_tokens <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            std::vector<font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font> bytes;
+            <font color='#0000FF'><u>int</u></font> vocab_size <font color='#5555FF'>=</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#BB00BB'>get_vocab_size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> id : ids<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>id <font color='#5555FF'>&lt;</font> vocab_size<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#009900'>// Check if the ID is a special token
+</font>                    <font color='#0000FF'>auto</font> it <font color='#5555FF'>=</font> special_token_map.<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font>id<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>it <font color='#5555FF'>!</font><font color='#5555FF'>=</font> special_token_map.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        <font color='#009900'>// It's a special token, get the corresponding string
+</font>                        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>display_special_tokens<font face='Lucida Console'>)</font> bytes.<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>bytes.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, it<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>second.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, it<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>second.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                    <b>}</b>
+                    <font color='#0000FF'>else</font>
+                    <b>{</b>
+                        <font color='#009900'>// It's a regular token, get the bytes from the vocabulary
+</font>                        <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> token <font color='#5555FF'>=</font> vocab.<font color='#BB00BB'>at</font><font face='Lucida Console'>(</font>id<font face='Lucida Console'>)</font>;
+                        bytes.<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>bytes.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, token.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, token.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                    <b>}</b>
+                <b>}</b>
+            <b>}</b>
+            <font color='#0000FF'>return</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font>bytes.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, bytes.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Save the tokenizer model and vocabulary to file
+</font>        <font color='#0000FF'>friend</font> <font color='#0000FF'><u>void</u></font> <b><a name='serialize'></a>serialize</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> bpe_tokenizer<font color='#5555FF'>&amp;</font> tok, std::ostream<font color='#5555FF'>&amp;</font> out<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>bpe_tokenizer2_</font>", out<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>tok.special_tokens, out<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>tok.special_token_map, out<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>tok.merges, out<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>tok.vocab, out<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>tok.vocab_size, out<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Load the tokenizer model and vocabulary from file
+</font>        <font color='#0000FF'>friend</font> <font color='#0000FF'><u>void</u></font> <b><a name='deserialize'></a>deserialize</b><font face='Lucida Console'>(</font>bpe_tokenizer<font color='#5555FF'>&amp;</font> tok, std::istream<font color='#5555FF'>&amp;</font> in<font face='Lucida Console'>)</font> <b>{</b>
+            std::string version;
+            dlib::<font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>version, in<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>version <font color='#5555FF'>!</font><font color='#5555FF'>=</font> "<font color='#CC0000'>bpe_tokenizer2_</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>throw</font> dlib::<font color='#BB00BB'>serialization_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Unexpected version '</font>" <font color='#5555FF'>+</font> version <font color='#5555FF'>+</font> "<font color='#CC0000'>' found while deserializing dlib::bpe_tokenizer_.</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>tok.special_tokens, in<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>tok.special_token_map, in<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>tok.merges, in<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>tok.vocab, in<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>tok.vocab_size, in<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Get the ID of a special token
+</font>        <font color='#0000FF'><u>int</u></font> <b><a name='get_special_token_id'></a>get_special_token_id</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> token<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            <font color='#0000FF'>auto</font> it <font color='#5555FF'>=</font> special_tokens.<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font>token<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>it <font color='#5555FF'>!</font><font color='#5555FF'>=</font> special_tokens.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#0000FF'>return</font> it<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>second;
+            <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Special token not found: </font>" <font color='#5555FF'>+</font> token<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Get the total vocabulary size
+</font>        <font color='#0000FF'><u>size_t</u></font> <b><a name='get_vocab_size'></a>get_vocab_size</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font face='Lucida Console'>(</font>vocab.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> special_tokens.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+    <font color='#0000FF'>private</font>:
+        std::map<font color='#5555FF'>&lt;</font>std::string, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> special_tokens;
+        std::unordered_map<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, std::string<font color='#5555FF'>&gt;</font> special_token_map;
+        std::map<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> merges;
+        std::map<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, std::vector<font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> vocab;
+        <font color='#0000FF'><u>int</u></font> vocab_size;
+
+        <font color='#009900'>// Get frequency statistics of adjacent token pairs
+</font>        <font color='#0000FF'>struct</font> <b><a name='pair_hash'></a>pair_hash</b> <b>{</b>
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T1'></a>T1</b>, <font color='#0000FF'>class</font> <b><a name='T2'></a>T2</b><font color='#5555FF'>&gt;</font>
+            std::<font color='#0000FF'><u>size_t</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font>T1, T2<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> p<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <b>{</b>
+                <font color='#0000FF'>auto</font> hash1 <font color='#5555FF'>=</font> std::hash<font color='#5555FF'>&lt;</font>T1<font color='#5555FF'>&gt;</font><b>{</b><b>}</b><font face='Lucida Console'>(</font>p.first<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>auto</font> hash2 <font color='#5555FF'>=</font> std::hash<font color='#5555FF'>&lt;</font>T2<font color='#5555FF'>&gt;</font><b>{</b><b>}</b><font face='Lucida Console'>(</font>p.second<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> hash1 ^ <font face='Lucida Console'>(</font>hash2 <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+        std::unordered_map<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font>, <font color='#0000FF'><u>int</u></font>, pair_hash<font color='#5555FF'>&gt;</font> <b><a name='get_stats'></a>get_stats</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> ids<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            std::unordered_map<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font>, <font color='#0000FF'><u>int</u></font>, pair_hash<font color='#5555FF'>&gt;</font> global_stats;
+            std::mutex global_stats_mutex;
+
+            <font color='#0000FF'>auto</font> worker <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> start, <font color='#0000FF'><u>size_t</u></font> end<font face='Lucida Console'>)</font> <b>{</b>
+                std::unordered_map<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font>, <font color='#0000FF'><u>int</u></font>, pair_hash<font color='#5555FF'>&gt;</font> local_stats;
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> start; i <font color='#5555FF'>&lt;</font> end <font color='#5555FF'>-</font> <font color='#979000'>1</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> i <font color='#5555FF'>+</font> <font color='#979000'>1</font> <font color='#5555FF'>&lt;</font> ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                    local_stats[<b>{</b>ids[i], ids[i <font color='#5555FF'>+</font> <font color='#979000'>1</font>]<b>}</b>]<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+
+                std::lock_guard<font color='#5555FF'>&lt;</font>std::mutex<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>lock</font><font face='Lucida Console'>(</font>global_stats_mutex<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> pair : local_stats<font face='Lucida Console'>)</font>
+                    global_stats[pair.first] <font color='#5555FF'>+</font><font color='#5555FF'>=</font> pair.second;
+            <b>}</b>;
+
+            <font color='#0000FF'><u>size_t</u></font> num_threads <font color='#5555FF'>=</font> std::thread::<font color='#BB00BB'>hardware_concurrency</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>size_t</u></font> segment_size <font color='#5555FF'>=</font> ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> num_threads;
+            std::vector<font color='#5555FF'>&lt;</font>std::thread<font color='#5555FF'>&gt;</font> threads;
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> t <font color='#5555FF'>=</font> <font color='#979000'>0</font>; t <font color='#5555FF'>&lt;</font> num_threads; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>t<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'><u>size_t</u></font> start <font color='#5555FF'>=</font> t <font color='#5555FF'>*</font> segment_size;
+                <font color='#0000FF'><u>size_t</u></font> end <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>t <font color='#5555FF'>=</font><font color='#5555FF'>=</font> num_threads <font color='#5555FF'>-</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> ? ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> : start <font color='#5555FF'>+</font> segment_size;
+                threads.<font color='#BB00BB'>emplace_back</font><font face='Lucida Console'>(</font>worker, start, end<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> thread : threads<font face='Lucida Console'>)</font> thread.<font color='#BB00BB'>join</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> global_stats;
+        <b>}</b>
+
+        <font color='#009900'>// Finds the most frequent pair of tokens in the given statistics map that does not exceed the maximum token length
+</font>        std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <b><a name='get_most_frequent_pair'></a>get_most_frequent_pair</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::unordered_map<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font>, <font color='#0000FF'><u>int</u></font>, pair_hash<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> stats<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+        <b>{</b>
+            std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> best_pair <font color='#5555FF'>=</font> <b>{</b> <font color='#5555FF'>-</font><font color='#979000'>1</font>, <font color='#5555FF'>-</font><font color='#979000'>1</font> <b>}</b>; <font color='#009900'>// Initialize the best pair to an invalid value
+</font>            <font color='#0000FF'><u>double</u></font> max_score <font color='#5555FF'>=</font> <font color='#979000'>0</font>; <font color='#009900'>// Initialize the maximum score to 0
+</font>
+            <font color='#009900'>// Iterate over all pairs in the statistics map
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> stat : stats<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> pair <font color='#5555FF'>=</font> stat.first; <font color='#009900'>// Extract the token pair
+</font>                <font color='#0000FF'><u>int</u></font> count <font color='#5555FF'>=</font> stat.second; <font color='#009900'>// Extract the frequency count
+</font>
+                <font color='#009900'>// Check if the new token formed by merging the pair would exceed the maximum allowed length
+</font>                <font color='#0000FF'><u>size_t</u></font> new_token_length <font color='#5555FF'>=</font> vocab.<font color='#BB00BB'>at</font><font face='Lucida Console'>(</font>pair.first<font face='Lucida Console'>)</font>.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> vocab.<font color='#BB00BB'>at</font><font face='Lucida Console'>(</font>pair.second<font face='Lucida Console'>)</font>.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>new_token_length <font color='#5555FF'>&gt;</font> BPE_TOKENIZER_MAX_TOKEN_LENGTH<font face='Lucida Console'>)</font> <font color='#0000FF'>continue</font>; <font color='#009900'>// Skip this pair if it exceeds the maximum token length
+</font>
+                <font color='#009900'>// Calculate the score for this pair (frequency * length_penalty)
+</font>                <font color='#0000FF'><u>double</u></font> score <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font>count <font color='#5555FF'>*</font> <font face='Lucida Console'>(</font>new_token_length <font color='#5555FF'>&gt;</font> <font face='Lucida Console'>(</font>BPE_TOKENIZER_MAX_TOKEN_LENGTH <font color='#5555FF'>/</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font> ? <font color='#979000'>1.75</font> : <font color='#979000'>1.0</font><font face='Lucida Console'>)</font>;
+
+                <font color='#009900'>// Update the best pair if the current pair has a higher score
+</font>                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>score <font color='#5555FF'>&gt;</font> max_score<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    best_pair <font color='#5555FF'>=</font> pair;
+                    max_score <font color='#5555FF'>=</font> score;
+                <b>}</b>
+            <b>}</b>
+
+            <font color='#0000FF'>return</font> best_pair; <font color='#009900'>// Return the pair with the highest score
+</font>        <b>}</b>
+
+        <font color='#009900'>// Merge the most frequent pair in the token sequence
+</font>        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <b><a name='merge'></a>merge</b><font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> ids, <font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> pair, <font color='#0000FF'><u>int</u></font> idx<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+        <b>{</b>
+            std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> new_ids;
+            new_ids.<font color='#BB00BB'>reserve</font><font face='Lucida Console'>(</font>ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; <font color='#009900'>// Reserve space to avoid reallocations
+</font>
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> ids.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#979000'>1</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ids[i] <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pair.first <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ids[i <font color='#5555FF'>+</font> <font color='#979000'>1</font>] <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pair.second<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    new_ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>idx<font face='Lucida Console'>)</font>; <font color='#009900'>// Replace the pair with the new token ID
+</font>                    i<font color='#5555FF'>+</font><font color='#5555FF'>+</font>; <font color='#009900'>// Skip the next token
+</font>                <b>}</b>
+                <font color='#0000FF'>else</font> new_ids.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>ids[i]<font face='Lucida Console'>)</font>; <font color='#009900'>// Keep the current token
+</font>            <b>}</b>
+
+            <font color='#0000FF'>return</font> new_ids;
+        <b>}</b>
+
+        <font color='#0000FF'>static</font> std::string <b><a name='base64_encode'></a>base64_encode</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> input<font face='Lucida Console'>)</font> <b>{</b>
+            dlib::base64 encoder;
+            std::istringstream <font color='#BB00BB'>sin</font><font face='Lucida Console'>(</font>input<font face='Lucida Console'>)</font>;
+            std::ostringstream sout;
+            encoder.<font color='#BB00BB'>encode</font><font face='Lucida Console'>(</font>sin, sout<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> sout.<font color='#BB00BB'>str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Convert a sequence of bytes to a readable string
+</font>        <font color='#0000FF'>static</font> std::string <b><a name='bytes_to_string'></a>bytes_to_string</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::vector<font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> bytes<font face='Lucida Console'>)</font>
+        <b>{</b>
+            std::string <font color='#BB00BB'>data</font><font face='Lucida Console'>(</font>bytes.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, bytes.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>base64_encode</font><font face='Lucida Console'>(</font>data<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+    <b>}</b>;
+
+<b>}</b>
+
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_BPE_TOKENIZER_H
+</font>
+</pre></body></html>

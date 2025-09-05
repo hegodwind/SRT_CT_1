@@ -1,0 +1,943 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg.cpp</title></head><body bgcolor='white'><pre>
+#<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#ifdef</font> DLIB_USE_FFMPEG
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>fstream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>chrono<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>dir_nav.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>config_reader.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>media.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>array2d.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>matrix.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>rand.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>image_transforms.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>image_io.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='tester.h.html'>tester.h</a>"
+
+<font color='#0000FF'>#ifndef</font> DLIB_FFMPEG_DATA
+<b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#979000'>false</font>, "<font color='#CC0000'>Build is faulty. DLIB_VIDEOS_FILEPATH should be defined by cmake</font>"<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>namespace</font>  
+<b>{</b>
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std::chrono;
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> test;
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib::ffmpeg;
+    
+    logger <b><a name='dlog'></a>dlog</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>test.video</font>"<font face='Lucida Console'>)</font>;
+
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>// UTILS
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>    
+    dlib::rand <b><a name='rng'></a>rng</b><font face='Lucida Console'>(</font><font color='#979000'>10000</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='pixel'></a>pixel</b><font color='#5555FF'>&gt;</font>
+    matrix<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font> <b><a name='get_random_image'></a>get_random_image</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        matrix<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font> img;
+
+        img.<font color='#BB00BB'>set_size</font><font face='Lucida Console'>(</font>rng.<font color='#BB00BB'>get_integer_in_range</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, <font color='#979000'>128</font><font face='Lucida Console'>)</font>,
+                     rng.<font color='#BB00BB'>get_integer_in_range</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>, <font color='#979000'>128</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> j <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; j <font color='#5555FF'>&lt;</font> img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>j<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>assign_pixel</font><font face='Lucida Console'>(</font><font color='#BB00BB'>img</font><font face='Lucida Console'>(</font>i,j<font face='Lucida Console'>)</font>, rng.<font color='#BB00BB'>get_random_8bit_number</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>return</font> img;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='pixel'></a>pixel</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='check_image'></a>check_image</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> frame<font color='#5555FF'>&amp;</font> f,
+        <font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> img
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>f.<font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font><font color='#5555FF'>=</font> AV_SAMPLE_FMT_NONE<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> pix_traits<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font>::fmt<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        matrix<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font> dummy;
+        <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>f, dummy<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dummy.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dummy.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img <font color='#5555FF'>=</font><font color='#5555FF'>=</font> dummy<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='pixel'></a>pixel</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_frame'></a>test_frame</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font> img1 <font color='#5555FF'>=</font> get_random_image<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font> img2 <font color='#5555FF'>=</font> get_random_image<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Create a frame
+</font>        frame <font color='#BB00BB'>f1</font><font face='Lucida Console'>(</font>img1.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, img1.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, pix_traits<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font>::fmt, system_clock::time_point<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>img1, f1<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Check frame is correct
+</font>        <font color='#BB00BB'>check_image</font><font face='Lucida Console'>(</font>f1, img1<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Copy
+</font>        frame <font color='#BB00BB'>f2</font><font face='Lucida Console'>(</font>f1<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Check it's a deepcopy, i.e. pointers are different but values are the same
+</font>        <font color='#BB00BB'>check_image</font><font face='Lucida Console'>(</font>f2, img1<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Check pointers are different
+</font>        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f1.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data[<font color='#979000'>0</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> f2.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Set f2 and check this doesn't affect f1
+</font>        f2 <font color='#5555FF'>=</font> <font color='#BB00BB'>frame</font><font face='Lucida Console'>(</font>img2.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, img2.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, pix_traits<font color='#5555FF'>&lt;</font>pixel<font color='#5555FF'>&gt;</font>::fmt, system_clock::time_point<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>img2, f2<font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>check_image</font><font face='Lucida Console'>(</font>f2, img2<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>check_image</font><font face='Lucida Console'>(</font>f1, img1<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f1.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data[<font color='#979000'>0</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> f2.<font color='#BB00BB'>get_frame</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.data[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Move
+</font>        f2 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f1<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>check_image</font><font face='Lucida Console'>(</font>f2, img1<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f1.<font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> pixel_type<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>double</u></font> <b><a name='psnr'></a>psnr</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>pixel_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> img1, <font color='#0000FF'>const</font> matrix<font color='#5555FF'>&lt;</font>pixel_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> img2<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#BB00BB'>have_same_dimensions</font><font face='Lucida Console'>(</font>img1, img2<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> nk           <font color='#5555FF'>=</font> <font color='#BB00BB'>width_step</font><font face='Lucida Console'>(</font>img1<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> img1.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> data_size    <font color='#5555FF'>=</font> img1.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>*</font> nk;
+        <font color='#0000FF'>auto</font><font color='#5555FF'>*</font> data1             <font color='#5555FF'>=</font> <font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> uint8_t<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#BB00BB'>image_data</font><font face='Lucida Console'>(</font>img1<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>auto</font><font color='#5555FF'>*</font> data2             <font color='#5555FF'>=</font> <font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> uint8_t<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#BB00BB'>image_data</font><font face='Lucida Console'>(</font>img2<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'><u>double</u></font> mse <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+        <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> data_size; i <font color='#5555FF'>+</font><font color='#5555FF'>=</font> nk<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> k <font color='#5555FF'>=</font> <font color='#979000'>0</font>; k <font color='#5555FF'>&lt;</font> nk; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>k<font face='Lucida Console'>)</font>
+                mse <font color='#5555FF'>+</font><font color='#5555FF'>=</font> std::<font color='#BB00BB'>pow</font><font face='Lucida Console'>(</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>double</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>data1[i <font color='#5555FF'>+</font> k]<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>double</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>data2[i <font color='#5555FF'>+</font> k]<font face='Lucida Console'>)</font>, <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        mse <font color='#5555FF'>/</font><font color='#5555FF'>=</font> data_size;
+        <font color='#0000FF'>return</font> <font color='#979000'>20</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>log10</font><font face='Lucida Console'>(</font>pixel_traits<font color='#5555FF'>&lt;</font>pixel_type<font color='#5555FF'>&gt;</font>::<font color='#BB00BB'>max</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#979000'>10</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>log10</font><font face='Lucida Console'>(</font>mse<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_load_frame'></a>test_load_frame</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filename<font face='Lucida Console'>)</font>
+    <b>{</b>
+        matrix<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font> img1, img2;
+        <font color='#BB00BB'>load_image</font><font face='Lucida Console'>(</font>img1, filename<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>load_frame</font><font face='Lucida Console'>(</font>img2, filename<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img1.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img2.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img1.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img2.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> similarity <font color='#5555FF'>=</font> <font color='#BB00BB'>psnr</font><font face='Lucida Console'>(</font>img1, img2<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST_MSG</font><font face='Lucida Console'>(</font>similarity <font color='#5555FF'>&gt;</font> <font color='#979000'>25.0</font>, "<font color='#CC0000'>psnr </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> similarity<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='pixel_type'></a>pixel_type</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_load_save_frame'></a>test_load_save_frame</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filename<font face='Lucida Console'>)</font>
+    <b>{</b>
+        matrix<font color='#5555FF'>&lt;</font>pixel_type<font color='#5555FF'>&gt;</font> img1, img2;
+        img1 <font color='#5555FF'>=</font> get_random_image<font color='#5555FF'>&lt;</font>pixel_type<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>save_frame</font><font face='Lucida Console'>(</font>img1, filename, <b>{</b><b>{</b>"<font color='#CC0000'>qmin</font>", "<font color='#CC0000'>1</font>"<b>}</b>, <b>{</b>"<font color='#CC0000'>qmax</font>", "<font color='#CC0000'>1</font>"<b>}</b><b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>load_frame</font><font face='Lucida Console'>(</font>img2, filename<font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img1.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img2.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img1.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> img2.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> similarity <font color='#5555FF'>=</font> <font color='#BB00BB'>psnr</font><font face='Lucida Console'>(</font>img1, img2<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST_MSG</font><font face='Lucida Console'>(</font>similarity <font color='#5555FF'>&gt;</font> <font color='#979000'>20.0</font>, "<font color='#CC0000'>psnr </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> similarity<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>// DECODER
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+      <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>
+    <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_decoder_images_only'></a>test_decoder_images_only</b><font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath,
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> codec,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> nframes,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> height,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> width
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        decoder <font color='#BB00BB'>dec</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+            decoder::args args;
+            args.codec_name <font color='#5555FF'>=</font> codec;
+            <font color='#0000FF'>return</font> args;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get_codec_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> codec<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>is_image_decoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>// You can't test for dec.height() or dec.width() yet because no data has been pushed to the decoder.
+</font>
+        image_type      img;
+        <font color='#0000FF'><u>int</u></font>             counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        ifstream fin<b>{</b>filepath, std::ios::binary<b>}</b>;
+        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>buf</font><font face='Lucida Console'>(</font><font color='#979000'>1024</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> callback <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>image_type<font color='#5555FF'>&amp;</font> img<font face='Lucida Console'>)</font> <font color='#0000FF'>mutable</font>
+        <b>{</b>
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>      <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;
+            
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>counter <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>fin<font face='Lucida Console'>)</font>
+        <b>{</b>
+            fin.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>buf.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, buf.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>size_t</u></font> ret <font color='#5555FF'>=</font> fin.<font color='#BB00BB'>gcount</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint8_t<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>buf.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, ret, <font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>callback<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        dec.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>callback<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nframes<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>dec.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+      <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>
+    <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_decoder_full'></a>test_decoder_full</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font>  filepath,
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font>  codec,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>           nframes,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>           height,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>           width,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>           sample_rate,
+        <font color='#0000FF'><u>bool</u></font>                has_image,
+        <font color='#0000FF'><u>bool</u></font>                has_audio
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        decoder <font color='#BB00BB'>dec</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+            decoder::args args;
+            args.codec_name <font color='#5555FF'>=</font> codec;
+            <font color='#0000FF'>return</font> args;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get_codec_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> codec<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>is_audio_decoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_audio<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>is_image_decoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_image<font face='Lucida Console'>)</font>;
+
+        image_type                  img;
+        audio<font color='#5555FF'>&lt;</font>int16_t, <font color='#979000'>2</font><font color='#5555FF'>&gt;</font>           audio_buf;
+        frame                       frame_copy;
+        <font color='#0000FF'><u>int</u></font>                         count<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font>                         nsamples<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font>                         iteration<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        ifstream fin<b>{</b>filepath, std::ios::binary<b>}</b>;
+        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>buf</font><font face='Lucida Console'>(</font><font color='#979000'>1024</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>const</font> resizing_args args_image <b>{</b>
+            <font color='#979000'>0</font>,
+            <font color='#979000'>0</font>,
+            pix_traits<font color='#5555FF'>&lt;</font>pixel_type_t<font color='#5555FF'>&lt;</font>image_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::fmt
+        <b>}</b>;
+
+        <font color='#0000FF'>const</font> resampling_args args_audio <b>{</b>
+            sample_rate,
+            dlib::ffmpeg::details::<font color='#BB00BB'>get_layout_from_channels</font><font face='Lucida Console'>(</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>audio_buf<font face='Lucida Console'>)</font>::nchannels<font face='Lucida Console'>)</font>,
+            sample_traits<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>audio_buf<font face='Lucida Console'>)</font>::format<font color='#5555FF'>&gt;</font>::fmt
+        <b>}</b>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> callback <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>frame<font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_audio<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>f, audio_buf<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>audio_buf, frame_copy<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sample_rate<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_audio.fmt<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sample_rate<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_audio.fmt<font face='Lucida Console'>)</font>;
+
+                nsamples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sample_rate<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>sample_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_audio.fmt<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>f, img<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>convert</font><font face='Lucida Console'>(</font>img, frame_copy<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_image.fmt<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame_copy.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_image.fmt<font face='Lucida Console'>)</font>;
+
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>count;
+
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>iteration;
+            
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>iteration <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>fin<font face='Lucida Console'>)</font>
+        <b>{</b>
+            fin.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>buf.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, buf.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>size_t</u></font> ret <font color='#5555FF'>=</font> fin.<font color='#BB00BB'>gcount</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint8_t<font color='#5555FF'>*</font><font face='Lucida Console'>)</font>buf.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, ret, <font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>callback, args_image, args_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        dec.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>callback, args_image, args_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nframes<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>dec.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>// DEMUXER
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+      <font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b>
+    <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_demuxer_images_only'></a>test_demuxer_images_only</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> nframes,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> height,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> width
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font><b>{</b>filepath, video_enabled, audio_enabled<b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+        <font color='#009900'>// DLIB_TEST(cap.estimated_nframes() == nframes); // This won't always work with ffmpeg v3. v4 onwards is fine
+</font>
+        image_type img;
+        <font color='#0000FF'><u>int</u></font> counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>counter <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nframes<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_demuxer_full'></a>test_demuxer_full</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> nframes,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> height,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> width,
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> sample_rate,
+        <font color='#0000FF'><u>bool</u></font> has_video,
+        <font color='#0000FF'><u>bool</u></font> has_audio
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font>filepath<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_video<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_audio<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>              <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>               <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>         <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sample_rate<font face='Lucida Console'>)</font>;
+        <font color='#009900'>// DLIB_TEST(cap.estimated_nframes()   == nframes); // This won't always work with ffmpeg v3. v4 onwards is fine
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> estimated_samples_min <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>estimated_total_samples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#009900'>// - 1s
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> estimated_samples_max <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>estimated_total_samples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#009900'>// + 1s
+</font>
+        dlib::ffmpeg::frame frame;
+        <font color='#0000FF'><u>int</u></font>                 counter_images<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font>                 counter_samples<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font>                 iteration<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        resizing_args args_image;
+        args_image.fmt <font color='#5555FF'>=</font> AV_PIX_FMT_RGB24;
+
+        resampling_args args_audio;
+        args_audio.sample_rate      <font color='#5555FF'>=</font> sample_rate;
+        args_audio.fmt              <font color='#5555FF'>=</font> AV_SAMPLE_FMT_S16;
+        args_audio.channel_layout   <font color='#5555FF'>=</font> AV_CH_LAYOUT_STEREO;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>frame, args_image, args_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>pixfmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_image.fmt<font face='Lucida Console'>)</font>;
+                
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter_images;
+            <b>}</b>
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sample_rate<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_audio.channel_layout<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>frame.<font color='#BB00BB'>samplefmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#5555FF'>=</font><font color='#5555FF'>=</font> args_audio.fmt<font face='Lucida Console'>)</font>;
+                counter_samples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> frame.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>iteration;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>iteration <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter_images <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nframes<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter_samples <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> estimated_samples_min<font face='Lucida Console'>)</font>; <font color='#009900'>//within 1 second
+</font>        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter_samples <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> estimated_samples_max<font face='Lucida Console'>)</font>; <font color='#009900'>//within 1 second
+</font>        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>// ENCODER
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_encoder'></a>test_encoder</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath,
+        AVCodecID image_codec,
+        AVCodecID audio_codec
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>// Load a video/audio as a source of frames
+</font>        demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font>filepath<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_video <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_audio <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>  height    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>  width     <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> pixfmt    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>pixel_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fps       <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>fps</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>  rate      <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> samplefmt <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>sample_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> layout    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>channel_layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        std::vector<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> frames;
+        frame f;
+        <font color='#0000FF'><u>int</u></font> nimages<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font> nsamples<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>nimages;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                nsamples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            frames.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+            
+        <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Encoder configured using same parameters as video
+</font>        encoder enc_image, enc_audio;
+        std::vector<font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font> buf_image, buf_audio;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+        <b>{</b>
+            enc_image <font color='#5555FF'>=</font> <font color='#BB00BB'>encoder</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+                encoder::args args;
+                args.args_codec.codec       <font color='#5555FF'>=</font> image_codec;
+                args.args_image.h           <font color='#5555FF'>=</font> height;
+                args.args_image.w           <font color='#5555FF'>=</font> width;
+                args.args_image.framerate   <font color='#5555FF'>=</font> fps;
+                args.args_image.fmt         <font color='#5555FF'>=</font> AV_PIX_FMT_YUV420P;
+                <font color='#0000FF'>return</font> args;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_image.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_image.<font color='#BB00BB'>is_image_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_image.<font color='#BB00BB'>get_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> image_codec<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_image.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>        <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_image.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>         <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <font color='#009900'>// Can't check for framerate, as this might have been changed from requested value, due to codec availability.
+</font>            <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_audio<font face='Lucida Console'>)</font>
+        <b>{</b>
+            enc_audio <font color='#5555FF'>=</font> <font color='#BB00BB'>encoder</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+                encoder::args args;
+                args.args_codec.codec           <font color='#5555FF'>=</font> audio_codec;
+                args.args_audio.sample_rate     <font color='#5555FF'>=</font> rate;
+                args.args_audio.channel_layout  <font color='#5555FF'>=</font> layout;
+                args.args_audio.fmt             <font color='#5555FF'>=</font> samplefmt;
+                <font color='#0000FF'>return</font> args;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_audio.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_audio.<font color='#BB00BB'>is_audio_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_audio.<font color='#BB00BB'>get_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> audio_codec<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'><u>int</u></font> iteration<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> f : frames<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_image.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf_image<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>enc_audio.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>iteration<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>%</font> <font color='#979000'>10</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        enc_image.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf_image<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        enc_audio.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf_audio<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Decode everything back
+</font>        decoder dec_image, dec_audio;
+        std::queue<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> queue;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+        <b>{</b>
+            dec_image <font color='#5555FF'>=</font> <font color='#BB00BB'>decoder</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+                decoder::args args;
+                args.codec <font color='#5555FF'>=</font> image_codec;
+                <font color='#0000FF'>return</font> args;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_image.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_image.<font color='#BB00BB'>is_image_decoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_image.<font color='#BB00BB'>get_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> image_codec<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_image.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>buf_image.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, buf_image.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>queue<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            dec_image.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>queue<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'><u>int</u></font> images <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+            <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>queue.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>auto</font> f <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>queue.<font color='#BB00BB'>front</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                queue.<font color='#BB00BB'>pop</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>images;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>            <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_image.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_image.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>     <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>images <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nimages<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_audio<font face='Lucida Console'>)</font>
+        <b>{</b>
+            dec_audio <font color='#5555FF'>=</font> <font color='#BB00BB'>decoder</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+                decoder::args args;
+                args.codec <font color='#5555FF'>=</font> audio_codec;
+                <font color='#0000FF'>return</font> args;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_audio.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_audio.<font color='#BB00BB'>is_audio_decoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_audio.<font color='#BB00BB'>get_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> audio_codec<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>dec_audio.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>buf_audio.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, buf_audio.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>queue, <b>{</b><b>}</b>, <b>{</b>rate<b>}</b><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            dec_audio.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>wrap</font><font face='Lucida Console'>(</font>queue, <b>{</b><b>}</b>, <b>{</b>rate<b>}</b><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'><u>int</u></font> samples <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+            <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>queue.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>auto</font> f <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>queue.<font color='#BB00BB'>front</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                queue.<font color='#BB00BB'>pop</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                samples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> rate<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>samples <font color='#5555FF'>&gt;</font> <font face='Lucida Console'>(</font>nsamples <font color='#5555FF'>-</font> rate<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>samples <font color='#5555FF'>&lt;</font> <font face='Lucida Console'>(</font>nsamples <font color='#5555FF'>+</font> rate<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>// MUXER
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='image_type'></a>image_type</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_muxer1'></a>test_muxer1</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath,
+        AVCodecID image_codec
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>const</font> std::string tmpfile <font color='#5555FF'>=</font> "<font color='#CC0000'>dummy.avi</font>";
+
+        <font color='#009900'>// Load a video/audio as a source of frames
+</font>        demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font><b>{</b>filepath, video_enabled, audio_disabled<b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> height <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> width  <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Open muxer
+</font>        muxer <font color='#BB00BB'>writer</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+            muxer::args args;
+            args.filepath <font color='#5555FF'>=</font> tmpfile;
+            args.enable_audio <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+            args.args_image.codec        <font color='#5555FF'>=</font> image_codec;
+            args.args_image.h            <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            args.args_image.w            <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            args.args_image.framerate    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>fps</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            args.args_image.fmt          <font color='#5555FF'>=</font> AV_PIX_FMT_YUV420P;
+            <font color='#0000FF'>return</font> args;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>writer.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>get_video_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font><font color='#5555FF'>=</font> image_codec<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>               <font color='#5555FF'>=</font><font color='#5555FF'>=</font> cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                <font color='#5555FF'>=</font><font color='#5555FF'>=</font> cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Demux then remux
+</font>        <font color='#0000FF'><u>int</u></font> nimages_demuxed<b>{</b><font color='#979000'>0</font><b>}</b>;
+        image_type img;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>nimages_demuxed;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>img.<font color='#BB00BB'>nc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>nimages_demuxed <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        writer.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Demux everything back
+</font>        demuxer <font color='#BB00BB'>cap2</font><font face='Lucida Console'>(</font>tmpfile<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap2.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>get_video_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> image_codec<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'><u>int</u></font> nimages_muxed<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>nimages_muxed;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>nimages_muxed <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>nimages_muxed <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nimages_demuxed<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_muxer2'></a>test_muxer2</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filepath,
+        AVCodecID image_codec,
+        AVCodecID audio_codec
+    <font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>const</font> std::string tmpfile <font color='#5555FF'>=</font> "<font color='#CC0000'>dummy.avi</font>";
+
+        <font color='#009900'>// Load a video/audio as a source of frames
+</font>        demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font>filepath<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_video <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_audio <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>  height    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>  width     <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> pixfmt    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>pixel_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fps       <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>fps</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font>  rate      <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> samplefmt <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>sample_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> layout    <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>channel_layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        std::vector<font color='#5555FF'>&lt;</font>frame<font color='#5555FF'>&gt;</font> frames;
+        frame f;
+        <font color='#0000FF'><u>int</u></font> nimages<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font> nsamples<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>nimages;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                nsamples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            frames.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+            
+        <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>// Muxer configured using parameters in video
+</font>        <b>{</b>
+            muxer <font color='#BB00BB'>writer</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+                muxer::args args;
+                args.filepath <font color='#5555FF'>=</font> tmpfile;
+                args.enable_image <font color='#5555FF'>=</font> has_video;
+                args.enable_audio <font color='#5555FF'>=</font> has_audio;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    args.args_image.codec        <font color='#5555FF'>=</font> image_codec;
+                    args.args_image.h            <font color='#5555FF'>=</font> height;
+                    args.args_image.w            <font color='#5555FF'>=</font> width;
+                    args.args_image.framerate    <font color='#5555FF'>=</font> fps;
+                    args.args_image.fmt          <font color='#5555FF'>=</font> AV_PIX_FMT_YUV420P;
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_audio<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    args.args_audio.codec            <font color='#5555FF'>=</font> audio_codec;
+                    args.args_audio.sample_rate      <font color='#5555FF'>=</font> rate;
+                    args.args_audio.channel_layout   <font color='#5555FF'>=</font> layout;
+                    args.args_audio.fmt              <font color='#5555FF'>=</font> samplefmt;
+                <b>}</b>
+
+                <font color='#0000FF'>return</font> args;
+            <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_audio<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_video<font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>get_video_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font><font color='#5555FF'>=</font> image_codec<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>               <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_audio<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>writer.<font color='#BB00BB'>get_audio_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> audio_codec<font face='Lucida Console'>)</font>;
+                <font color='#009900'>//You can't guarantee that the requested sample rate or sample format are supported.
+</font>                <font color='#009900'>//In which case, the object changes them to values that ARE supported. So we can't add
+</font>                <font color='#009900'>//tests that check the sample rate is set to what we asked for.
+</font>            <b>}</b> 
+
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> f : frames<font face='Lucida Console'>)</font>
+                writer.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// muxer.flush(); // You don't need to call this since muxer's destructor already does.
+</font>        <b>}</b>
+
+        <font color='#009900'>// Demux everything back
+</font>        demuxer <font color='#BB00BB'>cap2</font><font face='Lucida Console'>(</font>tmpfile<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_video<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font><font color='#5555FF'>=</font> has_audio<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>get_video_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> image_codec<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_audio<font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>get_audio_codec_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> audio_codec<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> height<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font><font color='#5555FF'>=</font> width<font face='Lucida Console'>)</font>;
+        <font color='#009900'>// Can't test for sample_rate since muxer may have changed it due to codec availability.
+</font>
+        <font color='#0000FF'><u>int</u></font> images<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font> samples<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font> iteration<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap2.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>f, <b>{</b><b>}</b>, <b>{</b>rate<b>}</b><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_image</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#5555FF'>+</font><font color='#5555FF'>+</font>images;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>f.<font color='#BB00BB'>is_audio</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                samples <font color='#5555FF'>+</font><font color='#5555FF'>=</font> f.<font color='#BB00BB'>nsamples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#5555FF'>+</font><font color='#5555FF'>+</font>iteration;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>iteration <font color='#5555FF'>%</font> <font color='#979000'>10</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>print_spinner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>images <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nimages<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>samples <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>nsamples <font color='#5555FF'>-</font> rate<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>samples <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>nsamples <font color='#5555FF'>+</font> rate<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> codec_supported <font color='#5555FF'>=</font> []<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecID id<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> std::<font color='#BB00BB'>find_if</font><font face='Lucida Console'>(</font><font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font color='#BB00BB'>list_codecs</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font color='#BB00BB'>list_codecs</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, [<font color='#5555FF'>=</font>]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> supported<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> supported.codec_id <font color='#5555FF'>=</font><font color='#5555FF'>=</font> id <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> supported.supports_encoding;
+        <b>}</b><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font color='#BB00BB'>list_codecs</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>;
+
+    <font color='#0000FF'>class</font> <b><a name='video_tester'></a>video_tester</b> : <font color='#0000FF'>public</font> tester
+    <b>{</b>
+    <font color='#0000FF'>public</font>:
+        <b><a name='video_tester'></a>video_tester</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> :
+            tester <font face='Lucida Console'>(</font>"<font color='#CC0000'>test_ffmpeg</font>",
+                    "<font color='#CC0000'>Runs tests on video IO.</font>"<font face='Lucida Console'>)</font>
+        <b>{</b><b>}</b>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='perform_test'></a>perform_test</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font> ; i <font color='#5555FF'>&lt;</font> <font color='#979000'>10</font> ; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                test_frame<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                test_frame<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                test_frame<font color='#5555FF'>&lt;</font>rgb_alpha_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                test_frame<font color='#5555FF'>&lt;</font>bgr_alpha_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>codec_supported</font><font face='Lucida Console'>(</font>AV_CODEC_ID_PNG<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.png</font>"<font face='Lucida Console'>)</font>;
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.png</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>codec_supported</font><font face='Lucida Console'>(</font>AV_CODEC_ID_MJPEG<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.jpg</font>"<font face='Lucida Console'>)</font>;
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.jpg</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>codec_supported</font><font face='Lucida Console'>(</font>AV_CODEC_ID_BMP<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.bmp</font>"<font face='Lucida Console'>)</font>;
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.bmp</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>codec_supported</font><font face='Lucida Console'>(</font>AV_CODEC_ID_TIFF<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.tiff</font>"<font face='Lucida Console'>)</font>;
+                    test_load_save_frame<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>dummy.tiff</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            dlib::file <font color='#BB00BB'>f</font><font face='Lucida Console'>(</font>DLIB_FFMPEG_DATA<font face='Lucida Console'>)</font>;
+            dlib::config_reader <font color='#BB00BB'>cfg</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>full_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <b>{</b>
+                <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> image_block <font color='#5555FF'>=</font> cfg.<font color='#BB00BB'>block</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>images</font>"<font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font> blocks;
+                image_block.<font color='#BB00BB'>get_blocks</font><font face='Lucida Console'>(</font>blocks<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> block : blocks<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> sublock <font color='#5555FF'>=</font> image_block.<font color='#BB00BB'>block</font><font face='Lucida Console'>(</font>block<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> std::string filepath <font color='#5555FF'>=</font> <font color='#BB00BB'>get_parent_directory</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>.<font color='#BB00BB'>full_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> "<font color='#CC0000'>/</font>" <font color='#5555FF'>+</font> sublock["<font color='#CC0000'>file</font>"];
+
+                    <font color='#BB00BB'>test_load_frame</font><font face='Lucida Console'>(</font>filepath<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            <b>{</b>
+                <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> video_raw_block <font color='#5555FF'>=</font> cfg.<font color='#BB00BB'>block</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>decoding</font>"<font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font> blocks;
+                video_raw_block.<font color='#BB00BB'>get_blocks</font><font face='Lucida Console'>(</font>blocks<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> block : blocks<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> sublock <font color='#5555FF'>=</font> video_raw_block.<font color='#BB00BB'>block</font><font face='Lucida Console'>(</font>block<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> std::string filepath  <font color='#5555FF'>=</font> <font color='#BB00BB'>get_parent_directory</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>.<font color='#BB00BB'>full_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> "<font color='#CC0000'>/</font>" <font color='#5555FF'>+</font> sublock["<font color='#CC0000'>file</font>"];
+                    <font color='#0000FF'>const</font> std::string codec     <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>codec</font>", "<font color='#CC0000'></font>"<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> nframes           <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>nframes</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> height            <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>height</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> width             <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>width</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> sample_rate       <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>sample_rate</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_image        <font color='#5555FF'>=</font> height <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> width <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_audio        <font color='#5555FF'>=</font> sample_rate <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>;   
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_image<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        test_decoder_images_only<font color='#5555FF'>&lt;</font>array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, codec, nframes, height, width<font face='Lucida Console'>)</font>;
+                        test_decoder_images_only<font color='#5555FF'>&lt;</font>array2d<font color='#5555FF'>&lt;</font>rgb_alpha_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, codec, nframes, height, width<font face='Lucida Console'>)</font>;
+                        test_decoder_images_only<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, codec, nframes, height, width<font face='Lucida Console'>)</font>;
+                        test_decoder_images_only<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font>bgr_alpha_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, codec, nframes, height, width<font face='Lucida Console'>)</font>;
+                    <b>}</b> 
+
+                    test_decoder_full<font color='#5555FF'>&lt;</font>array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, codec, nframes, height, width, sample_rate, has_image, has_audio<font face='Lucida Console'>)</font>;
+                    test_decoder_full<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, codec, nframes, height, width, sample_rate, has_image, has_audio<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+
+            <b>{</b>
+                <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> video_file_block <font color='#5555FF'>=</font> cfg.<font color='#BB00BB'>block</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>demuxing</font>"<font face='Lucida Console'>)</font>;
+                std::vector<font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font> blocks;
+                video_file_block.<font color='#BB00BB'>get_blocks</font><font face='Lucida Console'>(</font>blocks<font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> block : blocks<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> sublock <font color='#5555FF'>=</font> video_file_block.<font color='#BB00BB'>block</font><font face='Lucida Console'>(</font>block<font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> std::string filepath <font color='#5555FF'>=</font> <font color='#BB00BB'>get_parent_directory</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font>.<font color='#BB00BB'>full_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> "<font color='#CC0000'>/</font>" <font color='#5555FF'>+</font> sublock["<font color='#CC0000'>file</font>"];
+
+                    <font color='#0000FF'>const</font> std::string tmpfile <font color='#5555FF'>=</font> "<font color='#CC0000'>dummy.avi</font>";
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> nframes       <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>nframes</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> height        <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>height</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> width         <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>width</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> sample_rate   <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>sublock, "<font color='#CC0000'>sample_rate</font>", <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_video    <font color='#5555FF'>=</font> height <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> width <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> nframes <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>;
+                    <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> has_audio    <font color='#5555FF'>=</font> sample_rate <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>;
+
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        test_demuxer_images_only<font color='#5555FF'>&lt;</font>array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, nframes, height, width<font face='Lucida Console'>)</font>;
+                        test_demuxer_images_only<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, nframes, height, width<font face='Lucida Console'>)</font>;
+                    <b>}</b>
+
+                    <font color='#BB00BB'>test_demuxer_full</font><font face='Lucida Console'>(</font>filepath, nframes, height, width, sample_rate, has_video, has_audio<font face='Lucida Console'>)</font>;
+                    <font color='#BB00BB'>test_encoder</font><font face='Lucida Console'>(</font>filepath, AV_CODEC_ID_MPEG4, AV_CODEC_ID_AC3<font face='Lucida Console'>)</font>;
+                    
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>has_video<font face='Lucida Console'>)</font>
+                    <b>{</b>
+                        test_muxer1<font color='#5555FF'>&lt;</font>array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, AV_CODEC_ID_MPEG4<font face='Lucida Console'>)</font>;
+                        test_muxer1<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font>bgr_pixel<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>filepath, AV_CODEC_ID_MPEG4<font face='Lucida Console'>)</font>;
+                    <b>}</b>
+                    
+                    <font color='#BB00BB'>test_muxer2</font><font face='Lucida Console'>(</font>filepath, AV_CODEC_ID_MPEG4, AV_CODEC_ID_AC3<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+        <b>}</b>
+    <b>}</b> a;
+<b>}</b>
+
+<font color='#0000FF'>#endif</font>
+
+</pre></body></html>

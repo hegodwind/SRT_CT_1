@@ -1,0 +1,141 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - functional.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+    pybind11/functional.h: std::function&lt;&gt; support
+
+    Copyright (c) 2016 Wenzel Jakob &lt;wenzel.jakob@epfl.ch&gt;
+
+    All rights reserved. Use of this source code is governed by a
+    BSD-style license that can be found in the LICENSE file.
+*/</font>
+
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='pybind11.h.html'>pybind11.h</a>"
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>functional<font color='#5555FF'>&gt;</font>
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Return, <font color='#0000FF'>typename</font>... Args<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='type_caster'></a>type_caster</b><font color='#5555FF'>&lt;</font>std::function<font color='#5555FF'>&lt;</font><b><a name='Return'></a>Return</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <b>{</b>
+    <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> std::function<font color='#5555FF'>&lt;</font><font color='#BB00BB'>Return</font><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>;
+    <font color='#0000FF'>using</font> retval_type <font color='#5555FF'>=</font> conditional_t<font color='#5555FF'>&lt;</font>std::is_same<font color='#5555FF'>&lt;</font>Return, <font color='#0000FF'><u>void</u></font><font color='#5555FF'>&gt;</font>::value, void_type, Return<font color='#5555FF'>&gt;</font>;
+    <font color='#0000FF'>using</font> function_type <font color='#5555FF'>=</font> <font color='#BB00BB'>Return</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font>;
+
+<font color='#0000FF'>public</font>:
+    <font color='#0000FF'><u>bool</u></font> <font color='#BB00BB'>load</font><font face='Lucida Console'>(</font>handle src, <font color='#0000FF'><u>bool</u></font> convert<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>src.<font color='#BB00BB'>is_none</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#009900'>// Defer accepting None to other overloads (if we aren't in convert mode):
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>convert<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+            <b>}</b>
+            <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>isinstance<font color='#5555FF'>&lt;</font>function<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>src<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>auto</font> func <font color='#5555FF'>=</font> reinterpret_borrow<font color='#5555FF'>&lt;</font>function<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>src<font face='Lucida Console'>)</font>;
+
+        <font color='#009900'>/*
+           When passing a C++ function as an argument to another C++
+           function via Python, every function call would normally involve
+           a full C++ -&gt; Python -&gt; C++ roundtrip, which can be prohibitive.
+           Here, we try to at least detect the case where the function is
+           stateless (i.e. function pointer or lambda function without
+           captured variables), in which case the roundtrip can be avoided.
+         */</font>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font> cfunc <font color='#5555FF'>=</font> func.<font color='#BB00BB'>cpp_function</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>cfunc_self <font color='#5555FF'>=</font> <font color='#BB00BB'>PyCFunction_GET_SELF</font><font face='Lucida Console'>(</font>cfunc.<font color='#BB00BB'>ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>cfunc_self <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nullptr<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#BB00BB'>PyErr_Clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b> <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>isinstance<font color='#5555FF'>&lt;</font>capsule<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>cfunc_self<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#0000FF'>auto</font> c <font color='#5555FF'>=</font> reinterpret_borrow<font color='#5555FF'>&lt;</font>capsule<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>cfunc_self<font face='Lucida Console'>)</font>;
+
+                function_record <font color='#5555FF'>*</font>rec <font color='#5555FF'>=</font> nullptr;
+                <font color='#009900'>// Check that we can safely reinterpret the capsule into a function_record
+</font>                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>detail::<font color='#BB00BB'>is_function_record_capsule</font><font face='Lucida Console'>(</font>c<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                    rec <font color='#5555FF'>=</font> c.get_pointer<font color='#5555FF'>&lt;</font>function_record<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+
+                <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>rec <font color='#5555FF'>!</font><font color='#5555FF'>=</font> nullptr<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>rec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>is_stateless
+                        <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#BB00BB'>same_type</font><font face='Lucida Console'>(</font><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>function_type<font face='Lucida Console'>)</font>,
+                                     <font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>rec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>data[<font color='#979000'>1</font>]<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                        <font color='#0000FF'>struct</font> <b><a name='capture'></a>capture</b> <b>{</b>
+                            function_type f;
+                        <b>}</b>;
+                        value <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>capture <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font>rec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>data<font face='Lucida Console'>)</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>f;
+                        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+                    <b>}</b>
+                    rec <font color='#5555FF'>=</font> rec<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>next;
+                <b>}</b>
+            <b>}</b>
+            <font color='#009900'>// PYPY segfaults here when passing builtin function like sum.
+</font>            <font color='#009900'>// Raising an fail exception here works to prevent the segfault, but only on gcc.
+</font>            <font color='#009900'>// See PR #1413 for full details
+</font>        <b>}</b>
+
+        <font color='#009900'>// ensure GIL is held during functor destruction
+</font>        <font color='#0000FF'>struct</font> <b><a name='func_handle'></a>func_handle</b> <b>{</b>
+            function f;
+<font color='#0000FF'>#if</font> <font color='#5555FF'>!</font><font face='Lucida Console'>(</font>defined<font face='Lucida Console'>(</font>_MSC_VER<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> _MSC_VER <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1916</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> defined<font face='Lucida Console'>(</font>PYBIND11_CPP17<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>// This triggers a syntax error under very special conditions (very weird indeed).
+</font>            <font color='#0000FF'>explicit</font>
+<font color='#0000FF'>#endif</font>
+                <b><a name='func_handle'></a>func_handle</b><font face='Lucida Console'>(</font>function <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>f_<font face='Lucida Console'>)</font> noexcept
+                : <b><a name='f'></a>f</b><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f_<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <b>}</b>
+            <b><a name='func_handle'></a>func_handle</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> func_handle <font color='#5555FF'>&amp;</font>f_<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>operator</font><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>f_<font face='Lucida Console'>)</font>; <b>}</b>
+            func_handle <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> func_handle <font color='#5555FF'>&amp;</font>f_<font face='Lucida Console'>)</font> <b>{</b>
+                gil_scoped_acquire acq;
+                f <font color='#5555FF'>=</font> f_.f;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+            ~<b><a name='func_handle'></a>func_handle</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+                gil_scoped_acquire acq;
+                function <font color='#BB00BB'>kill_f</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+
+        <font color='#009900'>// to emulate 'move initialization capture' in C++11
+</font>        <font color='#0000FF'>struct</font> <b><a name='func_wrapper'></a>func_wrapper</b> <b>{</b>
+            func_handle hfunc;
+            <font color='#0000FF'>explicit</font> <b><a name='func_wrapper'></a>func_wrapper</b><font face='Lucida Console'>(</font>func_handle <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>hf<font face='Lucida Console'>)</font> noexcept : <b><a name='hfunc'></a>hfunc</b><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>hf<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+            Return <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>Args... args<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b>
+                gil_scoped_acquire acq;
+                <font color='#009900'>// casts the returned object as a rvalue to the return type
+</font>                <font color='#0000FF'>return</font> hfunc.<font color='#BB00BB'>f</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>.<font color='#0000FF'>template</font> cast<font color='#5555FF'>&lt;</font>Return<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+
+        value <font color='#5555FF'>=</font> <font color='#BB00BB'>func_wrapper</font><font face='Lucida Console'>(</font><font color='#BB00BB'>func_handle</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>func<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Func<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>static</font> handle <font color='#BB00BB'>cast</font><font face='Lucida Console'>(</font>Func <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>f_, return_value_policy policy, handle <font color='#009900'>/* parent */</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>f_<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>none</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>release</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>auto</font> result <font color='#5555FF'>=</font> f_.<font color='#0000FF'>template</font> target<font color='#5555FF'>&lt;</font>function_type<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>result<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#BB00BB'>cpp_function</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>result, policy<font face='Lucida Console'>)</font>.<font color='#BB00BB'>release</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>cpp_function</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Func<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f_<font face='Lucida Console'>)</font>, policy<font face='Lucida Console'>)</font>.<font color='#BB00BB'>release</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#BB00BB'>PYBIND11_TYPE_CASTER</font><font face='Lucida Console'>(</font>type,
+                         <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Callable[[</font>"<font face='Lucida Console'>)</font>
+                             <font color='#5555FF'>+</font> ::pybind11::detail::<font color='#BB00BB'>concat</font><font face='Lucida Console'>(</font>make_caster<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font>::name...<font face='Lucida Console'>)</font>
+                             <font color='#5555FF'>+</font> <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>], </font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> make_caster<font color='#5555FF'>&lt;</font>retval_type<font color='#5555FF'>&gt;</font>::name
+                             <font color='#5555FF'>+</font> <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>]</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

@@ -1,0 +1,65 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - sink.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#ifndef</font> DLIB_FFMPEG_SINK
+<font color='#0000FF'>#define</font> DLIB_FFMPEG_SINK
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdint<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>ostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../type_traits.h.html'>../type_traits.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> ffmpeg
+    <b>{</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+          <font color='#0000FF'>class</font> <b><a name='Byte'></a>Byte</b>, 
+          <font color='#0000FF'>class</font> <b><a name='Allocator'></a>Allocator</b>,
+          std::enable_if_t<font color='#5555FF'>&lt;</font>is_byte<font color='#5555FF'>&lt;</font>Byte<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>auto</font> <b><a name='sink'></a>sink</b><font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font>Byte, Allocator<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> buf<font face='Lucida Console'>)</font>
+        <font color='#009900'>/*!
+            requires
+                - Byte must be a byte type, e.g. char, int8_t or uint8_t
+            ensures
+                - returns a function object with signature bool(std::size_t N, const char* data).  When
+                  called that function appends the first N bytes pointed to by data onto the end of buf.
+                - The returned function is valid only as long as buf exists.
+                - The function always returns true.        
+        !*/</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> ndata, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> data<font face='Lucida Console'>)</font> <b>{</b>
+                buf.<font color='#BB00BB'>insert</font><font face='Lucida Console'>(</font>buf.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, data, data <font color='#5555FF'>+</font> ndata<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+            <b>}</b>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>inline</font> <font color='#0000FF'>auto</font> <b><a name='sink'></a>sink</b><font face='Lucida Console'>(</font>std::ostream<font color='#5555FF'>&amp;</font> out<font face='Lucida Console'>)</font>
+        <font color='#009900'>/*!
+            ensures
+                - returns a function object with signature bool(std::size_t N, const char* data).  When
+                  called that function writes the first N bytes pointed to by data to out.
+                - The returned view is valid only as long as out exists.
+                - Returns out.good(). I.e. returns true if the write to the stream succeeded and false otherwise.       
+        !*/</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> [<font color='#5555FF'>&amp;</font>]<font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> ndata, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> data<font face='Lucida Console'>)</font> <b>{</b>
+                out.<font color='#BB00BB'>write</font><font face='Lucida Console'>(</font>data, ndata<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> out.<font color='#BB00BB'>good</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>;
+        <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_FFMPEG_SINK</font>
+</pre></body></html>

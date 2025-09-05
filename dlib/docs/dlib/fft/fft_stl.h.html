@@ -1,0 +1,56 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - fft_stl.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_FFT_STL_Hh_
+<font color='#0000FF'>#define</font> DLIB_FFT_STL_Hh_
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='fft.h.html'>fft.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> Alloc <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='fft_inplace'></a>fft_inplace</b> <font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>, Alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        requires
+            - data contains elements of type std::complex&lt;&gt; that itself contains double, float, or long double.
+        ensures
+            - This function is identical to fft() except that it does the FFT in-place.
+              That is, after this function executes we will have:
+                - #data == fft(data)
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font>data[<font color='#979000'>0</font>], <font color='#5555FF'>&amp;</font>data[<font color='#979000'>0</font>], <font color='#979000'>false</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> Alloc <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='ifft_inplace'></a>ifft_inplace</b> <font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font>std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>, Alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> data<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        requires
+            - data contains elements of type std::complex&lt;&gt; that itself contains double, float, or long double.
+        ensures
+            - This function is identical to ifft() except that it does the inverse FFT
+              in-place.  That is, after this function executes we will have:
+                - #data == ifft(data)*data.size()
+                - Note that the output needs to be divided by data.size() to complete the 
+                  inverse transformation.  
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>only support floating point types</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>fft</font><font face='Lucida Console'>(</font><b>{</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b>, <font color='#5555FF'>&amp;</font>data[<font color='#979000'>0</font>], <font color='#5555FF'>&amp;</font>data[<font color='#979000'>0</font>], <font color='#979000'>true</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_FFT_STL_Hh_</font>
+</pre></body></html>

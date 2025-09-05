@@ -1,0 +1,104 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - fft.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_FFT_DETAILS_Hh_
+<font color='#0000FF'>#define</font> DLIB_FFT_DETAILS_Hh_
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>complex<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='fft_size.h.html'>fft_size.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    constexpr <font color='#0000FF'><u>bool</u></font> <b><a name='is_power_of_two'></a>is_power_of_two</b> <font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>long</u></font> n
+    <font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        ensures
+            - returns true if value contains a power of two and false otherwise.  As a
+              special case, we also consider 0 to be a power of two.
+    !*/</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> n <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ? <font color='#979000'>true</font> : <font face='Lucida Console'>(</font>n <font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font>n <font color='#5555FF'>-</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>   
+    constexpr <font color='#0000FF'><u>long</u></font> <b><a name='fftr_nc_size'></a>fftr_nc_size</b><font face='Lucida Console'>(</font>
+        <font color='#0000FF'><u>long</u></font> nc
+    <font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        ensures
+            - returns the output dimension of a 1D real FFT
+    !*/</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> nc <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ? <font color='#979000'>0</font> : nc<font color='#5555FF'>/</font><font color='#979000'>2</font><font color='#5555FF'>+</font><font color='#979000'>1</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>    
+    constexpr <font color='#0000FF'><u>long</u></font> <b><a name='ifftr_nc_size'></a>ifftr_nc_size</b><font face='Lucida Console'>(</font>
+        <font color='#0000FF'><u>long</u></font> nc
+    <font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        ensures
+            - returns the output dimension of an inverse 1D real FFT
+    !*/</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> nc <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ? <font color='#979000'>0</font> : <font color='#979000'>2</font><font color='#5555FF'>*</font><font face='Lucida Console'>(</font>nc<font color='#5555FF'>-</font><font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='fft'></a>fft</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> fft_size<font color='#5555FF'>&amp;</font> dims, <font color='#0000FF'>const</font> std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>*</font> in, std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>*</font> out, <font color='#0000FF'><u>bool</u></font> is_inverse<font face='Lucida Console'>)</font>;
+    <font color='#009900'>/*!
+        requires
+            - T must be either float or double
+            - dims represents the dimensions of both `in` and `out`
+            - dims.num_dims() &gt; 0
+        ensures
+            - performs an FFT on `in` and stores the result in `out`.
+            - if `is_inverse` is true, a backward FFT is performed, 
+              otherwise a forward FFT is performed.
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='fftr'></a>fftr</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> fft_size<font color='#5555FF'>&amp;</font> dims, <font color='#0000FF'>const</font> T<font color='#5555FF'>*</font> in, std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>*</font> out<font face='Lucida Console'>)</font>;
+    <font color='#009900'>/*!
+        requires
+            - T must be either float or double
+            - dims represent the dimensions of `in`
+            - `in`  has dimensions {dims[0], dims[1], ..., dims[-2], dims[-1]}
+            - `out` has dimensions {dims[0], dims[1], ..., dims[-2], dims[-1]/2+1}
+            - dims.num_dims() &gt; 0
+            - dims.back() must be even
+        ensures
+            - performs a real FFT on `in` and stores the result in `out`.
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='ifftr'></a>ifftr</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> fft_size<font color='#5555FF'>&amp;</font> dims, <font color='#0000FF'>const</font> std::complex<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>*</font> in, T<font color='#5555FF'>*</font> out<font face='Lucida Console'>)</font>;
+    <font color='#009900'>/*!
+        requires
+            - T must be either float or double
+            - dims represent the dimensions of `out`
+            - `in`  has dimensions {dims[0], dims[1], ..., dims[-2], dims[-1]/2+1}
+            - `out` has dimensions {dims[0], dims[1], ..., dims[-2], dims[-1]}
+            - dims.num_dims() &gt; 0
+            - dims.back() must be even
+        ensures
+            - performs an inverse real FFT on `in` and stores the result in `out`.
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_FFT_DETAILS_Hh_</font>
+</pre></body></html>

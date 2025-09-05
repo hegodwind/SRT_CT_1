@@ -1,0 +1,183 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - jxl_loader.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2024  Davis E. King (davis@dlib.net), Adrià Arrufat
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_JXL_LOADER_CPp_
+<font color='#0000FF'>#define</font> DLIB_JXL_LOADER_CPp_
+
+<font color='#009900'>// only do anything with this file if DLIB_JXL_SUPPORT is defined
+</font><font color='#0000FF'>#ifdef</font> DLIB_JXL_SUPPORT
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='jxl_loader.h.html'>jxl_loader.h</a>"
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>jxl<font color='#5555FF'>/</font>decode_cxx.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>jxl<font color='#5555FF'>/</font>resizable_parallel_runner_cxx.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>fstream<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+    <font color='#0000FF'>static</font> std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font> <b><a name='load_contents'></a>load_contents</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filename<font face='Lucida Console'>)</font>
+    <b>{</b>
+        std::ifstream <font color='#BB00BB'>stream</font><font face='Lucida Console'>(</font>filename, std::ios::binary<font face='Lucida Console'>)</font>;
+        stream.<font color='#BB00BB'>exceptions</font><font face='Lucida Console'>(</font>std::ifstream::failbit <font color='#5555FF'>|</font> std::ifstream::badbit <font color='#5555FF'>|</font> std::ifstream::eofbit<font face='Lucida Console'>)</font>;
+        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font> buffer;
+        vectorstream <font color='#BB00BB'>temp</font><font face='Lucida Console'>(</font>buffer<font face='Lucida Console'>)</font>;
+        temp <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> stream.<font color='#BB00BB'>rdbuf</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> buffer;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    jxl_loader::
+    <b><a name='jxl_loader'></a>jxl_loader</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> filename<font face='Lucida Console'>)</font> : height<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>, width<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        data <font color='#5555FF'>=</font> <font color='#BB00BB'>load_contents</font><font face='Lucida Console'>(</font>filename<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>get_info</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    jxl_loader::
+    <b><a name='jxl_loader'></a>jxl_loader</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filename<font face='Lucida Console'>)</font> : height<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>, width<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        data <font color='#5555FF'>=</font> <font color='#BB00BB'>load_contents</font><font face='Lucida Console'>(</font>filename<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>get_info</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    jxl_loader::
+    <b><a name='jxl_loader'></a>jxl_loader</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> dlib::file<font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> : height<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>, width<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        data <font color='#5555FF'>=</font> <font color='#BB00BB'>load_contents</font><font face='Lucida Console'>(</font>f.<font color='#BB00BB'>full_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>get_info</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    jxl_loader::
+    <b><a name='jxl_loader'></a>jxl_loader</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> imgbuffer, <font color='#0000FF'><u>size_t</u></font> imgbuffersize<font face='Lucida Console'>)</font> : height<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>, width<font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        data.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>imgbuffersize<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>memcpy</font><font face='Lucida Console'>(</font>data.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, imgbuffer, imgbuffersize<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>get_info</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>bool</u></font> jxl_loader::<b><a name='is_gray'></a>is_gray</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> depth <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>; <b>}</b>
+    <font color='#0000FF'><u>bool</u></font> jxl_loader::<b><a name='is_graya'></a>is_graya</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> depth <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>2</font>; <b>}</b>;
+    <font color='#0000FF'><u>bool</u></font> jxl_loader::<b><a name='is_rgb'></a>is_rgb</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> depth <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>3</font>; <b>}</b>
+    <font color='#0000FF'><u>bool</u></font> jxl_loader::<b><a name='is_rgba'></a>is_rgba</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> depth <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>4</font>; <b>}</b>
+    <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font> jxl_loader::<b><a name='bit_depth'></a>bit_depth</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> bits_per_sample; <b>}</b>;
+    <font color='#0000FF'><u>long</u></font> jxl_loader::<b><a name='nr'></a>nr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>height<font face='Lucida Console'>)</font>; <b>}</b>;
+    <font color='#0000FF'><u>long</u></font> jxl_loader::<b><a name='nc'></a>nc</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>return</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>width<font face='Lucida Console'>)</font>; <b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> jxl_loader::<b><a name='get_info'></a>get_info</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        JxlSignature signature <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlSignatureCheck</font><font face='Lucida Console'>(</font>data.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>signature <font color='#5555FF'>!</font><font color='#5555FF'>=</font> JXL_SIG_CODESTREAM <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> signature <font color='#5555FF'>!</font><font color='#5555FF'>=</font> JXL_SIG_CONTAINER<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlSignatureCheck failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>auto</font> dec <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderMake</font><font face='Lucida Console'>(</font>nullptr<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderSubscribeEvents</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, JXL_DEC_BASIC_INFO<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderSubscribeEvents failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>JxlDecoderSetInput</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, data.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>JxlDecoderCloseInput</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_BASIC_INFO <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderProcessInput</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderProcessInput failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        JxlBasicInfo basic_info;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderGetBasicInfo</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font>basic_info<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderGetBasicInfo failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+        width <font color='#5555FF'>=</font> basic_info.xsize;
+        height <font color='#5555FF'>=</font> basic_info.ysize;
+        depth <font color='#5555FF'>=</font> basic_info.num_color_channels <font color='#5555FF'>+</font> basic_info.num_extra_channels;
+        bits_per_sample <font color='#5555FF'>=</font> basic_info.bits_per_sample;
+    <b>}</b>
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> jxl_loader::<b><a name='decode'></a>decode</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> out, <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> out_size<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+    <b>{</b>
+        <font color='#0000FF'>auto</font> runner <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlResizableParallelRunnerMake</font><font face='Lucida Console'>(</font>nullptr<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>auto</font> dec <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderMake</font><font face='Lucida Console'>(</font>nullptr<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderSubscribeEvents</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, JXL_DEC_FULL_IMAGE<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderSubscribeEvents failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderSetParallelRunner</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, JxlResizableParallelRunner, runner.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderSetParallelRunner failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderSetInput</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, data.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, data.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderSetInput failed</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#BB00BB'>JxlDecoderCloseInput</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        JxlPixelFormat format <font color='#5555FF'>=</font> <b>{</b>
+            .num_channels <font color='#5555FF'>=</font> depth,
+            .data_type <font color='#5555FF'>=</font> JXL_TYPE_UINT8,
+            .endianness <font color='#5555FF'>=</font> JXL_NATIVE_ENDIAN,
+            .align<font color='#5555FF'>=</font><font color='#979000'>0</font>
+        <b>}</b>;
+        <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>;;<font face='Lucida Console'>)</font>
+        <b>{</b>
+            JxlDecoderStatus status <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderProcessInput</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>status <font color='#5555FF'>=</font><font color='#5555FF'>=</font> JXL_DEC_ERROR<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderProcessInput failed</font>"<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>status <font color='#5555FF'>=</font><font color='#5555FF'>=</font> JXL_DEC_NEED_MORE_INPUT<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: Error, expected more input</font>"<font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>status <font color='#5555FF'>=</font><font color='#5555FF'>=</font> JXL_DEC_NEED_IMAGE_OUT_BUFFER<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>JxlResizableParallelRunnerSetThreads</font><font face='Lucida Console'>(</font>runner.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>JxlResizableParallelRunnerSuggestThreads</font><font face='Lucida Console'>(</font>width, height<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'><u>size_t</u></font> buffer_size;
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderImageOutBufferSize</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font>format, <font color='#5555FF'>&amp;</font>buffer_size<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderImageOutBufferSize failed</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>buffer_size <font color='#5555FF'>!</font><font color='#5555FF'>=</font> width <font color='#5555FF'>*</font> height <font color='#5555FF'>*</font> depth<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: invalid output buffer size</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>JXL_DEC_SUCCESS <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderSetImageOutBuffer</font><font face='Lucida Console'>(</font>dec.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font>format, out, out_size<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loader: JxlDecoderSetImageOutBuffer failed</font>"<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>status <font color='#5555FF'>=</font><font color='#5555FF'>=</font> JXL_DEC_FULL_IMAGE<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#009900'>// If the image is an animation, more full frames may be decoded.
+</font>                <font color='#009900'>// This loader only decodes the first one.
+</font>                <font color='#0000FF'>return</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>status <font color='#5555FF'>=</font><font color='#5555FF'>=</font> JXL_DEC_SUCCESS<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font>;
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                <font color='#0000FF'>throw</font> <font color='#BB00BB'>image_load_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>jxl_loder: Unknown decoder status</font>"<font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_JXL_SUPPORT
+</font><font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_JXL_LOADER_CPp_
+</font>
+</pre></body></html>

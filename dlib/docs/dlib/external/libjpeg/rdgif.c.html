@@ -1,0 +1,682 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - rdgif.c</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+ * rdgif.c
+ *
+ * Copyright (C) 1991-1996, Thomas G. Lane.
+ * Modified 2019-2020 by Guido Vollbeding.
+ * This file is part of the Independent JPEG Group's software.
+ * For conditions of distribution and use, see the accompanying README file.
+ *
+ * This file contains routines to read input images in GIF format.
+ *
+ * These routines may need modification for non-Unix environments or
+ * specialized applications.  As they stand, they assume input from
+ * an ordinary stdio stream.  They further assume that reading begins
+ * at the start of the file; start_input may need work if the
+ * user interface has already read some data (e.g., to determine that
+ * the file is indeed GIF format).
+ */</font>
+
+<font color='#009900'>/*
+ * This code is loosely based on giftoppm from the PBMPLUS distribution
+ * of Feb. 1991.  That file contains the following copyright notice:
+ * +-------------------------------------------------------------------+
+ * | Copyright 1990, David Koblas.                                     |
+ * |   Permission to use, copy, modify, and distribute this software   |
+ * |   and its documentation for any purpose and without fee is hereby |
+ * |   granted, provided that the above copyright notice appear in all |
+ * |   copies and that both that copyright notice and this permission  |
+ * |   notice appear in supporting documentation.  This software is    |
+ * |   provided "as is" without express or implied warranty.           |
+ * +-------------------------------------------------------------------+
+ */</font>
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='cdjpeg.h.html'>cdjpeg.h</a>"		<font color='#009900'>/* Common decls for cjpeg/djpeg applications */</font>
+
+<font color='#0000FF'>#ifdef</font> GIF_SUPPORTED
+
+
+<font color='#009900'>/* Macros to deal with unsigned chars as efficiently as compiler allows */</font>
+
+<font color='#0000FF'>#ifdef</font> HAVE_UNSIGNED_CHAR
+<font color='#0000FF'>typedef</font> <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font> U_CHAR;
+<font color='#0000FF'>#define</font> UCH<font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>	<font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#else</font> <font color='#009900'>/* !HAVE_UNSIGNED_CHAR */</font>
+<font color='#0000FF'>typedef</font> <font color='#0000FF'><u>char</u></font> U_CHAR;
+<font color='#0000FF'>#ifdef</font> CHAR_IS_UNSIGNED
+<font color='#0000FF'>#define</font> UCH<font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>	<font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#else</font>
+<font color='#0000FF'>#define</font> UCH<font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>	<font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font> <font color='#979000'>0xFF</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#endif</font>
+<font color='#0000FF'>#endif</font> <font color='#009900'>/* HAVE_UNSIGNED_CHAR */</font>
+
+
+<font color='#0000FF'>#define</font>	ReadOK<font face='Lucida Console'>(</font>file,buffer,len<font face='Lucida Console'>)</font>	<font face='Lucida Console'>(</font>JFREAD<font face='Lucida Console'>(</font>file,buffer,len<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>len<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+
+
+<font color='#0000FF'>#define</font>	MAXCOLORMAPSIZE	<font color='#979000'>256</font>	<font color='#009900'>/* max # of colors in a GIF colormap */</font>
+<font color='#0000FF'>#define</font> NUMCOLORS	<font color='#979000'>3</font>	<font color='#009900'>/* # of colors */</font>
+<font color='#0000FF'>#define</font> CM_RED		<font color='#979000'>0</font>	<font color='#009900'>/* color component numbers */</font>
+<font color='#0000FF'>#define</font> CM_GREEN	<font color='#979000'>1</font>
+<font color='#0000FF'>#define</font> CM_BLUE		<font color='#979000'>2</font>
+
+<font color='#0000FF'>#define</font>	MAX_LZW_BITS	<font color='#979000'>12</font>	<font color='#009900'>/* maximum LZW code size */</font>
+<font color='#0000FF'>#define</font> LZW_TABLE_SIZE	<font face='Lucida Console'>(</font><font color='#979000'>1</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font>MAX_LZW_BITS<font face='Lucida Console'>)</font> <font color='#009900'>/* # of possible LZW symbols */</font>
+
+<font color='#009900'>/* Macros for extracting header data --- note we assume chars may be signed */</font>
+
+<font color='#0000FF'>#define</font> LM_to_uint<font face='Lucida Console'>(</font>array, offset<font face='Lucida Console'>)</font>  <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> UCH<font face='Lucida Console'>(</font>array[offset]<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> \
+				<font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> <font color='#BB00BB'>UCH</font><font face='Lucida Console'>(</font>array[offset<font color='#5555FF'>+</font><font color='#979000'>1</font>]<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#979000'>8</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>#define</font> BitSet<font face='Lucida Console'>(</font>byte, bit<font face='Lucida Console'>)</font>	<font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>byte<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font>bit<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#define</font> INTERLACE	<font color='#979000'>0x40</font>	<font color='#009900'>/* mask for bit signifying interlaced image */</font>
+<font color='#0000FF'>#define</font> COLORMAPFLAG	<font color='#979000'>0x80</font>	<font color='#009900'>/* mask for bit signifying colormap presence */</font>
+
+
+<font color='#009900'>/*
+ * LZW decompression tables look like this:
+ *   symbol_head[K] = prefix symbol of any LZW symbol K (0..LZW_TABLE_SIZE-1)
+ *   symbol_tail[K] = suffix byte   of any LZW symbol K (0..LZW_TABLE_SIZE-1)
+ * Note that entries 0..end_code of the above tables are not used,
+ * since those symbols represent raw bytes or special codes.
+ *
+ * The stack represents the not-yet-used expansion of the last LZW symbol.
+ * In the worst case, a symbol could expand to as many bytes as there are
+ * LZW symbols, so we allocate LZW_TABLE_SIZE bytes for the stack.
+ * (This is conservative since that number includes the raw-byte symbols.)
+ *
+ * The tables are allocated from FAR heap space since they would use up
+ * rather a lot of the near data space in a PC.
+ */</font>
+
+
+<font color='#009900'>/* Private version of data source object */</font>
+
+<font color='#0000FF'>typedef</font> <font color='#0000FF'>struct</font> <b>{</b>
+  <font color='#0000FF'>struct</font> cjpeg_source_struct pub; <font color='#009900'>/* public fields */</font>
+
+  j_compress_ptr cinfo;		<font color='#009900'>/* back link saves passing separate parm */</font>
+
+  JSAMPARRAY colormap;		<font color='#009900'>/* GIF colormap (converted to my format) */</font>
+
+  <font color='#009900'>/* State for GetCode and LZWReadByte */</font>
+  U_CHAR code_buf[<font color='#979000'>256</font><font color='#5555FF'>+</font><font color='#979000'>4</font>];	<font color='#009900'>/* current input data block */</font>
+  <font color='#0000FF'><u>int</u></font> last_byte;		<font color='#009900'>/* # of bytes in code_buf */</font>
+  <font color='#0000FF'><u>int</u></font> last_bit;			<font color='#009900'>/* # of bits in code_buf */</font>
+  <font color='#0000FF'><u>int</u></font> cur_bit;			<font color='#009900'>/* next bit index to read */</font>
+  boolean first_time;		<font color='#009900'>/* flags first call to GetCode */</font>
+  boolean out_of_blocks;	<font color='#009900'>/* TRUE if hit terminator data block */</font>
+
+  <font color='#0000FF'><u>int</u></font> input_code_size;		<font color='#009900'>/* codesize given in GIF file */</font>
+  <font color='#0000FF'><u>int</u></font> clear_code, end_code;	<font color='#009900'>/* values for Clear and End codes */</font>
+
+  <font color='#0000FF'><u>int</u></font> code_size;		<font color='#009900'>/* current actual code size */</font>
+  <font color='#0000FF'><u>int</u></font> limit_code;		<font color='#009900'>/* 2^code_size */</font>
+  <font color='#0000FF'><u>int</u></font> max_code;			<font color='#009900'>/* first unused code value */</font>
+
+  <font color='#009900'>/* Private state for LZWReadByte */</font>
+  <font color='#0000FF'><u>int</u></font> oldcode;			<font color='#009900'>/* previous LZW symbol */</font>
+  <font color='#0000FF'><u>int</u></font> firstcode;		<font color='#009900'>/* first byte of oldcode's expansion */</font>
+
+  <font color='#009900'>/* LZW symbol table and expansion stack */</font>
+  UINT16 FAR <font color='#5555FF'>*</font>symbol_head;	<font color='#009900'>/* =&gt; table of prefix symbols */</font>
+  UINT8  FAR <font color='#5555FF'>*</font>symbol_tail;	<font color='#009900'>/* =&gt; table of suffix bytes */</font>
+  UINT8  FAR <font color='#5555FF'>*</font>symbol_stack;	<font color='#009900'>/* =&gt; stack for symbol expansions */</font>
+  UINT8  FAR <font color='#5555FF'>*</font>sp;		<font color='#009900'>/* stack pointer */</font>
+
+  <font color='#009900'>/* State for interlaced image processing */</font>
+  boolean is_interlaced;	<font color='#009900'>/* TRUE if have interlaced image */</font>
+  jvirt_sarray_ptr interlaced_image; <font color='#009900'>/* full image in interlaced order */</font>
+  JDIMENSION cur_row_number;	<font color='#009900'>/* need to know actual row number */</font>
+  JDIMENSION pass2_offset;	<font color='#009900'>/* # of pixel rows in pass 1 */</font>
+  JDIMENSION pass3_offset;	<font color='#009900'>/* # of pixel rows in passes 1&amp;2 */</font>
+  JDIMENSION pass4_offset;	<font color='#009900'>/* # of pixel rows in passes 1,2,3 */</font>
+<b>}</b> gif_source_struct;
+
+<font color='#0000FF'>typedef</font> gif_source_struct <font color='#5555FF'>*</font> gif_source_ptr;
+
+
+<font color='#009900'>/* Forward declarations */</font>
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> get_pixel_rows
+	<b><a name='JPP'></a>JPP</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> load_interlaced_image
+	<b><a name='JPP'></a>JPP</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> get_interlaced_row
+	<b><a name='JPP'></a>JPP</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>
+<b><a name='ReadByte'></a>ReadByte</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Read next byte from GIF file */</font>
+<b>{</b>
+  <font color='#0000FF'>register</font> FILE <font color='#5555FF'>*</font>infile <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.input_file;
+  <font color='#0000FF'>register</font> <font color='#0000FF'><u>int</u></font> c;
+
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>c <font color='#5555FF'>=</font> <font color='#BB00BB'>getc</font><font face='Lucida Console'>(</font>infile<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> EOF<font face='Lucida Console'>)</font>
+    <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JERR_INPUT_EOF<font face='Lucida Console'>)</font>;
+  <font color='#0000FF'>return</font> c;
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>
+<b><a name='GetDataBlock'></a>GetDataBlock</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo, U_CHAR <font color='#5555FF'>*</font>buf<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Read a GIF data block, which has a leading count byte */</font>
+<font color='#009900'>/* A zero-length block marks the end of a data block sequence */</font>
+<b>{</b>
+  <font color='#0000FF'><u>int</u></font> count;
+
+  count <font color='#5555FF'>=</font> <font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>count <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font> <font color='#BB00BB'>ReadOK</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.input_file, buf, count<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+      <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JERR_INPUT_EOF<font face='Lucida Console'>)</font>;
+  <b>}</b>
+  <font color='#0000FF'>return</font> count;
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='SkipDataBlocks'></a>SkipDataBlocks</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Skip a series of data blocks, until a block terminator is found */</font>
+<b>{</b>
+  U_CHAR buf[<font color='#979000'>256</font>];
+
+  <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>GetDataBlock</font><font face='Lucida Console'>(</font>sinfo, buf<font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+    <font color='#009900'>/* skip */</font>;
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='ReInitLZW'></a>ReInitLZW</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* (Re)initialize LZW state; shared code for startup and Clear processing */</font>
+<b>{</b>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_size <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_code_size <font color='#5555FF'>+</font> <font color='#979000'>1</font>;
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>limit_code <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#979000'>1</font>;	<font color='#009900'>/* 2^code_size */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_code <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code <font color='#5555FF'>+</font> <font color='#979000'>2</font>;	<font color='#009900'>/* first unused code value */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sp <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_stack;		<font color='#009900'>/* init stack to empty */</font>
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='InitLZWCode'></a>InitLZWCode</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Initialize for a series of LZWReadByte (and hence GetCode) calls */</font>
+<b>{</b>
+  <font color='#009900'>/* GetCode initialization */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_byte <font color='#5555FF'>=</font> <font color='#979000'>2</font>;		<font color='#009900'>/* make safe to "recopy last two bytes" */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[<font color='#979000'>0</font>] <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[<font color='#979000'>1</font>] <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_bit <font color='#5555FF'>=</font> <font color='#979000'>0</font>;		<font color='#009900'>/* nothing in the buffer */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>=</font> <font color='#979000'>0</font>;		<font color='#009900'>/* force buffer load on first call */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>first_time <font color='#5555FF'>=</font> TRUE;
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>out_of_blocks <font color='#5555FF'>=</font> FALSE;
+
+  <font color='#009900'>/* LZWReadByte initialization: */</font>
+  <font color='#009900'>/* compute special code values (note that these do not change later) */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code <font color='#5555FF'>=</font> <font color='#979000'>1</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_code_size;
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>end_code <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code <font color='#5555FF'>+</font> <font color='#979000'>1</font>;
+  <font color='#BB00BB'>ReInitLZW</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>
+<b><a name='GetCode'></a>GetCode</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Fetch the next code_size bits from the GIF data */</font>
+<font color='#009900'>/* We assume code_size is less than 16 */</font>
+<b>{</b>
+  <font color='#0000FF'>register</font> INT32 accum;
+  <font color='#0000FF'><u>int</u></font> offs, count;
+
+  <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>+</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_size <font color='#5555FF'>&gt;</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_bit<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>/* Time to reload the buffer */</font>
+    <font color='#009900'>/* First time, share code with Clear case */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>first_time<font face='Lucida Console'>)</font> <b>{</b>
+      sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>first_time <font color='#5555FF'>=</font> FALSE;
+      <font color='#0000FF'>return</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code;
+    <b>}</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>out_of_blocks<font face='Lucida Console'>)</font> <b>{</b>
+      <font color='#BB00BB'>WARNMS</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JWRN_GIF_NOMOREDATA<font face='Lucida Console'>)</font>;
+      <font color='#0000FF'>return</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>end_code;	<font color='#009900'>/* fake something useful */</font>
+    <b>}</b>
+    <font color='#009900'>/* preserve last two bytes of what we have -- assume code_size &lt;= 16 */</font>
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[<font color='#979000'>0</font>] <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_byte<font color='#5555FF'>-</font><font color='#979000'>2</font>];
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[<font color='#979000'>1</font>] <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_byte<font color='#5555FF'>-</font><font color='#979000'>1</font>];
+    <font color='#009900'>/* Load more bytes; set flag if we reach the terminator block */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>count <font color='#5555FF'>=</font> <font color='#BB00BB'>GetDataBlock</font><font face='Lucida Console'>(</font>sinfo, <font color='#5555FF'>&amp;</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[<font color='#979000'>2</font>]<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+      sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>out_of_blocks <font color='#5555FF'>=</font> TRUE;
+      <font color='#BB00BB'>WARNMS</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JWRN_GIF_NOMOREDATA<font face='Lucida Console'>)</font>;
+      <font color='#0000FF'>return</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>end_code;	<font color='#009900'>/* fake something useful */</font>
+    <b>}</b>
+    <font color='#009900'>/* Reset counters */</font>
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>-</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_bit<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> <font color='#979000'>16</font>;
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_byte <font color='#5555FF'>=</font> <font color='#979000'>2</font> <font color='#5555FF'>+</font> count;
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_bit <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>last_byte <font color='#5555FF'>*</font> <font color='#979000'>8</font>;
+  <b>}</b>
+
+  <font color='#009900'>/* Form up next 24 bits in accum */</font>
+  offs <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#979000'>3</font>;	<font color='#009900'>/* byte containing cur_bit */</font>
+  accum <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>INT32<font face='Lucida Console'>)</font> <font color='#BB00BB'>UCH</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[offs<font color='#5555FF'>+</font><font color='#979000'>2</font>]<font face='Lucida Console'>)</font>;
+  accum <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>8</font>;
+  accum <font color='#5555FF'>|</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>INT32<font face='Lucida Console'>)</font> <font color='#BB00BB'>UCH</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[offs<font color='#5555FF'>+</font><font color='#979000'>1</font>]<font face='Lucida Console'>)</font>;
+  accum <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>8</font>;
+  accum <font color='#5555FF'>|</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>INT32<font face='Lucida Console'>)</font> <font color='#BB00BB'>UCH</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_buf[offs]<font face='Lucida Console'>)</font>;
+
+  <font color='#009900'>/* Right-align cur_bit in accum, then mask off desired number of bits */</font>
+  accum <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>&amp;</font> <font color='#979000'>7</font><font face='Lucida Console'>)</font>;
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_bit <font color='#5555FF'>+</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_size;
+  <font color='#0000FF'>return</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> accum<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#979000'>1</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_size<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font>
+<b><a name='LZWReadByte'></a>LZWReadByte</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Read an LZW-compressed byte */</font>
+<b>{</b>
+  <font color='#0000FF'>register</font> <font color='#0000FF'><u>int</u></font> code;		<font color='#009900'>/* current working code */</font>
+  <font color='#0000FF'><u>int</u></font> incode;			<font color='#009900'>/* saves actual input code */</font>
+
+  <font color='#009900'>/* If any codes are stacked from a previously read symbol, return them */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sp <font color='#5555FF'>&gt;</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_stack<font face='Lucida Console'>)</font>
+    <font color='#0000FF'>return</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>-</font><font color='#5555FF'>-</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sp<font face='Lucida Console'>)</font>;
+
+  <font color='#009900'>/* Time to read a new symbol */</font>
+  code <font color='#5555FF'>=</font> <font color='#BB00BB'>GetCode</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>/* Reinit state, swallow any extra Clear codes, and */</font>
+    <font color='#009900'>/* return next code, which is expected to be a raw byte. */</font>
+    <font color='#BB00BB'>ReInitLZW</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>do</font> <b>{</b>
+      code <font color='#5555FF'>=</font> <font color='#BB00BB'>GetCode</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+    <b>}</b> <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>&gt;</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code<font face='Lucida Console'>)</font> <b>{</b> <font color='#009900'>/* make sure it is a raw byte */</font>
+      <font color='#BB00BB'>WARNMS</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JWRN_GIF_BADDATA<font face='Lucida Console'>)</font>;
+      code <font color='#5555FF'>=</font> <font color='#979000'>0</font>;			<font color='#009900'>/* use something valid */</font>
+    <b>}</b>
+    <font color='#009900'>/* make firstcode, oldcode valid! */</font>
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>firstcode <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oldcode <font color='#5555FF'>=</font> code;
+    <font color='#0000FF'>return</font> code;
+  <b>}</b>
+
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>=</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>end_code<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>/* Skip the rest of the image, unless GetCode already read terminator */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>out_of_blocks<font face='Lucida Console'>)</font> <b>{</b>
+      <font color='#BB00BB'>SkipDataBlocks</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+      sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>out_of_blocks <font color='#5555FF'>=</font> TRUE;
+    <b>}</b>
+    <font color='#009900'>/* Complain that there's not enough data */</font>
+    <font color='#BB00BB'>WARNMS</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JWRN_GIF_ENDCODE<font face='Lucida Console'>)</font>;
+    <font color='#009900'>/* Pad data with 0's */</font>
+    <font color='#0000FF'>return</font> <font color='#979000'>0</font>;			<font color='#009900'>/* fake something usable */</font>
+  <b>}</b>
+
+  <font color='#009900'>/* Got normal raw byte or LZW symbol */</font>
+  incode <font color='#5555FF'>=</font> code;		<font color='#009900'>/* save for a moment */</font>
+  
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_code<font face='Lucida Console'>)</font> <b>{</b> <font color='#009900'>/* special case for not-yet-defined symbol */</font>
+    <font color='#009900'>/* code == max_code is OK; anything bigger is bad data */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>&gt;</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_code<font face='Lucida Console'>)</font> <b>{</b>
+      <font color='#BB00BB'>WARNMS</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, JWRN_GIF_BADDATA<font face='Lucida Console'>)</font>;
+      incode <font color='#5555FF'>=</font> <font color='#979000'>0</font>;		<font color='#009900'>/* prevent creation of loops in symbol table */</font>
+    <b>}</b>
+    <font color='#009900'>/* this symbol will be defined as oldcode/firstcode */</font>
+    <font color='#5555FF'>*</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sp<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>UINT8<font face='Lucida Console'>)</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>firstcode;
+    code <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oldcode;
+  <b>}</b>
+
+  <font color='#009900'>/* If it's a symbol, expand it into the stack */</font>
+  <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>code <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#5555FF'>*</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>sp<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_tail[code]; <font color='#009900'>/* tail is a byte value */</font>
+    code <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_head[code]; <font color='#009900'>/* head is another LZW symbol */</font>
+  <b>}</b>
+  <font color='#009900'>/* At this point code just represents a raw byte */</font>
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>firstcode <font color='#5555FF'>=</font> code;	<font color='#009900'>/* save for possible future use */</font>
+
+  <font color='#009900'>/* If there's room in table... */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>code <font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_code<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font> LZW_TABLE_SIZE<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>/* Define a new symbol = prev sym + head of this sym's expansion */</font>
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_head[code] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>UINT16<font face='Lucida Console'>)</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oldcode;
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_tail[code] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>UINT8<font face='Lucida Console'>)</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>firstcode;
+    sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_code<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+    <font color='#009900'>/* Is it time to increase code_size? */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>max_code <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>limit_code <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+	sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_size <font color='#5555FF'>&lt;</font> MAX_LZW_BITS<font face='Lucida Console'>)</font> <b>{</b>
+      sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>code_size<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+      sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>limit_code <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>;	<font color='#009900'>/* keep equal to 2^code_size */</font>
+    <b>}</b>
+  <b>}</b>
+  
+  sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oldcode <font color='#5555FF'>=</font> incode;	<font color='#009900'>/* save last input symbol for future use */</font>
+  <font color='#0000FF'>return</font> sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>firstcode;	<font color='#009900'>/* return first byte of symbol's expansion */</font>
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='ReadColorMap'></a>ReadColorMap</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo, <font color='#0000FF'><u>int</u></font> cmaplen, JSAMPARRAY cmap<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Read a GIF colormap */</font>
+<b>{</b>
+  <font color='#0000FF'><u>int</u></font> i;
+
+  <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> cmaplen; i<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font> <b>{</b>
+<font color='#0000FF'>#if</font> BITS_IN_JSAMPLE <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>8</font>
+<font color='#0000FF'>#define</font> UPSCALE<font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>  <font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>
+<font color='#0000FF'>#else</font>
+<font color='#0000FF'>#define</font> UPSCALE<font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font>  <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font face='Lucida Console'>(</font>BITS_IN_JSAMPLE<font color='#5555FF'>-</font><font color='#979000'>8</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#endif</font>
+    cmap[CM_RED  ][i] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>JSAMPLE<font face='Lucida Console'>)</font> <font color='#BB00BB'>UPSCALE</font><font face='Lucida Console'>(</font><font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    cmap[CM_GREEN][i] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>JSAMPLE<font face='Lucida Console'>)</font> <font color='#BB00BB'>UPSCALE</font><font face='Lucida Console'>(</font><font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    cmap[CM_BLUE ][i] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>JSAMPLE<font face='Lucida Console'>)</font> <font color='#BB00BB'>UPSCALE</font><font face='Lucida Console'>(</font><font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+  <b>}</b>
+<b>}</b>
+
+
+<b><a name='LOCAL'></a>LOCAL</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='DoExtension'></a>DoExtension</b> <font face='Lucida Console'>(</font>gif_source_ptr sinfo<font face='Lucida Console'>)</font>
+<font color='#009900'>/* Process an extension block */</font>
+<font color='#009900'>/* Currently we ignore 'em all */</font>
+<b>{</b>
+  <font color='#0000FF'><u>int</u></font> extlabel;
+
+  <font color='#009900'>/* Read extension label byte */</font>
+  extlabel <font color='#5555FF'>=</font> <font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+  <font color='#BB00BB'>TRACEMS1</font><font face='Lucida Console'>(</font>sinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo, <font color='#979000'>1</font>, JTRC_GIF_EXTENSION, extlabel<font face='Lucida Console'>)</font>;
+  <font color='#009900'>/* Skip the data block(s) associated with the extension */</font>
+  <font color='#BB00BB'>SkipDataBlocks</font><font face='Lucida Console'>(</font>sinfo<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+
+<font color='#009900'>/*
+ * Read the file header; return image size and component count.
+ */</font>
+
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='start_input_gif'></a>start_input_gif</b> <font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font>
+<b>{</b>
+  gif_source_ptr source <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>gif_source_ptr<font face='Lucida Console'>)</font> sinfo;
+  U_CHAR hdrbuf[<font color='#979000'>10</font>];		<font color='#009900'>/* workspace for reading control blocks */</font>
+  <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>int</u></font> width, height;	<font color='#009900'>/* image dimensions */</font>
+  <font color='#0000FF'><u>int</u></font> colormaplen, aspectRatio;
+  <font color='#0000FF'><u>int</u></font> c;
+
+  <font color='#009900'>/* Read and verify GIF Header */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font> <font color='#BB00BB'>ReadOK</font><font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.input_file, hdrbuf, <font color='#979000'>6</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>cinfo, JERR_GIF_NOT<font face='Lucida Console'>)</font>;
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>0</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>G</font>' <font color='#5555FF'>|</font><font color='#5555FF'>|</font> hdrbuf[<font color='#979000'>1</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>I</font>' <font color='#5555FF'>|</font><font color='#5555FF'>|</font> hdrbuf[<font color='#979000'>2</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>F</font>'<font face='Lucida Console'>)</font>
+    <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>cinfo, JERR_GIF_NOT<font face='Lucida Console'>)</font>;
+  <font color='#009900'>/* Check for expected version numbers.
+   * If unknown version, give warning and try to process anyway;
+   * this is per recommendation in GIF89a standard.
+   */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>3</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>8</font>' <font color='#5555FF'>|</font><font color='#5555FF'>|</font> hdrbuf[<font color='#979000'>4</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>7</font>' <font color='#5555FF'>|</font><font color='#5555FF'>|</font> hdrbuf[<font color='#979000'>5</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>a</font>'<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>
+      <font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>3</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>8</font>' <font color='#5555FF'>|</font><font color='#5555FF'>|</font> hdrbuf[<font color='#979000'>4</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>9</font>' <font color='#5555FF'>|</font><font color='#5555FF'>|</font> hdrbuf[<font color='#979000'>5</font>] <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>a</font>'<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <font color='#BB00BB'>TRACEMS3</font><font face='Lucida Console'>(</font>cinfo, <font color='#979000'>1</font>, JTRC_GIF_BADVERSION, hdrbuf[<font color='#979000'>3</font>], hdrbuf[<font color='#979000'>4</font>], hdrbuf[<font color='#979000'>5</font>]<font face='Lucida Console'>)</font>;
+
+  <font color='#009900'>/* Read and decipher Logical Screen Descriptor */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font> <font color='#BB00BB'>ReadOK</font><font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.input_file, hdrbuf, <font color='#979000'>7</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>cinfo, JERR_INPUT_EOF<font face='Lucida Console'>)</font>;
+  width <font color='#5555FF'>=</font> <font color='#BB00BB'>LM_to_uint</font><font face='Lucida Console'>(</font>hdrbuf, <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+  height <font color='#5555FF'>=</font> <font color='#BB00BB'>LM_to_uint</font><font face='Lucida Console'>(</font>hdrbuf, <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+  <font color='#009900'>/* we ignore the color resolution, sort flag, and background color index */</font>
+  aspectRatio <font color='#5555FF'>=</font> <font color='#BB00BB'>UCH</font><font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>6</font>]<font face='Lucida Console'>)</font>;
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>aspectRatio <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> aspectRatio <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>49</font><font face='Lucida Console'>)</font>
+    <font color='#BB00BB'>TRACEMS</font><font face='Lucida Console'>(</font>cinfo, <font color='#979000'>1</font>, JTRC_GIF_NONSQUARE<font face='Lucida Console'>)</font>;
+
+  <font color='#009900'>/* Allocate space to store the colormap */</font>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>alloc_sarray<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo,
+    JPOOL_IMAGE, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> MAXCOLORMAPSIZE, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> NUMCOLORS<font face='Lucida Console'>)</font>;
+  colormaplen <font color='#5555FF'>=</font> <font color='#979000'>0</font>; 		<font color='#009900'>/* indicate initialization */</font>
+
+  <font color='#009900'>/* Read global colormap if header indicates it is present */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>BitSet</font><font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>4</font>], COLORMAPFLAG<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+    colormaplen <font color='#5555FF'>=</font> <font color='#979000'>2</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>4</font>] <font color='#5555FF'>&amp;</font> <font color='#979000'>0x07</font><font face='Lucida Console'>)</font>;
+    <font color='#BB00BB'>ReadColorMap</font><font face='Lucida Console'>(</font>source, colormaplen, source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap<font face='Lucida Console'>)</font>;
+  <b>}</b>
+
+  <font color='#009900'>/* Scan until we reach start of desired image.
+   * We don't currently support skipping images, but could add it easily.
+   */</font>
+  <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>;;<font face='Lucida Console'>)</font> <b>{</b>
+    c <font color='#5555FF'>=</font> <font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>source<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>c <font color='#5555FF'>=</font><font color='#5555FF'>=</font> '<font color='#FF0000'>;</font>'<font face='Lucida Console'>)</font>		<font color='#009900'>/* GIF terminator?? */</font>
+      <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>cinfo, JERR_GIF_IMAGENOTFOUND<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>c <font color='#5555FF'>=</font><font color='#5555FF'>=</font> '<font color='#FF0000'>!</font>'<font face='Lucida Console'>)</font> <b>{</b>		<font color='#009900'>/* Extension */</font>
+      <font color='#BB00BB'>DoExtension</font><font face='Lucida Console'>(</font>source<font face='Lucida Console'>)</font>;
+      <font color='#0000FF'>continue</font>;
+    <b>}</b>
+    
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>c <font color='#5555FF'>!</font><font color='#5555FF'>=</font> '<font color='#FF0000'>,</font>'<font face='Lucida Console'>)</font> <b>{</b>		<font color='#009900'>/* Not an image separator? */</font>
+      <font color='#BB00BB'>WARNMS1</font><font face='Lucida Console'>(</font>cinfo, JWRN_GIF_CHAR, c<font face='Lucida Console'>)</font>;
+      <font color='#0000FF'>continue</font>;
+    <b>}</b>
+
+    <font color='#009900'>/* Read and decipher Local Image Descriptor */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font> <font color='#BB00BB'>ReadOK</font><font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.input_file, hdrbuf, <font color='#979000'>9</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+      <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>cinfo, JERR_INPUT_EOF<font face='Lucida Console'>)</font>;
+    <font color='#009900'>/* we ignore top/left position info, also sort flag */</font>
+    width <font color='#5555FF'>=</font> <font color='#BB00BB'>LM_to_uint</font><font face='Lucida Console'>(</font>hdrbuf, <font color='#979000'>4</font><font face='Lucida Console'>)</font>;
+    height <font color='#5555FF'>=</font> <font color='#BB00BB'>LM_to_uint</font><font face='Lucida Console'>(</font>hdrbuf, <font color='#979000'>6</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>width <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> height <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+      <font color='#BB00BB'>ERREXIT</font><font face='Lucida Console'>(</font>cinfo, JERR_GIF_OUTOFRANGE<font face='Lucida Console'>)</font>;
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>is_interlaced <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>BitSet</font><font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>8</font>], INTERLACE<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>/* Read local colormap if header indicates it is present */</font>
+    <font color='#009900'>/* Note: if we wanted to support skipping images, */</font>
+    <font color='#009900'>/* we'd need to skip rather than read colormap for ignored images */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>BitSet</font><font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>8</font>], COLORMAPFLAG<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+      colormaplen <font color='#5555FF'>=</font> <font color='#979000'>2</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font face='Lucida Console'>(</font>hdrbuf[<font color='#979000'>8</font>] <font color='#5555FF'>&amp;</font> <font color='#979000'>0x07</font><font face='Lucida Console'>)</font>;
+      <font color='#BB00BB'>ReadColorMap</font><font face='Lucida Console'>(</font>source, colormaplen, source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_code_size <font color='#5555FF'>=</font> <font color='#BB00BB'>ReadByte</font><font face='Lucida Console'>(</font>source<font face='Lucida Console'>)</font>; <font color='#009900'>/* get min-code-size byte */</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_code_size <font color='#5555FF'>&lt;</font> <font color='#979000'>2</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_code_size <font color='#5555FF'>&gt;</font> <font color='#979000'>8</font><font face='Lucida Console'>)</font>
+      <font color='#BB00BB'>ERREXIT1</font><font face='Lucida Console'>(</font>cinfo, JERR_GIF_CODESIZE, source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_code_size<font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>/* Reached desired image, so break out of loop */</font>
+    <font color='#009900'>/* If we wanted to skip this image, */</font>
+    <font color='#009900'>/* we'd call SkipDataBlocks and then continue the loop */</font>
+    <font color='#0000FF'>break</font>;
+  <b>}</b>
+
+  <font color='#009900'>/* Prepare to read selected image: first initialize LZW decompressor */</font>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_head <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>UINT16 FAR <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>alloc_large<font face='Lucida Console'>)</font>
+    <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo, JPOOL_IMAGE, LZW_TABLE_SIZE <font color='#5555FF'>*</font> <font color='#BB00BB'>SIZEOF</font><font face='Lucida Console'>(</font>UINT16<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_tail <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>UINT8 FAR <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>alloc_large<font face='Lucida Console'>)</font>
+    <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo, JPOOL_IMAGE, LZW_TABLE_SIZE <font color='#5555FF'>*</font> <font color='#BB00BB'>SIZEOF</font><font face='Lucida Console'>(</font>UINT8<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>symbol_stack <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>UINT8 FAR <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>alloc_large<font face='Lucida Console'>)</font>
+    <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo, JPOOL_IMAGE, LZW_TABLE_SIZE <font color='#5555FF'>*</font> <font color='#BB00BB'>SIZEOF</font><font face='Lucida Console'>(</font>UINT8<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+  <font color='#BB00BB'>InitLZWCode</font><font face='Lucida Console'>(</font>source<font face='Lucida Console'>)</font>;
+
+  <font color='#009900'>/*
+   * If image is interlaced, we read it into a full-size sample array,
+   * decompressing as we go; then get_interlaced_row selects rows from the
+   * sample array in the proper order.
+   */</font>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>is_interlaced<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>/* We request the virtual array now, but can't access it until virtual
+     * arrays have been allocated.  Hence, the actual work of reading the
+     * image is postponed until the first call to get_pixel_rows.
+     */</font>
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interlaced_image <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>request_virt_sarray<font face='Lucida Console'>)</font>
+      <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo, JPOOL_IMAGE, FALSE,
+       <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> width, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> height, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>progress <font color='#5555FF'>!</font><font color='#5555FF'>=</font> NULL<font face='Lucida Console'>)</font> <b>{</b>
+      cd_progress_ptr progress <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>cd_progress_ptr<font face='Lucida Console'>)</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>progress;
+      progress<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>total_extra_passes<font color='#5555FF'>+</font><font color='#5555FF'>+</font>; <font color='#009900'>/* count file input as separate pass */</font>
+    <b>}</b>
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.get_pixel_rows <font color='#5555FF'>=</font> load_interlaced_image;
+  <b>}</b> <font color='#0000FF'>else</font> <b>{</b>
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.get_pixel_rows <font color='#5555FF'>=</font> get_pixel_rows;
+  <b>}</b>
+
+  <font color='#009900'>/* Create compressor input buffer. */</font>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.buffer <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>alloc_sarray<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo,
+    JPOOL_IMAGE, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> width <font color='#5555FF'>*</font> NUMCOLORS, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.buffer_height <font color='#5555FF'>=</font> <font color='#979000'>1</font>;
+
+  <font color='#009900'>/* Pad colormap for safety. */</font>
+  <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>c <font color='#5555FF'>=</font> colormaplen; c <font color='#5555FF'>&lt;</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>clear_code; c<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font> <b>{</b>
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap[CM_RED  ][c] <font color='#5555FF'>=</font>
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap[CM_GREEN][c] <font color='#5555FF'>=</font>
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap[CM_BLUE ][c] <font color='#5555FF'>=</font> CENTERJSAMPLE;
+  <b>}</b>
+
+  <font color='#009900'>/* Return info about the image. */</font>
+  cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>in_color_space <font color='#5555FF'>=</font> JCS_RGB;
+  cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>input_components <font color='#5555FF'>=</font> NUMCOLORS;
+  cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>data_precision <font color='#5555FF'>=</font> BITS_IN_JSAMPLE; <font color='#009900'>/* we always rescale data to this */</font>
+  cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_width <font color='#5555FF'>=</font> width;
+  cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_height <font color='#5555FF'>=</font> height;
+
+  <font color='#BB00BB'>TRACEMS3</font><font face='Lucida Console'>(</font>cinfo, <font color='#979000'>1</font>, JTRC_GIF, width, height, colormaplen<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+
+<font color='#009900'>/*
+ * Read one row of pixels.
+ * This version is used for noninterlaced GIF images:
+ * we read directly from the GIF file.
+ */</font>
+
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font>
+<b><a name='get_pixel_rows'></a>get_pixel_rows</b> <font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font>
+<b>{</b>
+  gif_source_ptr source <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>gif_source_ptr<font face='Lucida Console'>)</font> sinfo;
+  <font color='#0000FF'>register</font> <font color='#0000FF'><u>int</u></font> c;
+  <font color='#0000FF'>register</font> JSAMPROW ptr;
+  <font color='#0000FF'>register</font> JDIMENSION col;
+  <font color='#0000FF'>register</font> JSAMPARRAY colormap <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap;
+  
+  ptr <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.buffer[<font color='#979000'>0</font>];
+  <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>col <font color='#5555FF'>=</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_width; col <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>; col<font color='#5555FF'>-</font><font color='#5555FF'>-</font><font face='Lucida Console'>)</font> <b>{</b>
+    c <font color='#5555FF'>=</font> <font color='#BB00BB'>LZWReadByte</font><font face='Lucida Console'>(</font>source<font face='Lucida Console'>)</font>;
+    <font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> colormap[CM_RED  ][c];
+    <font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> colormap[CM_GREEN][c];
+    <font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> colormap[CM_BLUE ][c];
+  <b>}</b>
+  <font color='#0000FF'>return</font> <font color='#979000'>1</font>;
+<b>}</b>
+
+
+<font color='#009900'>/*
+ * Read one row of pixels.
+ * This version is used for the first call on get_pixel_rows when
+ * reading an interlaced GIF file: we read the whole image into memory.
+ */</font>
+
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font>
+<b><a name='load_interlaced_image'></a>load_interlaced_image</b> <font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font>
+<b>{</b>
+  gif_source_ptr source <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>gif_source_ptr<font face='Lucida Console'>)</font> sinfo;
+  <font color='#0000FF'>register</font> JSAMPROW sptr;
+  <font color='#0000FF'>register</font> JDIMENSION col;
+  JDIMENSION row;
+  cd_progress_ptr progress <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>cd_progress_ptr<font face='Lucida Console'>)</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>progress;
+
+  <font color='#009900'>/* Read the interlaced image into the virtual array we've created. */</font>
+  <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>row <font color='#5555FF'>=</font> <font color='#979000'>0</font>; row <font color='#5555FF'>&lt;</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_height; row<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>progress <font color='#5555FF'>!</font><font color='#5555FF'>=</font> NULL<font face='Lucida Console'>)</font> <b>{</b>
+      progress<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.pass_counter <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font> row;
+      progress<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.pass_limit <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_height;
+      <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>progress<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.progress_monitor<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    sptr <font color='#5555FF'>=</font> <font color='#5555FF'>*</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>access_virt_sarray<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo,
+      source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interlaced_image, row, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> <font color='#979000'>1</font>, TRUE<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>col <font color='#5555FF'>=</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_width; col <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>; col<font color='#5555FF'>-</font><font color='#5555FF'>-</font><font face='Lucida Console'>)</font> <b>{</b>
+      <font color='#5555FF'>*</font>sptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>JSAMPLE<font face='Lucida Console'>)</font> <font color='#BB00BB'>LZWReadByte</font><font face='Lucida Console'>(</font>source<font face='Lucida Console'>)</font>;
+    <b>}</b>
+  <b>}</b>
+  <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>progress <font color='#5555FF'>!</font><font color='#5555FF'>=</font> NULL<font face='Lucida Console'>)</font>
+    progress<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>completed_extra_passes<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+
+  <font color='#009900'>/* Replace method pointer so subsequent calls don't come here. */</font>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.get_pixel_rows <font color='#5555FF'>=</font> get_interlaced_row;
+  <font color='#009900'>/* Initialize for get_interlaced_row, and perform first call on it. */</font>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass2_offset <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_height <font color='#5555FF'>+</font> <font color='#979000'>7</font><font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> <font color='#979000'>8</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass3_offset <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass2_offset <font color='#5555FF'>+</font> <font face='Lucida Console'>(</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_height <font color='#5555FF'>+</font> <font color='#979000'>3</font><font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> <font color='#979000'>8</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass4_offset <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass3_offset <font color='#5555FF'>+</font> <font face='Lucida Console'>(</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_height <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> <font color='#979000'>4</font>;
+
+  <font color='#0000FF'>return</font> <font color='#BB00BB'>get_interlaced_row</font><font face='Lucida Console'>(</font>cinfo, sinfo<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+
+<font color='#009900'>/*
+ * Read one row of pixels.
+ * This version is used for interlaced GIF images:
+ * we read from the virtual array.
+ */</font>
+
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font>
+<b><a name='get_interlaced_row'></a>get_interlaced_row</b> <font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font>
+<b>{</b>
+  gif_source_ptr source <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>gif_source_ptr<font face='Lucida Console'>)</font> sinfo;
+  <font color='#0000FF'>register</font> <font color='#0000FF'><u>int</u></font> c;
+  <font color='#0000FF'>register</font> JSAMPROW sptr, ptr;
+  <font color='#0000FF'>register</font> JDIMENSION col;
+  <font color='#0000FF'>register</font> JSAMPARRAY colormap <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>colormap;
+  JDIMENSION irow;
+
+  <font color='#009900'>/* Figure out which row of interlaced image is needed, and access it. */</font>
+  <font color='#0000FF'>switch</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number <font color='#5555FF'>&amp;</font> <font color='#979000'>7</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+  <font color='#0000FF'>case</font> <font color='#979000'>0</font>:			<font color='#009900'>/* first-pass row */</font>
+    irow <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#979000'>3</font>;
+    <font color='#0000FF'>break</font>;
+  <font color='#0000FF'>case</font> <font color='#979000'>4</font>:			<font color='#009900'>/* second-pass row */</font>
+    irow <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#979000'>3</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass2_offset;
+    <font color='#0000FF'>break</font>;
+  <font color='#0000FF'>case</font> <font color='#979000'>2</font>:			<font color='#009900'>/* third-pass row */</font>
+  <font color='#0000FF'>case</font> <font color='#979000'>6</font>:
+    irow <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass3_offset;
+    <font color='#0000FF'>break</font>;
+  <font color='#0000FF'>default</font>:			<font color='#009900'>/* fourth-pass row */</font>
+    irow <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pass4_offset;
+  <b>}</b>
+  sptr <font color='#5555FF'>=</font> <font color='#5555FF'>*</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>access_virt_sarray<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo,
+    source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interlaced_image, irow, <font face='Lucida Console'>(</font>JDIMENSION<font face='Lucida Console'>)</font> <font color='#979000'>1</font>, FALSE<font face='Lucida Console'>)</font>;
+  <font color='#009900'>/* Scan the row, expand colormap, and output */</font>
+  ptr <font color='#5555FF'>=</font> source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.buffer[<font color='#979000'>0</font>];
+  <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font>col <font color='#5555FF'>=</font> cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>image_width; col <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>; col<font color='#5555FF'>-</font><font color='#5555FF'>-</font><font face='Lucida Console'>)</font> <b>{</b>
+    c <font color='#5555FF'>=</font> <font color='#BB00BB'>GETJSAMPLE</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>sptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font>;
+    <font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> colormap[CM_RED  ][c];
+    <font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> colormap[CM_GREEN][c];
+    <font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font> <font color='#5555FF'>=</font> colormap[CM_BLUE ][c];
+  <b>}</b>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cur_row_number<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;	<font color='#009900'>/* for next time */</font>
+  <font color='#0000FF'>return</font> <font color='#979000'>1</font>;
+<b>}</b>
+
+
+<font color='#009900'>/*
+ * Finish up at the end of the file.
+ */</font>
+
+<b><a name='METHODDEF'></a>METHODDEF</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>
+<b><a name='finish_input_gif'></a>finish_input_gif</b> <font face='Lucida Console'>(</font>j_compress_ptr cinfo, cjpeg_source_ptr sinfo<font face='Lucida Console'>)</font>
+<b>{</b>
+  <font color='#009900'>/* no work */</font>
+<b>}</b>
+
+
+<font color='#009900'>/*
+ * The module selection routine for GIF format input.
+ */</font>
+
+<b><a name='GLOBAL'></a>GLOBAL</b><font face='Lucida Console'>(</font>cjpeg_source_ptr<font face='Lucida Console'>)</font>
+<b><a name='jinit_read_gif'></a>jinit_read_gif</b> <font face='Lucida Console'>(</font>j_compress_ptr cinfo<font face='Lucida Console'>)</font>
+<b>{</b>
+  gif_source_ptr source;
+
+  <font color='#009900'>/* Create module interface object */</font>
+  source <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>gif_source_ptr<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>cinfo<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>mem<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>alloc_small<font face='Lucida Console'>)</font>
+    <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>j_common_ptr<font face='Lucida Console'>)</font> cinfo, JPOOL_IMAGE, <font color='#BB00BB'>SIZEOF</font><font face='Lucida Console'>(</font>gif_source_struct<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>cinfo <font color='#5555FF'>=</font> cinfo;	<font color='#009900'>/* make back link for subroutines */</font>
+  <font color='#009900'>/* Fill in method ptrs, except get_pixel_rows which start_input sets */</font>
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.start_input <font color='#5555FF'>=</font> start_input_gif;
+  source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub.finish_input <font color='#5555FF'>=</font> finish_input_gif;
+
+  <font color='#0000FF'>return</font> <font color='#5555FF'>&amp;</font>source<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>pub;
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>/* GIF_SUPPORTED */</font>
+
+</pre></body></html>

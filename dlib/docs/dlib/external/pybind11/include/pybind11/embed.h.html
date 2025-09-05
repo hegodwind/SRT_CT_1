@@ -1,0 +1,319 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - embed.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+    pybind11/embed.h: Support for embedding the interpreter
+
+    Copyright (c) 2017 Wenzel Jakob &lt;wenzel.jakob@epfl.ch&gt;
+
+    All rights reserved. Use of this source code is governed by a
+    BSD-style license that can be found in the LICENSE file.
+*/</font>
+
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='pybind11.h.html'>pybind11.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='eval.h.html'>eval.h</a>"
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>memory<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>PYPY_VERSION<font face='Lucida Console'>)</font>
+#    error Embedding the interpreter is not supported with PyPy
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#define</font> PYBIND11_EMBEDDED_MODULE_IMPL<font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>                                                       \
+    <font color='#0000FF'>extern</font> "<font color='#CC0000'>C</font>" PyObject <font color='#5555FF'>*</font>pybind11_init_impl_##<b><a name='name'></a>name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;                                             \
+    <font color='#0000FF'>extern</font> "<font color='#CC0000'>C</font>" PyObject <font color='#5555FF'>*</font>pybind11_init_impl_##<b><a name='name'></a>name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> pybind11_init_wrapper_##<b><a name='name'></a>name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+
+<font color='#009900'>/** \rst
+    Add a new module to the table of builtins for the interpreter. Must be
+    defined in global scope. The first macro parameter is the name of the
+    module (without quotes). The second parameter is the variable which will
+    be used as the interface to add functions and classes to the module.
+
+    .. code-block:: cpp
+
+        PYBIND11_EMBEDDED_MODULE(example, m) {
+            // ... initialize functions and classes here
+            m.def("foo", []() {
+                return "Hello, World!";
+            });
+        }
+ \endrst */</font>
+<font color='#0000FF'>#define</font> PYBIND11_EMBEDDED_MODULE<font face='Lucida Console'>(</font>name, variable<font face='Lucida Console'>)</font>                                                  \
+    <font color='#0000FF'>static</font> ::pybind11::module_::module_def <b><a name='PYBIND11_CONCAT'></a>PYBIND11_CONCAT</b><font face='Lucida Console'>(</font>pybind11_module_def_, name<font face='Lucida Console'>)</font>;           \
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>void</u></font> <b><a name='PYBIND11_CONCAT'></a>PYBIND11_CONCAT</b><font face='Lucida Console'>(</font>pybind11_init_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>::pybind11::module_ <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>;                     \
+    <font color='#0000FF'>static</font> PyObject <b><a name='PYBIND11_CONCAT'></a>PYBIND11_CONCAT</b><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>pybind11_init_wrapper_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>                            \
+        <font color='#0000FF'>auto</font> m <font color='#5555FF'>=</font> ::pybind11::module_::<font color='#BB00BB'>create_extension_module</font><font face='Lucida Console'>(</font>                                    \
+            <font color='#BB00BB'>PYBIND11_TOSTRING</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>, nullptr, <font color='#5555FF'>&amp;</font><font color='#BB00BB'>PYBIND11_CONCAT</font><font face='Lucida Console'>(</font>pybind11_module_def_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;      \
+        <font color='#0000FF'>try</font> <b>{</b>                                                                                     \
+            <font color='#BB00BB'>PYBIND11_CONCAT</font><font face='Lucida Console'>(</font>pybind11_init_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>m<font face='Lucida Console'>)</font>;                                             \
+            <font color='#0000FF'>return</font> m.<font color='#BB00BB'>ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;                                                                       \
+        <b>}</b>                                                                                         \
+        PYBIND11_CATCH_INIT_EXCEPTIONS                                                            \
+    <b>}</b>                                                                                             \
+    <b><a name='PYBIND11_EMBEDDED_MODULE_IMPL'></a>PYBIND11_EMBEDDED_MODULE_IMPL</b><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>                                                           \
+    ::pybind11::detail::embedded_module <b><a name='PYBIND11_CONCAT'></a>PYBIND11_CONCAT</b><font face='Lucida Console'>(</font>pybind11_module_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>                  \
+        <font color='#BB00BB'>PYBIND11_TOSTRING</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>, <font color='#BB00BB'>PYBIND11_CONCAT</font><font face='Lucida Console'>(</font>pybind11_init_impl_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;                     \
+    <font color='#0000FF'><u>void</u></font> <b><a name='PYBIND11_CONCAT'></a>PYBIND11_CONCAT</b><font face='Lucida Console'>(</font>pybind11_init_, name<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>::pybind11::module_                                \
+                                               <font color='#5555FF'>&amp;</font> variable<font face='Lucida Console'>)</font> <font color='#009900'>// NOLINT(bugprone-macro-parentheses)
+</font>
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#009900'>/// Python 2.7/3.x compatible version of `PyImport_AppendInittab` and error checks.
+</font><font color='#0000FF'>struct</font> <b><a name='embedded_module'></a>embedded_module</b> <b>{</b>
+    <font color='#0000FF'>using</font> init_t <font color='#5555FF'>=</font> PyObject <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b><a name='embedded_module'></a>embedded_module</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font>name, init_t init<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>Py_IsInitialized</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Can't add new modules after the interpreter has been initialized</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>auto</font> result <font color='#5555FF'>=</font> <font color='#BB00BB'>PyImport_AppendInittab</font><font face='Lucida Console'>(</font>name, init<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>result <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#5555FF'>-</font><font color='#979000'>1</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Insufficient memory to add a new module</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+<b>}</b>;
+
+<font color='#0000FF'>struct</font> <b><a name='wide_char_arg_deleter'></a>wide_char_arg_deleter</b> <b>{</b>
+    <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b>
+        <font color='#009900'>// API docs: https://docs.python.org/3/c-api/sys.html#c.Py_DecodeLocale
+</font>        <font color='#BB00BB'>PyMem_RawFree</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>;
+    <b>}</b>
+<b>}</b>;
+
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font><b><a name='widen_chars'></a>widen_chars</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font>safe_arg<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font>widened_arg <font color='#5555FF'>=</font> <font color='#BB00BB'>Py_DecodeLocale</font><font face='Lucida Console'>(</font>safe_arg, nullptr<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> widened_arg;
+<b>}</b>
+
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='precheck_interpreter'></a>precheck_interpreter</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>Py_IsInitialized</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>The interpreter is already running</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#if</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX<font face='Lucida Console'>)</font>
+#    define <b><a name='PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX'></a>PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX</b> <font face='Lucida Console'>(</font><font color='#979000'>0x03080000</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#if</font> PY_VERSION_HEX <font color='#5555FF'>&lt;</font> PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='initialize_interpreter_pre_pyconfig'></a>initialize_interpreter_pre_pyconfig</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> init_signal_handlers,
+                                                <font color='#0000FF'><u>int</u></font> argc,
+                                                <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font>argv,
+                                                <font color='#0000FF'><u>bool</u></font> add_program_dir_to_path<font face='Lucida Console'>)</font> <b>{</b>
+    detail::<font color='#BB00BB'>precheck_interpreter</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#BB00BB'>Py_InitializeEx</font><font face='Lucida Console'>(</font>init_signal_handlers ? <font color='#979000'>1</font> : <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+#    <font color='#0000FF'>if</font> <font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> PY_VERSION_HEX <font color='#5555FF'>&lt;</font> <font color='#979000'>0x03070000</font>
+    <font color='#BB00BB'>PyEval_InitThreads</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+#    endif
+
+    <font color='#009900'>// Before it was special-cased in python 3.8, passing an empty or null argv
+</font>    <font color='#009900'>// caused a segfault, so we have to reimplement the special case ourselves.
+</font>    <font color='#0000FF'><u>bool</u></font> special_case <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>argv <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nullptr <font color='#5555FF'>|</font><font color='#5555FF'>|</font> argc <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> empty_argv[]<b>{</b>"<font color='#CC0000'>\0</font>"<b>}</b>;
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font>safe_argv <font color='#5555FF'>=</font> special_case ? empty_argv : argv;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>special_case<font face='Lucida Console'>)</font> <b>{</b>
+        argc <font color='#5555FF'>=</font> <font color='#979000'>1</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>auto</font> argv_size <font color='#5555FF'>=</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>size_t</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>argc<font face='Lucida Console'>)</font>;
+    <font color='#009900'>// SetArgv* on python 3 takes wchar_t, so we have to convert.
+</font>    std::unique_ptr<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font>[]<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>widened_argv</font><font face='Lucida Console'>(</font><font color='#0000FF'>new</font> <font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font>[argv_size]<font face='Lucida Console'>)</font>;
+    std::vector<font color='#5555FF'>&lt;</font>std::unique_ptr<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>wchar_t</u></font>[], detail::wide_char_arg_deleter<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> widened_argv_entries;
+    widened_argv_entries.<font color='#BB00BB'>reserve</font><font face='Lucida Console'>(</font>argv_size<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> ii <font color='#5555FF'>=</font> <font color='#979000'>0</font>; ii <font color='#5555FF'>&lt;</font> argv_size; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>ii<font face='Lucida Console'>)</font> <b>{</b>
+        widened_argv_entries.<font color='#BB00BB'>emplace_back</font><font face='Lucida Console'>(</font>detail::<font color='#BB00BB'>widen_chars</font><font face='Lucida Console'>(</font>safe_argv[ii]<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>widened_argv_entries.<font color='#BB00BB'>back</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#009900'>// A null here indicates a character-encoding failure or the python
+</font>            <font color='#009900'>// interpreter out of memory. Give up.
+</font>            <font color='#0000FF'>return</font>;
+        <b>}</b>
+        widened_argv[ii] <font color='#5555FF'>=</font> widened_argv_entries.<font color='#BB00BB'>back</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>pysys_argv <font color='#5555FF'>=</font> widened_argv.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#BB00BB'>PySys_SetArgvEx</font><font face='Lucida Console'>(</font>argc, pysys_argv, <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>add_program_dir_to_path<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b>}</b>
+<font color='#0000FF'>#endif</font>
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>#if</font> PY_VERSION_HEX <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='initialize_interpreter'></a>initialize_interpreter</b><font face='Lucida Console'>(</font>PyConfig <font color='#5555FF'>*</font>config,
+                                   <font color='#0000FF'><u>int</u></font> argc <font color='#5555FF'>=</font> <font color='#979000'>0</font>,
+                                   <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font>argv <font color='#5555FF'>=</font> nullptr,
+                                   <font color='#0000FF'><u>bool</u></font> add_program_dir_to_path <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <b>{</b>
+    detail::<font color='#BB00BB'>precheck_interpreter</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    PyStatus status <font color='#5555FF'>=</font> <font color='#BB00BB'>PyConfig_SetBytesArgv</font><font face='Lucida Console'>(</font>config, argc, <font color='#0000FF'>const_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>argv<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyStatus_Exception</font><font face='Lucida Console'>(</font>status<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#009900'>// A failure here indicates a character-encoding failure or the python
+</font>        <font color='#009900'>// interpreter out of memory. Give up.
+</font>        <font color='#BB00BB'>PyConfig_Clear</font><font face='Lucida Console'>(</font>config<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font><font color='#BB00BB'>PyStatus_IsError</font><font face='Lucida Console'>(</font>status<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ? status.err_msg
+                                                               : "<font color='#CC0000'>Failed to prepare CPython</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    status <font color='#5555FF'>=</font> <font color='#BB00BB'>Py_InitializeFromConfig</font><font face='Lucida Console'>(</font>config<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyStatus_Exception</font><font face='Lucida Console'>(</font>status<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>PyConfig_Clear</font><font face='Lucida Console'>(</font>config<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font><font color='#BB00BB'>PyStatus_IsError</font><font face='Lucida Console'>(</font>status<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ? status.err_msg
+                                                               : "<font color='#CC0000'>Failed to init CPython</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>add_program_dir_to_path<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>PyRun_SimpleString</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>import sys, os.path; </font>"
+                           "<font color='#CC0000'>sys.path.insert(0, </font>"
+                           "<font color='#CC0000'>os.path.abspath(os.path.dirname(sys.argv[0])) </font>"
+                           "<font color='#CC0000'>if sys.argv and os.path.exists(sys.argv[0]) else '')</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#BB00BB'>PyConfig_Clear</font><font face='Lucida Console'>(</font>config<font face='Lucida Console'>)</font>;
+<b>}</b>
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>/** \rst
+    Initialize the Python interpreter. No other pybind11 or CPython API functions can be
+    called before this is done; with the exception of `PYBIND11_EMBEDDED_MODULE`. The
+    optional `init_signal_handlers` parameter can be used to skip the registration of
+    signal handlers (see the `Python documentation`_ for details). Calling this function
+    again after the interpreter has already been initialized is a fatal error.
+
+    If initializing the Python interpreter fails, then the program is terminated.  (This
+    is controlled by the CPython runtime and is an exception to pybind11's normal behavior
+    of throwing exceptions on errors.)
+
+    The remaining optional parameters, `argc`, `argv`, and `add_program_dir_to_path` are
+    used to populate ``sys.argv`` and ``sys.path``.
+    See the |PySys_SetArgvEx documentation|_ for details.
+
+    .. _Python documentation: https://docs.python.org/3/c-api/init.html#c.Py_InitializeEx
+    .. |PySys_SetArgvEx documentation| replace:: ``PySys_SetArgvEx`` documentation
+    .. _PySys_SetArgvEx documentation: https://docs.python.org/3/c-api/init.html#c.PySys_SetArgvEx
+ \endrst */</font>
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='initialize_interpreter'></a>initialize_interpreter</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> init_signal_handlers <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+                                   <font color='#0000FF'><u>int</u></font> argc <font color='#5555FF'>=</font> <font color='#979000'>0</font>,
+                                   <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font>argv <font color='#5555FF'>=</font> nullptr,
+                                   <font color='#0000FF'><u>bool</u></font> add_program_dir_to_path <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <b>{</b>
+<font color='#0000FF'>#if</font> PY_VERSION_HEX <font color='#5555FF'>&lt;</font> PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX
+    detail::<font color='#BB00BB'>initialize_interpreter_pre_pyconfig</font><font face='Lucida Console'>(</font>
+        init_signal_handlers, argc, argv, add_program_dir_to_path<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#else</font>
+    PyConfig config;
+    <font color='#BB00BB'>PyConfig_InitPythonConfig</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>config<font face='Lucida Console'>)</font>;
+    <font color='#009900'>// See PR #4473 for background
+</font>    config.parse_argv <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+    config.install_signal_handlers <font color='#5555FF'>=</font> init_signal_handlers ? <font color='#979000'>1</font> : <font color='#979000'>0</font>;
+    <font color='#BB00BB'>initialize_interpreter</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>config, argc, argv, add_program_dir_to_path<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+<b>}</b>
+
+<font color='#009900'>/** \rst
+    Shut down the Python interpreter. No pybind11 or CPython API functions can be called
+    after this. In addition, pybind11 objects must not outlive the interpreter:
+
+    .. code-block:: cpp
+
+        { // BAD
+            py::initialize_interpreter();
+            auto hello = py::str("Hello, World!");
+            py::finalize_interpreter();
+        } // &lt;-- BOOM, hello's destructor is called after interpreter shutdown
+
+        { // GOOD
+            py::initialize_interpreter();
+            { // scoped
+                auto hello = py::str("Hello, World!");
+            } // &lt;-- OK, hello is cleaned up properly
+            py::finalize_interpreter();
+        }
+
+        { // BETTER
+            py::scoped_interpreter guard{};
+            auto hello = py::str("Hello, World!");
+        }
+
+    .. warning::
+
+        The interpreter can be restarted by calling `initialize_interpreter` again.
+        Modules created using pybind11 can be safely re-initialized. However, Python
+        itself cannot completely unload binary extension modules and there are several
+        caveats with regard to interpreter restarting. All the details can be found
+        in the CPython documentation. In short, not all interpreter memory may be
+        freed, either due to reference cycles or user-created global data.
+
+ \endrst */</font>
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='finalize_interpreter'></a>finalize_interpreter</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>// Get the internals pointer (without creating it if it doesn't exist).  It's possible for the
+</font>    <font color='#009900'>// internals to be created during Py_Finalize() (e.g. if a py::capsule calls `get_internals()`
+</font>    <font color='#009900'>// during destruction), so we get the pointer-pointer here and check it after Py_Finalize().
+</font>    detail::internals <font color='#5555FF'>*</font><font color='#5555FF'>*</font>internals_ptr_ptr <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals_pp</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#009900'>// It could also be stashed in state_dict, so look there too:
+</font>    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>object internals_obj
+        <font color='#5555FF'>=</font> <font color='#BB00BB'>get_internals_obj_from_state_dict</font><font face='Lucida Console'>(</font>detail::<font color='#BB00BB'>get_python_state_dict</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+        internals_ptr_ptr <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals_pp_from_capsule</font><font face='Lucida Console'>(</font>internals_obj<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#009900'>// Local internals contains data managed by the current interpreter, so we must clear them to
+</font>    <font color='#009900'>// avoid undefined behaviors when initializing another interpreter
+</font>    detail::<font color='#BB00BB'>get_local_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.registered_types_cpp.<font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    detail::<font color='#BB00BB'>get_local_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.registered_exception_translators.<font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#BB00BB'>Py_Finalize</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>internals_ptr_ptr<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>delete</font> <font color='#5555FF'>*</font>internals_ptr_ptr;
+        <font color='#5555FF'>*</font>internals_ptr_ptr <font color='#5555FF'>=</font> nullptr;
+    <b>}</b>
+<b>}</b>
+
+<font color='#009900'>/** \rst
+    Scope guard version of `initialize_interpreter` and `finalize_interpreter`.
+    This a move-only guard and only a single instance can exist.
+
+    See `initialize_interpreter` for a discussion of its constructor arguments.
+
+    .. code-block:: cpp
+
+        #include &lt;pybind11/embed.h&gt;
+
+        int main() {
+            py::scoped_interpreter guard{};
+            py::print(Hello, World!);
+        } // &lt;-- interpreter shutdown
+ \endrst */</font>
+<font color='#0000FF'>class</font> <b><a name='scoped_interpreter'></a>scoped_interpreter</b> <b>{</b>
+<font color='#0000FF'>public</font>:
+    <font color='#0000FF'>explicit</font> <b><a name='scoped_interpreter'></a>scoped_interpreter</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> init_signal_handlers <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+                                <font color='#0000FF'><u>int</u></font> argc <font color='#5555FF'>=</font> <font color='#979000'>0</font>,
+                                <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font>argv <font color='#5555FF'>=</font> nullptr,
+                                <font color='#0000FF'><u>bool</u></font> add_program_dir_to_path <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>initialize_interpreter</font><font face='Lucida Console'>(</font>init_signal_handlers, argc, argv, add_program_dir_to_path<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#0000FF'>#if</font> PY_VERSION_HEX <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> PYBIND11_PYCONFIG_SUPPORT_PY_VERSION_HEX
+    <font color='#0000FF'>explicit</font> <b><a name='scoped_interpreter'></a>scoped_interpreter</b><font face='Lucida Console'>(</font>PyConfig <font color='#5555FF'>*</font>config,
+                                <font color='#0000FF'><u>int</u></font> argc <font color='#5555FF'>=</font> <font color='#979000'>0</font>,
+                                <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#0000FF'>const</font> <font color='#5555FF'>*</font>argv <font color='#5555FF'>=</font> nullptr,
+                                <font color='#0000FF'><u>bool</u></font> add_program_dir_to_path <font color='#5555FF'>=</font> <font color='#979000'>true</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>initialize_interpreter</font><font face='Lucida Console'>(</font>config, argc, argv, add_program_dir_to_path<font face='Lucida Console'>)</font>;
+    <b>}</b>
+<font color='#0000FF'>#endif</font>
+
+    <b><a name='scoped_interpreter'></a>scoped_interpreter</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> scoped_interpreter <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    <b><a name='scoped_interpreter'></a>scoped_interpreter</b><font face='Lucida Console'>(</font>scoped_interpreter <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> noexcept <b>{</b> other.is_valid <font color='#5555FF'>=</font> <font color='#979000'>false</font>; <b>}</b>
+    scoped_interpreter <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> scoped_interpreter <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    scoped_interpreter <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>scoped_interpreter <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+
+    ~<b><a name='scoped_interpreter'></a>scoped_interpreter</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>is_valid<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>finalize_interpreter</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#0000FF'>private</font>:
+    <font color='#0000FF'><u>bool</u></font> is_valid <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+<b>}</b>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

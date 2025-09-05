@@ -1,0 +1,980 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - storage.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2022  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_TYPE_ERASURE_H_
+<font color='#0000FF'>#define</font> DLIB_TYPE_ERASURE_H_
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>type_traits<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>utility<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>typeindex<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>new<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>memory<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../assert.h.html'>../assert.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>class</font> <b><a name='bad_any_cast'></a>bad_any_cast</b> : <font color='#0000FF'>public</font> std::bad_cast 
+    <b>{</b>
+        <font color='#009900'>/*!
+            WHAT THIS OBJECT REPRESENTS
+                This object is the exception class used by the storage objects.
+                It is used to indicate when someone attempts to cast a storage
+                object into a type which isn't contained in the object.
+        !*/</font>
+        
+    <font color='#0000FF'>public</font>:
+          <font color='#0000FF'>virtual</font> <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font> <b><a name='what'></a>what</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> noexcept
+          <b>{</b>
+              <font color='#0000FF'>return</font> "<font color='#CC0000'>bad_any_cast</font>";
+          <b>}</b>
+    <b>}</b>;
+    
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> te
+    <b>{</b>
+
+        <font color='#009900'>/*!
+            This is used as a SFINAE tool to prevent a function taking a universal reference from
+            binding to some undesired type.  For example:
+                template &lt;
+                    typename T,
+                    T_is_not_this_type&lt;SomeExcludedType, T&gt; = true
+                    &gt;
+                void foo(T&amp;&amp;);
+            prevents foo() from binding to an object of type SomeExcludedType.
+        !*/</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Storage'></a>Storage</b>, <font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> T_is_not_this_type <font color='#5555FF'>=</font> std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>, Storage<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Storage'></a>Storage</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>class</font> <b><a name='storage_base'></a>storage_base</b>
+        <b>{</b>       
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This class defines functionality common to all type erasure storage objects
+                    (defined below in this file).  These objects are essentially type-safe versions of
+                    a void*.  In particular, they are containers which can contain only one object
+                    but the object may be of any type.  
+
+                    Each storage object implements a different way of storing the underlying object.
+                    E.g. on the heap or stack or some other more specialized method.
+            !*/</font>
+
+        <font color='#0000FF'>public</font>:
+
+            <font color='#0000FF'><u>bool</u></font> <b><a name='is_empty'></a>is_empty</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                ensures
+                    - if (this object contains any kind of object) then
+                        - returns false 
+                    - else
+                        - returns true
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>const</font> Storage<font color='#5555FF'>&amp;</font> me <font color='#5555FF'>=</font> <font color='#5555FF'>*</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> Storage<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> me.<font color='#BB00BB'>get_ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nullptr;
+            <b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'><u>bool</u></font> <b><a name='contains'></a>contains</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                ensures
+                    - if (this object currently contains an object of type T) then
+                        - returns true
+                    - else
+                        - returns false
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>const</font> Storage<font color='#5555FF'>&amp;</font> me <font color='#5555FF'>=</font> <font color='#5555FF'>*</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> Storage<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>!</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> me.<font color='#BB00BB'>type_id</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T<font face='Lucida Console'>)</font><b>}</b>;
+            <b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            T<font color='#5555FF'>&amp;</font> <b><a name='unsafe_get'></a>unsafe_get</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> 
+            <font color='#009900'>/*!
+                requires
+                    - contains&lt;T&gt;() == true
+                ensures
+                    - returns a reference to the object contained within *this.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>contains<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                Storage<font color='#5555FF'>&amp;</font> me <font color='#5555FF'>=</font> <font color='#5555FF'>*</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>Storage<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>me.<font color='#BB00BB'>get_ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; 
+            <b>}</b>
+
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font> <b><a name='unsafe_get'></a>unsafe_get</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+            <font color='#009900'>/*!
+                requires
+                    - contains&lt;T&gt;() == true
+                ensures
+                    - returns a const reference to the object contained within *this.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>contains<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>const</font> Storage<font color='#5555FF'>&amp;</font> me <font color='#5555FF'>=</font> <font color='#5555FF'>*</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> Storage<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> T<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>me.<font color='#BB00BB'>get_ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; 
+            <b>}</b>
+            
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            T<font color='#5555FF'>&amp;</font> <b><a name='get'></a>get</b><font face='Lucida Console'>(</font>
+            <font face='Lucida Console'>)</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == false
+                    - #contains&lt;T&gt;() == true
+                    - if (contains&lt;T&gt;() == true)
+                        - returns a non-const reference to the object contained in *this.
+                    - else
+                        - Constructs an object of type T inside *this
+                        - Any previous object stored in this any object is destructed and its
+                          state is lost.
+                        - returns a non-const reference to the newly created T object.
+            !*/</font>
+            <b>{</b>
+                Storage<font color='#5555FF'>&amp;</font> me <font color='#5555FF'>=</font> <font color='#5555FF'>*</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>Storage<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>contains<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    me <font color='#5555FF'>=</font> T<b>{</b><b>}</b>;
+                <font color='#0000FF'>return</font> unsafe_get<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            T<font color='#5555FF'>&amp;</font> <b><a name='cast_to'></a>cast_to</b><font face='Lucida Console'>(</font>
+            <font face='Lucida Console'>)</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - if (contains&lt;T&gt;() == true) then
+                        - returns a non-const reference to the object contained within *this
+                    - else
+                        - throws bad_any_cast
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>contains<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>throw</font> bad_any_cast<b>{</b><b>}</b>;
+                <font color='#0000FF'>return</font> unsafe_get<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font> <b><a name='cast_to'></a>cast_to</b><font face='Lucida Console'>(</font>
+            <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                ensures
+                    - if (contains&lt;T&gt;() == true) then
+                        - returns a const reference to the object contained within *this
+                    - else
+                        - throws bad_any_cast
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>contains<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>throw</font> bad_any_cast<b>{</b><b>}</b>;
+                <font color='#0000FF'>return</font> unsafe_get<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>class</font> <b><a name='storage_heap'></a>storage_heap</b> : <font color='#0000FF'>public</font> storage_base<font color='#5555FF'>&lt;</font>storage_heap<font color='#5555FF'>&gt;</font>
+        <b>{</b>
+        <font color='#0000FF'>public</font>:
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object is a storage type that uses type erasure to erase any type.
+
+                    This particular storage type uses heap allocation only.
+            !*/</font>
+
+            <b><a name='storage_heap'></a>storage_heap</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+                    - for all T: #contains&lt;T&gt;() == false
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+                <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+                <font color='#0000FF'>class</font> <b><a name='T_'></a>T_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                T_is_not_this_type<font color='#5555FF'>&lt;</font>storage_heap, T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <b><a name='storage_heap'></a>storage_heap</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T_,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - copies or moves the incoming object (depending on the forwarding reference)
+                    - #is_empty() == false 
+                    - #contains&lt;std::decay_t&lt;T&gt;&gt;() == true
+                    - #unsafe_get&lt;T&gt;() will yield the provided t.
+            !*/</font>
+            :   ptr<b>{</b><font color='#0000FF'>new</font> T_<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b><b>}</b>,
+                del<b>{</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>self<font face='Lucida Console'>)</font> <b>{</b> 
+                    <font color='#0000FF'>delete</font> <font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>self<font face='Lucida Console'>)</font>; 
+                <b>}</b><b>}</b>,
+                copy<b>{</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>self<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font> <b>{</b>
+                    <font color='#0000FF'>return</font> <font color='#0000FF'>new</font> T_<b>{</b><font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>self<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>,
+                type_id_<b>{</b>[] <b>{</b>
+                    <font color='#0000FF'>return</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>
+            <b>{</b>
+            <b>}</b>
+
+            <b><a name='storage_heap'></a>storage_heap</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_heap<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is copied using erased type's copy constructor.
+            !*/</font>
+            :   ptr<b>{</b>other.ptr ? other.<font color='#BB00BB'>copy</font><font face='Lucida Console'>(</font>other.ptr<font face='Lucida Console'>)</font> : nullptr<b>}</b>,
+                del<b>{</b>other.del<b>}</b>,
+                copy<b>{</b>other.copy<b>}</b>,
+                type_id_<b>{</b>other.type_id_<b>}</b>
+            <b>{</b>
+            <b>}</b>
+
+            storage_heap<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_heap<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - if is_empty() == false then
+                       - destructs the object contained in this class.
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is copied using erased type's copy constructor.
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> 
+                    <font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>storage_heap<b>{</b>other<b>}</b><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+
+            <b><a name='storage_heap'></a>storage_heap</b><font face='Lucida Console'>(</font>storage_heap<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept
+            <font color='#009900'>/*!
+                ensures
+                    - The state of other is moved into *this.
+                    - #other.is_empty() == true
+            !*/</font>
+            :   ptr<b>{</b>std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.ptr, nullptr<font face='Lucida Console'>)</font><b>}</b>,
+                del<b>{</b>std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.del, nullptr<font face='Lucida Console'>)</font><b>}</b>,
+                copy<b>{</b>std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.copy, nullptr<font face='Lucida Console'>)</font><b>}</b>,
+                type_id_<b>{</b>std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.type_id_, nullptr<font face='Lucida Console'>)</font><b>}</b>
+            <b>{</b>
+            <b>}</b>
+
+            storage_heap<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>storage_heap<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept
+            <font color='#009900'>/*!
+                ensures
+                    - The state of other is moved into *this.
+                    - #other.is_empty() == true
+                    - returns *this
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> 
+                <b>{</b>
+                    <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    ptr     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.ptr, nullptr<font face='Lucida Console'>)</font>;
+                    del     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.del, nullptr<font face='Lucida Console'>)</font>;
+                    copy    <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.copy, nullptr<font face='Lucida Console'>)</font>;
+                    type_id_ <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.type_id_, nullptr<font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+
+            ~<b><a name='storage_heap'></a>storage_heap</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - destructs the object contained in *this if one exists. 
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>del</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+            !*/</font>
+            <b>{</b>
+                storage_heap<b>{</b>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font><b>}</b>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       
+            <font color='#009900'>/*!
+                ensures
+                    - returns a pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr;
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - returns a const pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr;
+            <b>}</b>
+
+            std::type_index <b><a name='type_id'></a>type_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+                ensures
+                    - returns the std::type_index of the type contained within this object.
+                      I.e. if this object contains the type T then this returns std::type_index{typeid(T)}.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>type_id_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+        <font color='#0000FF'>private</font>:
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> ptr                     <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font>  <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>del<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>           <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>copy<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>    <font color='#5555FF'>=</font> nullptr;
+            std::<b><a name='type_index'></a>type_index</b> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>type_id_<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> Size, std::<font color='#0000FF'><u>size_t</u></font> Alignment <font color='#5555FF'>=</font> <font color='#979000'>8</font><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>class</font> <b><a name='storage_stack'></a>storage_stack</b> : <font color='#0000FF'>public</font> storage_base<font color='#5555FF'>&lt;</font>storage_stack<font color='#5555FF'>&lt;</font>Size, Alignment<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object is a storage type that uses type erasure to erase any type.
+
+                    This particular storage type uses stack allocation using a template size and alignment.
+                    Therefore, only objects whose size and alignment fits the template parameters can be
+                    erased and absorbed into this object.  Attempting to store a type not
+                    representable on the stack with those settings will result in a build error.
+
+                    This object will be capable of storing any type with an alignment requirement
+                    that is a divisor of Alignment.
+            !*/</font>
+
+        <font color='#0000FF'>public</font>:
+            <b><a name='storage_stack'></a>storage_stack</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+                    - for all T: #contains&lt;T&gt;() == false
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+                <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+                <font color='#0000FF'>class</font> <b><a name='T_'></a>T_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                T_is_not_this_type<font color='#5555FF'>&lt;</font>storage_stack, T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <b><a name='storage_stack'></a>storage_stack</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T_,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - copies or moves the incoming object (depending on the forwarding reference)
+                    - #is_empty() == false 
+                    - #contains&lt;std::decay_t&lt;T&gt;&gt;() == true
+            !*/</font>
+            :   del<b>{</b>[]<font face='Lucida Console'>(</font>storage_stack<font color='#5555FF'>&amp;</font> self<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>self.data<font face='Lucida Console'>)</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>~<font color='#BB00BB'>T_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    self.del        <font color='#5555FF'>=</font> nullptr;
+                    self.copy       <font color='#5555FF'>=</font> nullptr;
+                    self.move       <font color='#5555FF'>=</font> nullptr;
+                    self.type_id_   <font color='#5555FF'>=</font> nullptr;
+                <b>}</b><b>}</b>,
+                copy<b>{</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_stack<font color='#5555FF'>&amp;</font> src, storage_stack<font color='#5555FF'>&amp;</font> dst<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>new</font> <font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>dst.data<font face='Lucida Console'>)</font> T_<b>{</b><font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>src.data<font face='Lucida Console'>)</font><b>}</b>;
+                    dst.del     <font color='#5555FF'>=</font> src.del;
+                    dst.copy    <font color='#5555FF'>=</font> src.copy;
+                    dst.move    <font color='#5555FF'>=</font> src.move;
+                    dst.type_id_ <font color='#5555FF'>=</font> src.type_id_;
+                <b>}</b><b>}</b>,
+                move<b>{</b>[]<font face='Lucida Console'>(</font>storage_stack<font color='#5555FF'>&amp;</font> src, storage_stack<font color='#5555FF'>&amp;</font> dst<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>new</font> <font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>dst.data<font face='Lucida Console'>)</font> T_<b>{</b>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>src.data<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><b>}</b>;
+                    dst.del     <font color='#5555FF'>=</font> src.del;
+                    dst.copy    <font color='#5555FF'>=</font> src.copy;
+                    dst.move    <font color='#5555FF'>=</font> src.move;
+                    dst.type_id_ <font color='#5555FF'>=</font> src.type_id_;
+                <b>}</b><b>}</b>,
+                type_id_<b>{</b>[] <b>{</b>
+                    <font color='#0000FF'>return</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>
+            <b>{</b>
+                <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> Size, "<font color='#CC0000'>insufficient size</font>"<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>Alignment <font color='#5555FF'>%</font> <font color='#BB00BB'>alignof</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>, "<font color='#CC0000'>bad alignment</font>"<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>new</font> <font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>data<font face='Lucida Console'>)</font> T_<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b>;
+            <b>}</b>
+
+            <b><a name='storage_stack'></a>storage_stack</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_stack<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is copied using erased type's copy constructor.
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.copy<font face='Lucida Console'>)</font>
+                    other.<font color='#BB00BB'>copy</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            storage_stack<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_stack<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == other.is_empty()
+                    - if is_empty() == false then
+                       - destructs the object contained in this class.
+                    - if other.is_empty() == false then
+                        - underlying object of other is copied using erased type's copy constructor
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> 
+                <b>{</b>
+                    <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.copy<font face='Lucida Console'>)</font>
+                        other.<font color='#BB00BB'>copy</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+
+            <b><a name='storage_stack'></a>storage_stack</b><font face='Lucida Console'>(</font>storage_stack<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is moved using erased type's moved constructor
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.move<font face='Lucida Console'>)</font>
+                    other.<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            storage_stack<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>storage_stack<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - if is_empty() == false then
+                       - destructs the object contained in this class.
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is moved using erased type's moved constructor.
+                          This does not make other empty.  It will still contain a moved from object
+                          of the underlying type in whatever that object's moved from state is.
+                        - #other.is_empty() == false
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> 
+                <b>{</b>
+                    <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.move<font face='Lucida Console'>)</font>
+                        other.<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+
+            ~<b><a name='storage_stack'></a>storage_stack</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - destructs the object contained in *this if one exists. 
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>del<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>del</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       
+            <font color='#009900'>/*!
+                ensures
+                    - returns a pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> del ? <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font color='#5555FF'>&amp;</font>data : nullptr;
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - returns a const pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> del ? <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font color='#5555FF'>&amp;</font>data : nullptr;
+            <b>}</b>
+
+            std::type_index <b><a name='type_id'></a>type_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+                ensures
+                    - returns the std::type_index of the type contained within this object.
+                      I.e. if this object contains the type T then this returns std::type_index{typeid(T)}.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>type_id_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+        <font color='#0000FF'>private</font>:
+            std::aligned_storage_t<font color='#5555FF'>&lt;</font>Size, Alignment<font color='#5555FF'>&gt;</font> data;
+            <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>del<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>storage_stack<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                         <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>copy<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_stack<font color='#5555FF'>&amp;</font>, storage_stack<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>move<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>storage_stack<font color='#5555FF'>&amp;</font>, storage_stack<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>        <font color='#5555FF'>=</font> nullptr;
+            std::<b><a name='type_index'></a>type_index</b> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>type_id_<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                        <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> Size, std::<font color='#0000FF'><u>size_t</u></font> Alignment <font color='#5555FF'>=</font> <font color='#979000'>8</font><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>class</font> <b><a name='storage_sbo'></a>storage_sbo</b> : <font color='#0000FF'>public</font> storage_base<font color='#5555FF'>&lt;</font>storage_sbo<font color='#5555FF'>&lt;</font>Size, Alignment<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object is a storage type that uses type erasure to erase any type.
+
+                    This particular storage type uses small buffer optimization (SBO), i.e. optional
+                    stack allocation if the erased type has sizeof &lt;= Size and alignment
+                    requirements no greater than the given Alignment template value.  If not it
+                    allocates the object on the heap.
+            !*/</font>
+
+        <font color='#0000FF'>public</font>:
+            <font color='#009900'>// type_fits&lt;T&gt;::value tells us if our SBO can hold T.
+</font>            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            <font color='#0000FF'>struct</font> <b><a name='type_fits'></a>type_fits</b> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, <font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>T<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> Size <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> Alignment <font color='#5555FF'>%</font> <b><a name='alignof'></a>alignof</b><font face='Lucida Console'>(</font>T<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+
+            <b><a name='storage_sbo'></a>storage_sbo</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+                    - for all T: #contains&lt;T&gt;() == false
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+                <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+                <font color='#0000FF'>class</font> <b><a name='T_'></a>T_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                T_is_not_this_type<font color='#5555FF'>&lt;</font>storage_sbo, T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+                std::enable_if_t<font color='#5555FF'>&lt;</font>type_fits<font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <b><a name='storage_sbo'></a>storage_sbo</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T_,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - copies or moves the incoming object (depending on the forwarding reference)
+                    - #is_empty() == false 
+                    - #contains&lt;std::decay_t&lt;T&gt;&gt;() == true
+                    - stack allocation is used
+            !*/</font>
+            :   ptr<b>{</b><font color='#0000FF'>new</font> <font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>data<font face='Lucida Console'>)</font> T_<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b><b>}</b>,
+                del<b>{</b>[]<font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font> self<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>self.data<font face='Lucida Console'>)</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>~<font color='#BB00BB'>T_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    self.ptr        <font color='#5555FF'>=</font> nullptr;
+                    self.del        <font color='#5555FF'>=</font> nullptr;
+                    self.copy       <font color='#5555FF'>=</font> nullptr;
+                    self.move       <font color='#5555FF'>=</font> nullptr;
+                    self.type_id_    <font color='#5555FF'>=</font> nullptr;
+                <b>}</b><b>}</b>,
+                copy<b>{</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_sbo<font color='#5555FF'>&amp;</font> src, storage_sbo<font color='#5555FF'>&amp;</font> dst<font face='Lucida Console'>)</font> <b>{</b>
+                    dst.ptr     <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> <font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>dst.data<font face='Lucida Console'>)</font> T_<b>{</b><font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>src.ptr<font face='Lucida Console'>)</font><b>}</b>;
+                    dst.del     <font color='#5555FF'>=</font> src.del;
+                    dst.copy    <font color='#5555FF'>=</font> src.copy;
+                    dst.move    <font color='#5555FF'>=</font> src.move;
+                    dst.type_id_ <font color='#5555FF'>=</font> src.type_id_;
+                <b>}</b><b>}</b>,
+                move<b>{</b>[]<font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font> src, storage_sbo<font color='#5555FF'>&amp;</font> dst<font face='Lucida Console'>)</font> <b>{</b>
+                    dst.ptr     <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> <font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>dst.data<font face='Lucida Console'>)</font> T_<b>{</b>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>src.ptr<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><b>}</b>;
+                    dst.del     <font color='#5555FF'>=</font> src.del;
+                    dst.copy    <font color='#5555FF'>=</font> src.copy;
+                    dst.move    <font color='#5555FF'>=</font> src.move;
+                    dst.type_id_ <font color='#5555FF'>=</font> src.type_id_;
+                <b>}</b><b>}</b>,
+                type_id_<b>{</b>[] <b>{</b>
+                    <font color='#0000FF'>return</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>
+            <b>{</b>
+            <b>}</b>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+                <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+                <font color='#0000FF'>class</font> <b><a name='T_'></a>T_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                T_is_not_this_type<font color='#5555FF'>&lt;</font>storage_sbo, T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>,
+                std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>type_fits<font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <b><a name='storage_sbo'></a>storage_sbo</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T_,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - copies or moves the incoming object (depending on the forwarding reference)
+                    - #is_empty() == false
+                    - #contains&lt;std::decay_t&lt;T&gt;&gt;() == true
+                    - heap allocation is used
+            !*/</font>
+            :   ptr<b>{</b><font color='#0000FF'>new</font> T_<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b><b>}</b>,
+                del<b>{</b>[]<font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font> self<font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#0000FF'>delete</font> <font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>self.ptr<font face='Lucida Console'>)</font>;
+                    self.ptr        <font color='#5555FF'>=</font> nullptr;
+                    self.del        <font color='#5555FF'>=</font> nullptr;
+                    self.copy       <font color='#5555FF'>=</font> nullptr;
+                    self.move       <font color='#5555FF'>=</font> nullptr;
+                    self.type_id_    <font color='#5555FF'>=</font> nullptr;
+                <b>}</b><b>}</b>,
+                copy<b>{</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_sbo<font color='#5555FF'>&amp;</font> src, storage_sbo<font color='#5555FF'>&amp;</font> dst<font face='Lucida Console'>)</font> <b>{</b>
+                    dst.ptr     <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> T_<b>{</b><font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> T_<font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>src.ptr<font face='Lucida Console'>)</font><b>}</b>;
+                    dst.del     <font color='#5555FF'>=</font> src.del;
+                    dst.copy    <font color='#5555FF'>=</font> src.copy;
+                    dst.move    <font color='#5555FF'>=</font> src.move;
+                    dst.type_id_ <font color='#5555FF'>=</font> src.type_id_;
+                <b>}</b><b>}</b>,
+                move<b>{</b>[]<font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font> src, storage_sbo<font color='#5555FF'>&amp;</font> dst<font face='Lucida Console'>)</font> <b>{</b>
+                    dst.ptr     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>src.ptr,     nullptr<font face='Lucida Console'>)</font>;
+                    dst.del     <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>src.del,     nullptr<font face='Lucida Console'>)</font>;
+                    dst.copy    <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>src.copy,    nullptr<font face='Lucida Console'>)</font>;
+                    dst.move    <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>src.move,    nullptr<font face='Lucida Console'>)</font>;
+                    dst.type_id_ <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>src.type_id_, nullptr<font face='Lucida Console'>)</font>;
+                <b>}</b><b>}</b>,
+                type_id_<b>{</b>[] <b>{</b>
+                    <font color='#0000FF'>return</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>
+            <b>{</b>
+            <b>}</b>
+
+            <b><a name='storage_sbo'></a>storage_sbo</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_sbo<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is copied using erased type's copy constructor
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.copy<font face='Lucida Console'>)</font>
+                    other.<font color='#BB00BB'>copy</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            storage_sbo<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_sbo<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - if is_empty() == false then
+                       - destructs the object contained in this class.
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - underlying object of other is copied using erased type's copy constructor
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> 
+                <b>{</b>
+                    <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.copy<font face='Lucida Console'>)</font>
+                        other.<font color='#BB00BB'>copy</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+
+            <b><a name='storage_sbo'></a>storage_sbo</b><font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - if underlying object of other is allocated on stack then
+                            - underlying object of other is moved using erased type's moved constructor.
+                              This does not make other empty.  It will still contain a moved from
+                              object of the underlying type in whatever that object's moved from
+                              state is.
+                            - #other.is_empty() == false
+                        - else
+                            - storage heap pointer is moved.
+                            - #other.is_empty() == true 
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.move<font face='Lucida Console'>)</font>
+                    other.<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            storage_sbo<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - underlying object is destructed if is_empty() == false
+                    - #is_empty() == other.is_empty()
+                    - if other.is_empty() == false then
+                        - if underlying object of other is allocated on stack then
+                            - underlying object of other is moved using erased type's moved constructor.
+                              This does not make other empty.  It will still contain a moved from
+                              object of the underlying type in whatever that object's moved from
+                              state is.
+                            - #other.is_empty() == false
+                        - else
+                            - storage heap pointer is moved.
+                            - #other.is_empty() == true 
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> 
+                <b>{</b>
+                    <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>other.move<font face='Lucida Console'>)</font>
+                        other.<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other, <font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+                <b>}</b>
+                <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+            <b>}</b>
+
+            ~<b><a name='storage_sbo'></a>storage_sbo</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - destructs the object contained in *this if one exists. 
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>del</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font color='#0000FF'>this</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       
+            <font color='#009900'>/*!
+                ensures
+                    - returns a pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr;
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - returns a const pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr;
+            <b>}</b>
+
+            std::type_index <b><a name='type_id'></a>type_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+                ensures
+                    - returns the std::type_index of the type contained within this object.
+                      I.e. if this object contains the type T then this returns std::type_index{typeid(T)}.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>type_id_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+        <font color='#0000FF'>private</font>:
+            std::aligned_storage_t<font color='#5555FF'>&lt;</font>Size, Alignment<font color='#5555FF'>&gt;</font> data;
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> ptr                                       <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>del<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                       <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>copy<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_sbo<font color='#5555FF'>&amp;</font>, storage_sbo<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>move<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>storage_sbo<font color='#5555FF'>&amp;</font>, storage_sbo<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>        <font color='#5555FF'>=</font> nullptr;
+            std::<b><a name='type_index'></a>type_index</b> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>type_id_<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                    <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>class</font> <b><a name='storage_shared'></a>storage_shared</b> : <font color='#0000FF'>public</font> storage_base<font color='#5555FF'>&lt;</font>storage_shared<font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object is a storage type that uses type erasure to erase any type.
+
+                    This particular storage type uses std::shared_ptr&lt;void&gt; to store and erase
+                    incoming objects. Therefore, it uses heap allocation and reference counting.
+                    Moreover, it has the same copying and move semantics as std::shared_ptr.  I.e.
+                    it results in the underlying object being held by reference rather than by
+                    value.
+            !*/</font>
+
+        <font color='#0000FF'>public</font>:
+            <b><a name='storage_shared'></a>storage_shared</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+                    - for all T: #contains&lt;T&gt;() == false
+            !*/</font>
+
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+                <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+                <font color='#0000FF'>class</font> <b><a name='T_'></a>T_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                T_is_not_this_type<font color='#5555FF'>&lt;</font>storage_shared, T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <b><a name='storage_shared'></a>storage_shared</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>T_,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            <font color='#009900'>/*!
+                ensures
+                    - copies or moves the incoming object (depending on the forwarding reference)
+                    - #is_empty() == true
+                    - #contains&lt;std::decay_t&lt;T&gt;&gt;() == true
+            !*/</font>
+            :   ptr<b>{</b>std::make_shared<font color='#5555FF'>&lt;</font>T_<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><b>}</b>,
+                type_id_<b>{</b>[] <b>{</b>
+                    <font color='#0000FF'>return</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>
+            <b>{</b>
+            <b>}</b>
+
+            <font color='#009900'>// This object has the same copy/move semantics as a std::shared_ptr&lt;void&gt;
+</font>            <b><a name='storage_shared'></a>storage_shared</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_shared<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            storage_shared<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_shared<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <b><a name='storage_shared'></a>storage_shared</b><font face='Lucida Console'>(</font>storage_shared<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            storage_shared<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>storage_shared<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+            !*/</font>
+            <b>{</b> 
+                ptr     <font color='#5555FF'>=</font> nullptr;
+                type_id_ <font color='#5555FF'>=</font> nullptr;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       
+            <font color='#009900'>/*!
+                ensures
+                    - returns a pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - returns a const pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr.<font color='#BB00BB'>get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            std::type_index <b><a name='type_id'></a>type_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+                ensures
+                    - returns the std::type_index of the type contained within this object.
+                      I.e. if this object contains the type T then this returns std::type_index{typeid(T)}.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>type_id_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+        <font color='#0000FF'>private</font>:
+            std::shared_ptr<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>&gt;</font> ptr    <font color='#5555FF'>=</font> nullptr;
+            std::<b><a name='type_index'></a>type_index</b> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>type_id_<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'>class</font> <b><a name='storage_view'></a>storage_view</b> : <font color='#0000FF'>public</font> storage_base<font color='#5555FF'>&lt;</font>storage_view<font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            <font color='#009900'>/*!
+                WHAT THIS OBJECT REPRESENTS
+                    This object is a storage type that uses type erasure to erase any type.
+
+                    This particular storage type is a view type, similar to std::string_view or
+                    std::span.  So underlying objects are only ever referenced, not copied, moved or
+                    destructed.  That is, instances of this object take no ownership of the objects
+                    they contain.  So they are only valid as long as the contained object exists.
+                    So storage_view merely holds a pointer to the underlying object.
+            !*/</font>
+
+        <font color='#0000FF'>public</font>:
+            <b><a name='storage_view'></a>storage_view</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+                    - for all T: #contains&lt;T&gt;() == false
+            !*/</font>
+            
+            <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+                <font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+                <font color='#0000FF'>class</font> <b><a name='T_'></a>T_</b> <font color='#5555FF'>=</font> std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>,
+                T_is_not_this_type<font color='#5555FF'>&lt;</font>storage_view, T<font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+            <font color='#5555FF'>&gt;</font>
+            <b><a name='storage_view'></a>storage_view</b><font face='Lucida Console'>(</font>T <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> noexcept
+            <font color='#009900'>/*!
+                ensures
+                    - #get_ptr() == &amp;t
+                    - #is_empty() == false 
+                    - #contains&lt;std::decay_t&lt;T&gt;&gt;() == true
+            !*/</font>
+            :   ptr<b>{</b><font color='#5555FF'>&amp;</font>t<b>}</b>,
+                type_id_<b>{</b>[] <b>{</b>
+                    <font color='#0000FF'>return</font> std::type_index<b>{</b><font color='#0000FF'>typeid</font><font face='Lucida Console'>(</font>T_<font face='Lucida Console'>)</font><b>}</b>;
+                <b>}</b><b>}</b>
+            <b>{</b>
+            <b>}</b>
+            
+            <font color='#009900'>// This object has the same copy/move semantics as a void*.
+</font>            <b><a name='storage_view'></a>storage_view</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_view<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            storage_view<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> storage_view<font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <b><a name='storage_view'></a>storage_view</b><font face='Lucida Console'>(</font>storage_view<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            storage_view<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>storage_view<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> other<font face='Lucida Console'>)</font> noexcept <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+            <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - #is_empty() == true
+            !*/</font>
+            <b>{</b> 
+                ptr     <font color='#5555FF'>=</font> nullptr;
+                type_id_ <font color='#5555FF'>=</font> nullptr;
+            <b>}</b>
+
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>       
+            <font color='#009900'>/*!
+                ensures
+                    - returns a pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr;
+            <b>}</b>
+
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> <b><a name='get_ptr'></a>get_ptr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> 
+            <font color='#009900'>/*!
+                ensures
+                    - returns a const pointer to the underlying object or nullptr if is_empty()
+            !*/</font>
+            <b>{</b>
+                <font color='#0000FF'>return</font> ptr;
+            <b>}</b>
+
+            std::type_index <b><a name='type_id'></a>type_id</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+            <font color='#009900'>/*!
+                requires
+                    - is_empty() == false
+                ensures
+                    - returns the std::type_index of the type contained within this object.
+                      I.e. if this object contains the type T then this returns std::type_index{typeid(T)}.
+            !*/</font>
+            <b>{</b>
+                <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#0000FF'>this</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font><font color='#BB00BB'>is_empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>return</font> <font color='#BB00BB'>type_id_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+        <font color='#0000FF'>private</font>:
+            <font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> ptr <font color='#5555FF'>=</font> nullptr;
+            std::<b><a name='type_index'></a>type_index</b> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>type_id_<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> nullptr;
+        <b>}</b>;
+
+<font color='#009900'>// -----------------------------------------------------------------------------------------------------
+</font>
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_TYPE_ERASURE_H_
+</font>
+</pre></body></html>

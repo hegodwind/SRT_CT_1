@@ -1,0 +1,125 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - overloaded.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2022  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_OVERLOADED_H_
+<font color='#0000FF'>#define</font> DLIB_OVERLOADED_H_
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>utility<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>type_traits<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>namespace</font> detail
+    <b>{</b>
+<font color='#0000FF'>#if</font> __cpp_fold_expressions
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> ...Base<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='overloaded_helper'></a>overloaded_helper</b> : Base...
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font>... T<font color='#5555FF'>&gt;</font>
+            constexpr <b><a name='overloaded_helper'></a>overloaded_helper</b><font face='Lucida Console'>(</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ... t<font face='Lucida Console'>)</font>
+            <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>Base,T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ...<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            : Base<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b>... <b>{</b><b>}</b>
+
+            <font color='#0000FF'>using</font> Base::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>...;
+        <b>}</b>;
+<font color='#0000FF'>#else</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Base, <font color='#0000FF'>typename</font> ... BaseRest<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='overloaded_helper'></a>overloaded_helper</b>: Base, overloaded_helper<font color='#5555FF'>&lt;</font>BaseRest...<font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> ... TRest<font color='#5555FF'>&gt;</font>
+            constexpr <b><a name='overloaded_helper'></a>overloaded_helper</b><font face='Lucida Console'>(</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> t, TRest<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> ...trest<font face='Lucida Console'>)</font> 
+            <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>Base, T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>overloaded_helper<font color='#5555FF'>&lt;</font>BaseRest...<font color='#5555FF'>&gt;</font>, TRest<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            : Base<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b>,
+              overloaded_helper<font color='#5555FF'>&lt;</font>BaseRest...<font color='#5555FF'>&gt;</font><b>{</b>std::forward<font color='#5555FF'>&lt;</font>TRest<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>trest<font face='Lucida Console'>)</font>...<b>}</b>
+            <b>{</b><b>}</b>
+
+            <font color='#0000FF'>using</font> Base::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>using</font> overloaded_helper<font color='#5555FF'>&lt;</font>BaseRest...<font color='#5555FF'>&gt;</font>::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Base<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='overloaded_helper'></a>overloaded_helper</b><font color='#5555FF'>&lt;</font>Base<font color='#5555FF'>&gt;</font> : Base
+        <b>{</b>
+            <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+            constexpr overloaded_helper<font color='#5555FF'>&lt;</font>Base<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> t<font face='Lucida Console'>)</font> 
+            <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>Base, T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+            : Base<b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font><b>}</b>
+            <b>{</b><b>}</b>
+
+            <font color='#0000FF'>using</font> Base::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>;
+<font color='#0000FF'>#endif</font> <font color='#009900'>//__cpp_fold_expressions
+</font>    <b>}</b>
+    
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font>... T<font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'>auto</font> <b><a name='overloaded'></a>overloaded</b><font face='Lucida Console'>(</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>... t<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This is a helper function for combining many callable objects (usually lambdas), into
+        an overload-able set. This can be used in visitor patterns like
+            - dlib::type_safe_union::apply_to_contents()
+            - dlib::visit()
+            - dlib::for_each_type()
+            - dlib::switch_()
+
+        A picture paints a thousand words:
+
+        using tsu = type_safe_union&lt;int,float,std::string&gt;;
+
+        tsu a = std::string("hello there");
+
+        std::string result;
+
+        a.apply_to_contents(overloaded(
+            [&amp;result](int) {
+                result = std::string("int");
+            },
+            [&amp;result](float) {
+                result = std::string("float");
+            },
+            [&amp;result](const std::string&amp; item) {
+                result = item;
+            }
+        ));
+
+        assert(result == "hello there");
+        result = "";
+
+        result = visit(overloaded(
+            [](int) {
+                return std::string("int");
+            },
+            [](float) {
+                return std::string("float");
+            },
+            [](const std::string&amp; item) {
+                return item;
+            }
+        ), a);
+
+        assert(result == "hello there");
+
+        std::vector&lt;int&gt; type_ids;
+
+        for_each_type(a, overloaded(
+            [&amp;type_ids](in_place_tag&lt;int&gt;, tsu&amp; me) {
+                type_ids.push_back(me.get_type_id&lt;int&gt;());
+            },
+            [&amp;type_ids](in_place_tag&lt;float&gt;, tsu&amp; me) {
+                type_ids.push_back(me.get_type_id&lt;float&gt;());
+            },
+            [&amp;type_ids](in_place_tag&lt;std::string&gt;, tsu&amp; me) {
+                type_ids.push_back(me.get_type_id&lt;std::string&gt;());
+            }
+        ));
+
+        assert(type_ids == vector&lt;int&gt;({0,1,2}));
+    !*/</font>
+    <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>detail::overloaded_helper<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>...<font color='#5555FF'>&gt;</font>, T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> detail::overloaded_helper<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>...<font color='#5555FF'>&gt;</font><b>{</b>std::forward<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>t<font face='Lucida Console'>)</font>...<b>}</b>;
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_OVERLOADED_H_
+</font>
+</pre></body></html>

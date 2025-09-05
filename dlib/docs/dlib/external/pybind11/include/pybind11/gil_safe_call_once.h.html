@@ -1,0 +1,94 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - gil_safe_call_once.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (c) 2023 The pybind Community.
+</font>
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='detail/common.h.html'>detail/common.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='gil.h.html'>gil.h</a>"
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cassert<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>mutex<font color='#5555FF'>&gt;</font>
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+<font color='#009900'>// Use the `gil_safe_call_once_and_store` class below instead of the naive
+</font><font color='#009900'>//
+</font><font color='#009900'>//   static auto imported_obj = py::module_::import("module_name"); // BAD, DO NOT USE!
+</font><font color='#009900'>//
+</font><font color='#009900'>// which has two serious issues:
+</font><font color='#009900'>//
+</font><font color='#009900'>//     1. Py_DECREF() calls potentially after the Python interpreter was finalized already, and
+</font><font color='#009900'>//     2. deadlocks in multi-threaded processes (because of missing lock ordering).
+</font><font color='#009900'>//
+</font><font color='#009900'>// The following alternative avoids both problems:
+</font><font color='#009900'>//
+</font><font color='#009900'>//   PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store&lt;py::object&gt; storage;
+</font><font color='#009900'>//   auto &amp;imported_obj = storage // Do NOT make this `static`!
+</font><font color='#009900'>//       .call_once_and_store_result([]() {
+</font><font color='#009900'>//           return py::module_::import("module_name");
+</font><font color='#009900'>//       })
+</font><font color='#009900'>//       .get_stored();
+</font><font color='#009900'>//
+</font><font color='#009900'>// The parameter of `call_once_and_store_result()` must be callable. It can make
+</font><font color='#009900'>// CPython API calls, and in particular, it can temporarily release the GIL.
+</font><font color='#009900'>//
+</font><font color='#009900'>// `T` can be any C++ type, it does not have to involve CPython API types.
+</font><font color='#009900'>//
+</font><font color='#009900'>// The behavior with regard to signals, e.g. `SIGINT` (`KeyboardInterrupt`),
+</font><font color='#009900'>// is not ideal. If the main thread is the one to actually run the `Callable`,
+</font><font color='#009900'>// then a `KeyboardInterrupt` will interrupt it if it is running normal Python
+</font><font color='#009900'>// code. The situation is different if a non-main thread runs the
+</font><font color='#009900'>// `Callable`, and then the main thread starts waiting for it to complete:
+</font><font color='#009900'>// a `KeyboardInterrupt` will not interrupt the non-main thread, but it will
+</font><font color='#009900'>// get processed only when it is the main thread's turn again and it is running
+</font><font color='#009900'>// normal Python code. However, this will be unnoticeable for quick call-once
+</font><font color='#009900'>// functions, which is usually the case.
+</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>class</font> <b><a name='gil_safe_call_once_and_store'></a>gil_safe_call_once_and_store</b> <b>{</b>
+<font color='#0000FF'>public</font>:
+    <font color='#009900'>// PRECONDITION: The GIL must be held when `call_once_and_store_result()` is called.
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Callable<font color='#5555FF'>&gt;</font>
+    gil_safe_call_once_and_store <font color='#5555FF'>&amp;</font><b><a name='call_once_and_store_result'></a>call_once_and_store_result</b><font face='Lucida Console'>(</font>Callable <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>fn<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>is_initialized_<font face='Lucida Console'>)</font> <b>{</b> <font color='#009900'>// This read is guarded by the GIL.
+</font>            <font color='#009900'>// Multiple threads may enter here, because the GIL is released in the next line and
+</font>            <font color='#009900'>// CPython API calls in the `fn()` call below may release and reacquire the GIL.
+</font>            gil_scoped_release gil_rel; <font color='#009900'>// Needed to establish lock ordering.
+</font>            std::<font color='#BB00BB'>call_once</font><font face='Lucida Console'>(</font>once_flag_, [<font color='#5555FF'>&amp;</font>] <b>{</b>
+                <font color='#009900'>// Only one thread will ever enter here.
+</font>                gil_scoped_acquire gil_acq;
+                ::<font color='#0000FF'>new</font> <font face='Lucida Console'>(</font>storage_<font face='Lucida Console'>)</font> <font color='#BB00BB'>T</font><font face='Lucida Console'>(</font><font color='#BB00BB'>fn</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; <font color='#009900'>// fn may release, but will reacquire, the GIL.
+</font>                is_initialized_ <font color='#5555FF'>=</font> <font color='#979000'>true</font>;   <font color='#009900'>// This write is guarded by the GIL.
+</font>            <b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#009900'>// All threads will observe `is_initialized_` as true here.
+</font>        <b>}</b>
+        <font color='#009900'>// Intentionally not returning `T &amp;` to ensure the calling code is self-documenting.
+</font>        <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+    <b>}</b>
+
+    <font color='#009900'>// This must only be called after `call_once_and_store_result()` was called.
+</font>    T <font color='#5555FF'>&amp;</font><b><a name='get_stored'></a>get_stored</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>assert</font><font face='Lucida Console'>(</font>is_initialized_<font face='Lucida Console'>)</font>;
+        PYBIND11_WARNING_PUSH
+<font color='#0000FF'>#if</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>__clang__<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> defined<font face='Lucida Console'>(</font>__GNUC__<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> __GNUC__ <font color='#5555FF'>&lt;</font> <font color='#979000'>5</font>
+        <font color='#009900'>// Needed for gcc 4.8.5
+</font>        <font color='#BB00BB'>PYBIND11_WARNING_DISABLE_GCC</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>-Wstrict-aliasing</font>"<font face='Lucida Console'>)</font>
+<font color='#0000FF'>#endif</font>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>reinterpret_cast</font><font color='#5555FF'>&lt;</font>T <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>storage_<font face='Lucida Console'>)</font>;
+        PYBIND11_WARNING_POP
+    <b>}</b>
+
+    constexpr <b><a name='gil_safe_call_once_and_store'></a>gil_safe_call_once_and_store</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+    PYBIND11_DTOR_CONSTEXPR ~<b><a name='gil_safe_call_once_and_store'></a>gil_safe_call_once_and_store</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+
+<font color='#0000FF'>private</font>:
+    <b><a name='alignas'></a>alignas</b><font face='Lucida Console'>(</font>T<font face='Lucida Console'>)</font> <font color='#0000FF'><u>char</u></font> storage_[<font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>T<font face='Lucida Console'>)</font>] <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+    std::once_flag once_flag_ <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+    <font color='#0000FF'><u>bool</u></font> is_initialized_ <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+    <font color='#009900'>// The `is_initialized_`-`storage_` pair is very similar to `std::optional`,
+</font>    <font color='#009900'>// but the latter does not have the triviality properties of former,
+</font>    <font color='#009900'>// therefore `std::optional` is not a viable alternative here.
+</font><b>}</b>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

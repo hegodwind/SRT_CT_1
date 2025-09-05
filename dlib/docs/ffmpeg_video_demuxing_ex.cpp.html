@@ -1,0 +1,110 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_video_demuxing_ex.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// The contents of this file are in the public domain. See LICENSE_FOR_EXAMPLE_PROGRAMS.txt
+</font><font color='#009900'>/*
+
+    This is an example illustrating the use of the ffmpeg wrappers, 
+    in this case the demuxer API.
+
+    This is a pretty simple example. It loads a video file, and plots
+    the image frames on a GUI window.
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdio<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>media.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>gui_widgets.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>cmd_line_parser.h<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib::ffmpeg;
+
+<font color='#0000FF'><u>void</u></font> <b><a name='print_properties'></a>print_properties</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> demuxer<font color='#5555FF'>&amp;</font> cap<font face='Lucida Console'>)</font>
+<b>{</b>
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Video properties:\n\n</font>"<font face='Lucida Console'>)</font>;
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Estimated duration      : %f\n</font>", cap.<font color='#BB00BB'>duration</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Video contains images   : %i\n</font>", cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    height              : %i\n</font>", cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    width               : %i\n</font>", cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    pixel format        : %s\n</font>", <font color='#BB00BB'>get_pixel_fmt_str</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>pixel_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    fps                 : %f\n</font>", cap.<font color='#BB00BB'>fps</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    nframes             : %d\n</font>", cap.<font color='#BB00BB'>estimated_nframes</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    codec               : %s\n</font>", cap.<font color='#BB00BB'>get_video_codec_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Video contains audio    : %i\n</font>", cap.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>audio_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    sample rate         : %i\n</font>", cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    channel layout      : %s\n</font>", <font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>channel_layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    sample format       : %s\n</font>", <font color='#BB00BB'>get_audio_fmt_str</font><font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>sample_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    nchannels           : %i\n</font>", cap.<font color='#BB00BB'>nchannels</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    estimated samples   : %i\n</font>", cap.<font color='#BB00BB'>estimated_total_samples</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    codec               : %s\n</font>", cap.<font color='#BB00BB'>get_audio_codec_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>\n\n</font>"<font face='Lucida Console'>)</font>;
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Video metadata:\n</font>"<font face='Lucida Console'>)</font>;
+   
+    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> metadata : cap.<font color='#BB00BB'>get_metadata</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>    key : %-32s ; val : %-32s\n</font>", metadata.first.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, metadata.second.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b>}</b>
+
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> argc, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font> argv<font face='Lucida Console'>)</font>
+<font color='#0000FF'>try</font>
+<b>{</b>
+    command_line_parser parser;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>",       "<font color='#CC0000'>input video</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>verbose</font>", "<font color='#CC0000'>enable all internal ffmpeg logging</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>set_group_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Help Options</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>",       "<font color='#CC0000'>alias of --help</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>",    "<font color='#CC0000'>display this message and exit</font>"<font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>parse</font><font face='Lucida Console'>(</font>argc, argv<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> one_time_opts[] <font color='#5555FF'>=</font> <b>{</b>"<font color='#CC0000'>i</font>"<b>}</b>;
+    parser.<font color='#BB00BB'>check_one_time_options</font><font face='Lucida Console'>(</font>one_time_opts<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        parser.<font color='#BB00BB'>print_options</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>verbose</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>// You can set the verbosity of some global loggers:
+</font>        <font color='#009900'>//  - logger_dlib_wrapper() is the global logger used by dlib's wrappers
+</font>        <font color='#009900'>//  - logger_ffmpeg() is the global logger used by the internal ffmpeg libraries (Nice that we are able to do that!)
+</font>        ffmpeg::<font color='#BB00BB'>logger_dlib_wrapper</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>set_level</font><font face='Lucida Console'>(</font>LALL<font face='Lucida Console'>)</font>;
+        ffmpeg::<font color='#BB00BB'>logger_ffmpeg</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>set_level</font><font face='Lucida Console'>(</font>LALL<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>const</font> std::string filepath <font color='#5555FF'>=</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>"<font face='Lucida Console'>)</font>.<font color='#BB00BB'>argument</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// In this example, we only read images.
+</font>    <font color='#009900'>// This constructor allows you to concisely enabled images and disable audio frames.
+</font>    demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font><b>{</b>filepath, video_enabled, audio_disabled<b>}</b><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>%s is not a valid video file\n</font>", filepath.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> EXIT_FAILURE;
+    <b>}</b>
+
+    <font color='#009900'>// Print all the demuxer's properties for fun
+</font>    <font color='#BB00BB'>print_properties</font><font face='Lucida Console'>(</font>cap<font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// Read all images and plot
+</font>    array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font> img;
+    image_window win;
+
+    <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        win.<font color='#BB00BB'>set_image</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>return</font> EXIT_SUCCESS;
+<b>}</b>
+<font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font>
+<b>{</b>
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>%s\n</font>", e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> EXIT_FAILURE;
+<b>}</b>
+</pre></body></html>

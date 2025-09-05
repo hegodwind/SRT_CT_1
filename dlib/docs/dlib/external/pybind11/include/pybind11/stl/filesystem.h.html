@@ -1,0 +1,119 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - filesystem.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (c) 2021 The Pybind Development Team.
+</font><font color='#009900'>// All rights reserved. Use of this source code is governed by a
+</font><font color='#009900'>// BSD-style license that can be found in the LICENSE file.
+</font>
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../pybind11.h.html'>../pybind11.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../detail/common.h.html'>../detail/common.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../detail/descr.h.html'>../detail/descr.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../cast.h.html'>../cast.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../pytypes.h.html'>../pytypes.h</a>"
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>#ifdef</font> __has_include
+#    <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>PYBIND11_CPP17<font face='Lucida Console'>)</font>
+#        <font color='#0000FF'>if</font> <b><a name='__has_include'></a>__has_include</b><font face='Lucida Console'>(</font><font color='#5555FF'>&lt;</font>filesystem<font color='#5555FF'>&gt;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> \
+          PY_VERSION_HEX <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>0x03060000</font>
+#            include <font color='#5555FF'>&lt;</font>filesystem<font color='#5555FF'>&gt;</font>
+#            define PYBIND11_HAS_FILESYSTEM <font color='#979000'>1</font>
+#        elif <b><a name='__has_include'></a>__has_include</b><font face='Lucida Console'>(</font><font color='#5555FF'>&lt;</font>experimental<font color='#5555FF'>/</font>filesystem<font color='#5555FF'>&gt;</font><font face='Lucida Console'>)</font>
+#            include <font color='#5555FF'>&lt;</font>experimental<font color='#5555FF'>/</font>filesystem<font color='#5555FF'>&gt;</font>
+#            define PYBIND11_HAS_EXPERIMENTAL_FILESYSTEM <font color='#979000'>1</font>
+#        endif
+#    endif
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#if</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>PYBIND11_HAS_FILESYSTEM<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>PYBIND11_HAS_EXPERIMENTAL_FILESYSTEM<font face='Lucida Console'>)</font>           \
+    <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font><b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>PYBIND11_HAS_FILESYSTEM_IS_OPTIONAL<font face='Lucida Console'>)</font>
+#    error                                                                                        \
+        "<font color='#CC0000'>Neither #include &lt;filesystem&gt; nor #include &lt;experimental/filesystem is available. (Use -DPYBIND11_HAS_FILESYSTEM_IS_OPTIONAL to ignore.)</font>"
+<font color='#0000FF'>#endif</font>
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>PYBIND11_HAS_FILESYSTEM<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> defined<font face='Lucida Console'>(</font>PYBIND11_HAS_EXPERIMENTAL_FILESYSTEM<font face='Lucida Console'>)</font>
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='path_caster'></a>path_caster</b> <b>{</b>
+
+<font color='#0000FF'>private</font>:
+    <font color='#0000FF'>static</font> PyObject <font color='#5555FF'>*</font><b><a name='unicode_from_fs_native'></a>unicode_from_fs_native</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string <font color='#5555FF'>&amp;</font>w<font face='Lucida Console'>)</font> <b>{</b>
+#    <font color='#0000FF'>if</font> <font color='#5555FF'>!</font><font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>PYPY_VERSION<font face='Lucida Console'>)</font>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>PyUnicode_DecodeFSDefaultAndSize</font><font face='Lucida Console'>(</font>w.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>ssize_t</font><font face='Lucida Console'>(</font>w.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+#    <font color='#0000FF'>else</font>
+        <font color='#009900'>// PyPy mistakenly declares the first parameter as non-const.
+</font>        <font color='#0000FF'>return</font> <font color='#BB00BB'>PyUnicode_DecodeFSDefaultAndSize</font><font face='Lucida Console'>(</font><font color='#0000FF'>const_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>w.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>ssize_t</font><font face='Lucida Console'>(</font>w.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+#    endif
+    <b>}</b>
+
+    <font color='#0000FF'>static</font> PyObject <font color='#5555FF'>*</font><b><a name='unicode_from_fs_native'></a>unicode_from_fs_native</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::wstring <font color='#5555FF'>&amp;</font>w<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>PyUnicode_FromWideChar</font><font face='Lucida Console'>(</font>w.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#BB00BB'>ssize_t</font><font face='Lucida Console'>(</font>w.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#0000FF'>public</font>:
+    <font color='#0000FF'>static</font> handle <b><a name='cast'></a>cast</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> T <font color='#5555FF'>&amp;</font>path, return_value_policy, handle<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font> py_str <font color='#5555FF'>=</font> <font color='#BB00BB'>unicode_from_fs_native</font><font face='Lucida Console'>(</font>path.<font color='#BB00BB'>native</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font> module_::<font color='#BB00BB'>import</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>pathlib</font>"<font face='Lucida Console'>)</font>
+                .<font color='#BB00BB'>attr</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Path</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>reinterpret_steal<font color='#5555FF'>&lt;</font>object<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>py_str<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                .<font color='#BB00BB'>release</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>return</font> nullptr;
+    <b>}</b>
+
+    <font color='#0000FF'><u>bool</u></font> <b><a name='load'></a>load</b><font face='Lucida Console'>(</font>handle handle, <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#009900'>// PyUnicode_FSConverter and PyUnicode_FSDecoder normally take care of
+</font>        <font color='#009900'>// calling PyOS_FSPath themselves, but that's broken on PyPy (PyPy
+</font>        <font color='#009900'>// issue #3168) so we do it ourselves instead.
+</font>        PyObject <font color='#5555FF'>*</font>buf <font color='#5555FF'>=</font> <font color='#BB00BB'>PyOS_FSPath</font><font face='Lucida Console'>(</font>handle.<font color='#BB00BB'>ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>buf<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>PyErr_Clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+        <b>}</b>
+        PyObject <font color='#5555FF'>*</font>native <font color='#5555FF'>=</font> nullptr;
+        <font color='#0000FF'>if</font> <font color='#BB00BB'>constexpr</font> <font face='Lucida Console'>(</font>std::is_same_v<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T::value_type, <font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyUnicode_FSConverter</font><font face='Lucida Console'>(</font>buf, <font color='#5555FF'>&amp;</font>native<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>c_str <font color='#5555FF'>=</font> <font color='#BB00BB'>PyBytes_AsString</font><font face='Lucida Console'>(</font>native<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#009900'>// AsString returns a pointer to the internal buffer, which
+</font>                    <font color='#009900'>// must not be free'd.
+</font>                    value <font color='#5555FF'>=</font> c_str;
+                <b>}</b>
+            <b>}</b>
+        <b>}</b> <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font color='#BB00BB'>constexpr</font> <font face='Lucida Console'>(</font>std::is_same_v<font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T::value_type, <font color='#0000FF'><u>wchar_t</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyUnicode_FSDecoder</font><font face='Lucida Console'>(</font>buf, <font color='#5555FF'>&amp;</font>native<font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>c_str <font color='#5555FF'>=</font> <font color='#BB00BB'>PyUnicode_AsWideCharString</font><font face='Lucida Console'>(</font>native, nullptr<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                    <font color='#009900'>// AsWideCharString returns a new string that must be free'd.
+</font>                    value <font color='#5555FF'>=</font> c_str; <font color='#009900'>// Copies the string.
+</font>                    <font color='#BB00BB'>PyMem_Free</font><font face='Lucida Console'>(</font>c_str<font face='Lucida Console'>)</font>;
+                <b>}</b>
+            <b>}</b>
+        <b>}</b>
+        <font color='#BB00BB'>Py_XDECREF</font><font face='Lucida Console'>(</font>native<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>Py_DECREF</font><font face='Lucida Console'>(</font>buf<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyErr_Occurred</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>PyErr_Clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+        <b>}</b>
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+
+    <b><a name='PYBIND11_TYPE_CASTER'></a>PYBIND11_TYPE_CASTER</b><font face='Lucida Console'>(</font>T, <font color='#BB00BB'>const_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>os.PathLike</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b>}</b>;
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// PYBIND11_HAS_FILESYSTEM || defined(PYBIND11_HAS_EXPERIMENTAL_FILESYSTEM)
+</font>
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>PYBIND11_HAS_FILESYSTEM<font face='Lucida Console'>)</font>
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='type_caster'></a>type_caster</b><font color='#5555FF'>&lt;</font>std::filesystem::path<font color='#5555FF'>&gt;</font> : <font color='#0000FF'>public</font> path_caster<font color='#5555FF'>&lt;</font>std::filesystem::path<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+<font color='#0000FF'>#elif</font> defined<font face='Lucida Console'>(</font>PYBIND11_HAS_EXPERIMENTAL_FILESYSTEM<font face='Lucida Console'>)</font>
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>struct</font> <b><a name='type_caster'></a>type_caster</b><font color='#5555FF'>&lt;</font>std::experimental::filesystem::path<font color='#5555FF'>&gt;</font>
+    : <font color='#0000FF'>public</font> path_caster<font color='#5555FF'>&lt;</font>std::experimental::filesystem::path<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+<font color='#0000FF'>#endif</font>
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

@@ -1,0 +1,119 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_video_encoding_ex.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// The contents of this file are in the public domain. See LICENSE_FOR_EXAMPLE_PROGRAMS.txt
+</font><font color='#009900'>/*
+
+    This is an example illustrating the use of the ffmpeg wrappers, in this case the encding API.
+
+    This is a pretty simple example. It loads a video file, extracts the images and
+    re-encodes them into a raw buffer using a user-specified codec.
+    
+    Please see the following examples on how to decode, demux, and get information on your installation of ffmpeg:
+        - <a href="ffmpeg_info_ex.cpp.html">ffmpeg_info_ex.cpp</a>
+        - <a href="ffmpeg_video_decoding_ex.cpp.html">ffmpeg_video_decoding_ex.cpp</a>
+        - <a href="ffmpeg_video_decoding2_ex.cpp.html">ffmpeg_video_decoding2_ex.cpp</a>
+        - <a href="ffmpeg_video_demuxing_ex.cpp.html">ffmpeg_video_demuxing_ex.cpp</a>
+        - <a href="ffmpeg_video_demuxing2_ex.cpp.html">ffmpeg_video_demuxing2_ex.cpp</a>
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdio<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>media.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>cmd_line_parser.h<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib::ffmpeg;
+
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> argc, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font> argv<font face='Lucida Console'>)</font>
+<font color='#0000FF'>try</font>
+<b>{</b>
+    command_line_parser parser;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>",      "<font color='#CC0000'>input video</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>codec</font>",  "<font color='#CC0000'>codec name. e.g. h264. Defaults to mpeg4</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>height</font>", "<font color='#CC0000'>height of encoded stream. Defaults to whatever is in the video file</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>width</font>",  "<font color='#CC0000'>width of encoded stream. Defaults to whatever is in the video file</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>set_group_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Help Options</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>",      "<font color='#CC0000'>alias of --help</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>",   "<font color='#CC0000'>display this message and exit</font>"<font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>parse</font><font face='Lucida Console'>(</font>argc, argv<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> one_time_opts[] <font color='#5555FF'>=</font> <b>{</b>"<font color='#CC0000'>i</font>", "<font color='#CC0000'>codec</font>", "<font color='#CC0000'>height</font>", "<font color='#CC0000'>width</font>"<b>}</b>;
+    parser.<font color='#BB00BB'>check_one_time_options</font><font face='Lucida Console'>(</font>one_time_opts<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        parser.<font color='#BB00BB'>print_options</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>const</font> std::string filepath <font color='#5555FF'>=</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>"<font face='Lucida Console'>)</font>.<font color='#BB00BB'>argument</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// Load input video.
+</font>    <font color='#009900'>// Note, this uses a convenient constructor which (dis)enables audio and/or video.
+</font>    demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font><b>{</b>filepath, video_enabled, audio_disabled<b>}</b><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font color='#5555FF'>!</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Failed to open </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> filepath <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+        <font color='#0000FF'>return</font> EXIT_FAILURE;
+    <b>}</b>
+
+    <font color='#009900'>// This is a small functor that creates an encoder using the command line arguments
+</font>    <font color='#009900'>// and different types of output buffers using the convenient sink() overload.
+</font>    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> make_encoder <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>encoder</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+            encoder::args args;
+            args.args_codec.codec_name  <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>codec</font>", "<font color='#CC0000'>mpeg4</font>"<font face='Lucida Console'>)</font>;
+            args.args_image.h           <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>height</font>", cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            args.args_image.w           <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>width</font>",  cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            args.args_image.fmt         <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>pixel_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            args.args_image.framerate   <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>fps</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> args;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>;
+
+    <font color='#009900'>// Encode to multiple different types of buffers.
+</font>    std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font>       buf1;
+    std::vector<font color='#5555FF'>&lt;</font>int8_t<font color='#5555FF'>&gt;</font>     buf2;
+    std::vector<font color='#5555FF'>&lt;</font>uint8_t<font color='#5555FF'>&gt;</font>    buf3;
+    std::ostringstream      buf4;
+    std::ofstream           <font color='#BB00BB'>buf5</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>encoded.dat</font>", std::ios::binary<font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// Different encoders for different buffers
+</font>    <font color='#0000FF'>auto</font> enc1 <font color='#5555FF'>=</font> <font color='#BB00BB'>make_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> enc2 <font color='#5555FF'>=</font> <font color='#BB00BB'>make_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> enc3 <font color='#5555FF'>=</font> <font color='#BB00BB'>make_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> enc4 <font color='#5555FF'>=</font> <font color='#BB00BB'>make_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> enc5 <font color='#5555FF'>=</font> <font color='#BB00BB'>make_encoder</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    frame f;
+    <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        enc1.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>f, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf1<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        enc2.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>f, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf2<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        enc3.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>f, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf3<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        enc4.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>f, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf4<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        enc5.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>f, <font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf5<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    enc1.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf1<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    enc2.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf2<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    enc3.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf3<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    enc4.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf4<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    enc5.<font color='#BB00BB'>flush</font><font face='Lucida Console'>(</font><font color='#BB00BB'>sink</font><font face='Lucida Console'>(</font>buf5<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+    cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>vector&lt;char&gt;       size </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> buf1.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+    cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>vector&lt;int8_t&gt;     size </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> buf2.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+    cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>vector&lt;uint8_t&gt;    size </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> buf3.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+    cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>ostringstream      size </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> buf4.<font color='#BB00BB'>tellp</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+    cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>ofstream           size </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> buf5.<font color='#BB00BB'>tellp</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+
+    <font color='#0000FF'>return</font> EXIT_SUCCESS;
+<b>}</b>
+<font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font>
+<b>{</b>
+    cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+    <font color='#0000FF'>return</font> EXIT_FAILURE;
+<b>}</b>
+</pre></body></html>

@@ -1,0 +1,538 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - type_traits.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2016  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_TYPE_TRAITS_H_
+<font color='#0000FF'>#define</font> DLIB_TYPE_TRAITS_H_
+
+<font color='#009900'>/*
+    This header contains back-ports of C++14/17 type traits
+    It also contains aliases for things found in &lt;type_traits&gt; which
+    deprecate old dlib type traits.
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>type_traits<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdint<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_pointer_type'/><font color='#009900'>/*!A is_pointer_type
+
+        This is a template where is_pointer_type&lt;T&gt;::value == true when T is a pointer
+        type and false otherwise.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_pointer_type <font color='#5555FF'>=</font> std::is_pointer<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_const_type'/><font color='#009900'>/*!A is_const_type
+
+        This is a template where is_const_type&lt;T&gt;::value == true when T is a const 
+        type and false otherwise.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_const_type <font color='#5555FF'>=</font> std::is_const<font color='#5555FF'>&lt;</font>std::remove_reference_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_reference_type'/><font color='#009900'>/*!A is_reference_type
+
+        This is a template where is_const_type&lt;T&gt;::value == true when T is a reference 
+        type and false otherwise.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_reference_type <font color='#5555FF'>=</font> std::is_reference<font color='#5555FF'>&lt;</font>std::remove_const_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_function'/><font color='#009900'>/*!A is_function 
+        
+        This is a template that allows you to determine if the given type is a function.
+
+        For example,
+            void funct();
+
+            is_function&lt;funct&gt;::value == true
+            is_function&lt;int&gt;::value == false 
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_function <font color='#5555FF'>=</font> std::is_function<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_same_type'/><font color='#009900'>/*!A is_same_type 
+
+        This is a template where is_same_type&lt;T,U&gt;::value == true when T and U are the
+        same type and false otherwise.   
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font> U<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_same_type <font color='#5555FF'>=</font> std::is_same<font color='#5555FF'>&lt;</font>T,U<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='And'/><font color='#009900'>/*!A And
+
+        This template takes a list of bool values and yields their logical and.  E.g.
+        And&lt;true,true,true&gt;::value == true
+        And&lt;true,false,true&gt;::value == false 
+    !*/</font>
+<font color='#0000FF'>#ifdef</font> __cpp_fold_expressions
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>... v<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='And'></a>And</b> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, <font face='Lucida Console'>(</font>... <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> v<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+<font color='#0000FF'>#else</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> First, <font color='#0000FF'><u>bool</u></font>... Rest<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='And'></a>And</b> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, First <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> And<font color='#5555FF'>&lt;</font>Rest...<font color='#5555FF'>&gt;</font>::value<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> Value<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='And'></a>And</b><font color='#5555FF'>&lt;</font>Value<font color='#5555FF'>&gt;</font> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, Value<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='Or'/><font color='#009900'>/*!A Or 
+
+        This template takes a list of bool values and yields their logical or.  E.g.
+        Or&lt;true,true,true&gt;::value == true
+        Or&lt;true,false,true&gt;::value == true 
+        Or&lt;false,false,false&gt;::value == false 
+    !*/</font>
+<font color='#0000FF'>#ifdef</font> __cpp_fold_expressions
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>... v<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='Or'></a>Or</b> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, <font face='Lucida Console'>(</font>... <font color='#5555FF'>|</font><font color='#5555FF'>|</font> v<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+<font color='#0000FF'>#else</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> First, <font color='#0000FF'><u>bool</u></font>... Rest<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='Or'></a>Or</b> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, First <font color='#5555FF'>|</font><font color='#5555FF'>|</font> Or<font color='#5555FF'>&lt;</font>Rest...<font color='#5555FF'>&gt;</font>::value<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> Value<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='Or'></a>Or</b><font color='#5555FF'>&lt;</font>Value<font color='#5555FF'>&gt;</font> : std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, Value<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_any_type'/><font color='#009900'>/*!A is_any_type 
+
+        This is a template where is_any_type&lt;T,Rest...&gt;::value == true when T is 
+        the same type as any one of the types in Rest... 
+    !*/</font>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T, <font color='#0000FF'>typename</font>... Types<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='is_any_type'></a>is_any_type</b> : Or<font color='#5555FF'>&lt;</font>std::is_same<font color='#5555FF'>&lt;</font>T,Types<font color='#5555FF'>&gt;</font>::value...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_float_type'/><font color='#009900'>/*!A is_float_type
+
+        This is a template that can be used to determine if a type is one of the built
+        int floating point types (i.e. float, double, or long double).
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_float_type <font color='#5555FF'>=</font> std::is_floating_point<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_unsigned_type'/><font color='#009900'>/*!A is_unsigned_type 
+
+        This is a template where is_unsigned_type&lt;T&gt;::value == true when T is an unsigned
+        scalar type and false when T is a signed scalar type.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_unsigned_type <font color='#5555FF'>=</font> std::is_unsigned<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_signed_type'/><font color='#009900'>/*!A is_signed_type 
+
+        This is a template where is_signed_type&lt;T&gt;::value == true when T is a signed
+        scalar type and false when T is an unsigned scalar type.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_signed_type <font color='#5555FF'>=</font> std::is_signed<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_built_in_scalar_type'/><font color='#009900'>/*!A is_built_in_scalar_type
+        
+        This is a template that allows you to determine if the given type is a built
+        in scalar type such as an int, char, float, short, etc.
+
+        For example, is_built_in_scalar_type&lt;char&gt;::value == true
+        For example, is_built_in_scalar_type&lt;std::string&gt;::value == false 
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font> 
+    <font color='#0000FF'>using</font> is_built_in_scalar_type <font color='#5555FF'>=</font> std::is_arithmetic<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_byte'/><font color='#009900'>/*!A is_byte
+        
+        Tells you if a type is one of the byte types in C++.  E.g.
+        is_byte&lt;char&gt;::value == true
+        is_byte&lt;int&gt;::value == false 
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Byte'></a>Byte</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_byte <font color='#5555FF'>=</font> std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, std::is_same<font color='#5555FF'>&lt;</font>Byte,<font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font>::value
+                                              <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::is_same<font color='#5555FF'>&lt;</font>Byte,int8_t<font color='#5555FF'>&gt;</font>::value
+                                              <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::is_same<font color='#5555FF'>&lt;</font>Byte,uint8_t<font color='#5555FF'>&gt;</font>::value
+<font color='#0000FF'>#ifdef</font> __cpp_lib_byte
+                                              <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::is_same<font color='#5555FF'>&lt;</font>Byte,std::byte<font color='#5555FF'>&gt;</font>::value
+<font color='#0000FF'>#endif</font>
+                                          <font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='remove_cvref_t'/><font color='#009900'>/*!A remove_cvref_t
+
+        This is a template that takes a type and strips off any const, volatile, or reference
+        qualifiers and gives you back the basic underlying type.  So for example:
+
+        remove_cvref_t&lt;const int&amp;&gt; == int
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font> <font color='#0000FF'>class</font> <b><a name='T'></a>T</b> <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> remove_cvref_t <font color='#5555FF'>=</font> std::remove_cv_t<font color='#5555FF'>&lt;</font>std::remove_reference_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+    <a name='basic_type'/><font color='#009900'>/*!A basic_type
+
+        This is a template that takes a type and strips off any const, volatile, or reference
+        qualifiers and gives you back the basic underlying type.  So for example:
+
+        basic_type&lt;const int&amp;&gt;::type == int
+
+        This is the same as remove_cvref_t and exists for backwards compatibility with older dlib clients,
+        since basic_type has existed in dlib long before remove_cvref_t was added to the standard library.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='basic_type'></a>basic_type</b> <b>{</b> <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> remove_cvref_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>; <b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='conjunction'/><font color='#009900'>/*!A conjunction 
+        
+        Takes a list of type traits and gives you the logical AND of them.  E.g.
+
+        conjunction&lt;is_same_type&lt;int,int&gt;, is_same_type&lt;char,char&gt;&gt;::value == true
+        conjunction&lt;is_same_type&lt;int,int&gt;, is_same_type&lt;char,float&gt;&gt;::value == false 
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>...<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='conjunction'></a>conjunction</b> : std::true_type <b>{</b><b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='B1'></a>B1</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='conjunction'></a>conjunction</b><font color='#5555FF'>&lt;</font>B1<font color='#5555FF'>&gt;</font> : B1 <b>{</b><b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='B1'></a>B1</b>, <font color='#0000FF'>class</font>... <b><a name='Bn'></a>Bn</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='conjunction'></a>conjunction</b><font color='#5555FF'>&lt;</font>B1, Bn...<font color='#5555FF'>&gt;</font> : std::conditional_t<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>B1::value<font face='Lucida Console'>)</font>, conjunction<font color='#5555FF'>&lt;</font>Bn...<font color='#5555FF'>&gt;</font>, B1<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='are_nothrow_move_constructible'/><font color='#009900'>/*!A are_nothrow_move_constructible 
+        
+        A type trait class telling you if all the types given to it are no-throw move constructable.
+        
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> ...Types<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='are_nothrow_move_constructible'></a>are_nothrow_move_constructible</b> : And<font color='#5555FF'>&lt;</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>Types<font color='#5555FF'>&gt;</font>::value...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='are_nothrow_move_assignable'/><font color='#009900'>/*!A are_nothrow_move_assignable 
+        
+        A type trait class telling you if all the types given to it are no-throw move assignable.
+        
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> ...Types<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='are_nothrow_move_assignable'></a>are_nothrow_move_assignable</b> : And<font color='#5555FF'>&lt;</font>std::is_nothrow_move_assignable<font color='#5555FF'>&lt;</font>Types<font color='#5555FF'>&gt;</font>::value...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='are_nothrow_copy_constructible'/><font color='#009900'>/*!A are_nothrow_copy_constructible 
+        
+        A type trait class telling you if all the types given to it are no-throw copy constructable.
+        
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> ...Types<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='are_nothrow_copy_constructible'></a>are_nothrow_copy_constructible</b> : And<font color='#5555FF'>&lt;</font>std::is_nothrow_copy_constructible<font color='#5555FF'>&lt;</font>Types<font color='#5555FF'>&gt;</font>::value...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='are_nothrow_copy_assignable'/><font color='#009900'>/*!A are_nothrow_copy_assignable 
+        
+        A type trait class telling you if all the types given to it are no-throw copy assignable.
+        
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> ...Types<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='are_nothrow_copy_assignable'></a>are_nothrow_copy_assignable</b> : And<font color='#5555FF'>&lt;</font>std::is_nothrow_copy_assignable<font color='#5555FF'>&lt;</font>Types<font color='#5555FF'>&gt;</font>::value...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='void_t'/><font color='#009900'>/*!A void_t 
+        
+        Just always the void type.  Is useful in SFINAE expressions when the resulting type doesn't
+        matter and you just need a place to put an expression where SFINAE can take effect.
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font> <font color='#0000FF'>class</font>... <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> <b><a name='void_t'></a>void_t</b> <font color='#5555FF'>=</font> <font color='#0000FF'><u>void</u></font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> swappable_details
+    <b>{</b>
+        <font color='#0000FF'>using</font> std::swap;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <font color='#5555FF'>=</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='swap_traits'></a>swap_traits</b>
+        <b>{</b>
+            constexpr <font color='#0000FF'>static</font> <font color='#0000FF'><u>bool</u></font> is_swappable<b>{</b><font color='#979000'>false</font><b>}</b>;
+            constexpr <font color='#0000FF'>static</font> <font color='#0000FF'><u>bool</u></font> is_nothrow<b>{</b><font color='#979000'>false</font><b>}</b>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='swap_traits'></a>swap_traits</b><font color='#5555FF'>&lt;</font>T, void_t<font color='#5555FF'>&lt;</font><b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            constexpr <font color='#0000FF'>static</font> <font color='#0000FF'><u>bool</u></font> is_swappable<b>{</b><font color='#979000'>true</font><b>}</b>;
+            constexpr <font color='#0000FF'>static</font> <font color='#0000FF'><u>bool</u></font> is_nothrow<b>{</b><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font><font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font>std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, std::declval<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&amp;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><b>}</b>;
+        <b>}</b>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_swappable'/><font color='#009900'>/*!A is_swappable 
+        
+        A type trait telling you if T can be swapped by a global swap() function.
+        I.e. if this would compile:
+            T a, b;
+            swap(a,b);
+        Then is_swappable&lt;T&gt;::value == true. 
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_swappable <font color='#5555FF'>=</font> std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, swappable_details::swap_traits<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::is_swappable<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_nothrow_swappable'/><font color='#009900'>/*!A is_nothrow_swappable 
+        
+        A type trait telling you if T can be swapped by a global swap() function that is declared noexcept 
+        then is_nothrow_swappable&lt;T&gt;::value == true. 
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_nothrow_swappable <font color='#5555FF'>=</font> std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, swappable_details::swap_traits<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>::is_nothrow<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='are_nothrow_swappable'/><font color='#009900'>/*!A are_nothrow_swappable 
+        
+        A type trait telling you if a list of types are all no-throw swappable.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> ...Types<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='are_nothrow_swappable'></a>are_nothrow_swappable</b> : And<font color='#5555FF'>&lt;</font>is_nothrow_swappable<font color='#5555FF'>&lt;</font>Types<font color='#5555FF'>&gt;</font>::value...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='size_'/><font color='#009900'>/*!A size_
+        
+        This is just a shorthand for making std::integral_constant of type size_t.
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> size_ <font color='#5555FF'>=</font> std::integral_constant<font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font>, I<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='is_convertible'/><font color='#009900'>/*!A is_convertible
+
+        This is a template that can be used to determine if one type is convertible 
+        into another type.
+
+        For example:
+            is_convertible&lt;int,float&gt;::value == true    // because ints are convertible to floats
+            is_convertible&lt;int*,float&gt;::value == false  // because int pointers are NOT convertible to floats
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> from, <font color='#0000FF'>typename</font> to<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_convertible <font color='#5555FF'>=</font> std::is_convertible<font color='#5555FF'>&lt;</font>from, to<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> details
+    <b>{</b>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>, <font color='#0000FF'>class</font> <b><a name='AlwaysVoid'></a>AlwaysVoid</b> <font color='#5555FF'>=</font> <font color='#0000FF'><u>void</u></font><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='is_complete_type_impl'></a>is_complete_type_impl</b> : std::false_type<b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='is_complete_type_impl'></a>is_complete_type_impl</b><font color='#5555FF'>&lt;</font>T, void_t<font color='#5555FF'>&lt;</font><b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>T<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> : std::true_type<b>{</b><b>}</b>;
+    <b>}</b>
+
+    <a name='is_complete_type'/><font color='#009900'>/*!A is_complete_type
+
+        This is a template that can be used to determine if a type is a complete type. 
+        I.e. if T is a complete type then is_complete_type&lt;T&gt;::value == true.
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_complete_type <font color='#5555FF'>=</font> details::is_complete_type_impl<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> details
+    <b>{</b>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> Void, <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>...<font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='Op'></a>Op</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='is_detected_impl'></a>is_detected_impl</b> : std::false_type<b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>...<font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='Op'></a>Op</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='is_detected_impl'></a>is_detected_impl</b><font color='#5555FF'>&lt;</font>dlib::void_t<font color='#5555FF'>&lt;</font>Op<font color='#5555FF'>&lt;</font>Args...<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>, Op, Args...<font color='#5555FF'>&gt;</font> : std::true_type <b>{</b><b>}</b>;
+    <b>}</b>
+
+    <a name='is_detected'/><font color='#009900'>/*!A is_detected
+
+       This is exactly the same as std::experimental::is_detected from library fundamentals v.
+
+       It is a convenient way to test if the Args types satisfy some property, like having a certain
+       member function.  For example, say you wanted to know if a type had a .size() method.  You 
+       could define:
+          template&lt;typename T&gt;
+          using has_a_size_member_function = decltype(std::declval&lt;T&gt;().size());
+       And then
+          is_detected&lt;has_a_size_member_function, int&gt;::value == false
+          is_detected&lt;has_a_size_member_function, std::string&gt;::value == true 
+    !*/</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font>...<font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='Op'></a>Op</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_detected <font color='#5555FF'>=</font> details::is_detected_impl<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>void</u></font>, Op, Args...<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font> 
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font>... T<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='types_'></a>types_</b> <b>{</b><b>}</b>;
+    <font color='#009900'>/*!
+        WHAT THIS OBJECT REPRESENTS
+            This is a type list. You can use this for general-purpose meta-programming
+            and it's used to pass types to the switch_() function.
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> details
+    <b>{</b>
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>__has_builtin<font face='Lucida Console'>)</font>
+<font color='#0000FF'>#if</font> __has_builtin<font face='Lucida Console'>(</font>__type_pack_element<font face='Lucida Console'>)</font>
+    <font color='#0000FF'>#define</font> HAS_TYPE_PACK_ELEMENT <font color='#979000'>1</font>
+<font color='#0000FF'>#endif</font>
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#if</font> HAS_TYPE_PACK_ELEMENT
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='nth_type_impl'></a>nth_type_impl</b> <b>{</b> <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> __type_pack_element<font color='#5555FF'>&lt;</font>I,Ts...<font color='#5555FF'>&gt;</font>; <b>}</b>;
+<font color='#0000FF'>#else</font>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='nth_type_impl'></a>nth_type_impl</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font> <b><a name='T0'></a>T0</b>, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='nth_type_impl'></a>nth_type_impl</b><font color='#5555FF'>&lt;</font>I, T0, Ts...<font color='#5555FF'>&gt;</font> <b>{</b> <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> nth_type_impl<font color='#5555FF'>&lt;</font>I<font color='#5555FF'>-</font><font color='#979000'>1</font>, Ts...<font color='#5555FF'>&gt;</font>::type; <b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T0'></a>T0</b>, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='nth_type_impl'></a>nth_type_impl</b><font color='#5555FF'>&lt;</font><font color='#979000'>0</font>, T0, Ts...<font color='#5555FF'>&gt;</font> <b>{</b> <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> T0; <b>}</b>;
+<font color='#0000FF'>#endif</font>
+    <b>}</b>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='nth_type'></a>nth_type</b>;
+    <font color='#009900'>/*!
+        WHAT THIS OBJECT REPRESENTS
+            This is a type trait for getting the n'th argument of a parameter pack.
+            In particular, nth_type&lt;n, some_types...&gt;::type is the nth type in some_types.
+    !*/</font>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='nth_type'></a>nth_type</b><font color='#5555FF'>&lt;</font>I, types_<font color='#5555FF'>&lt;</font>Ts...<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> : details::nth_type_impl<font color='#5555FF'>&lt;</font>I,Ts...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='nth_type'></a>nth_type</b> : details::nth_type_impl<font color='#5555FF'>&lt;</font>I,Ts...<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font>... <b><a name='Ts'></a>Ts</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> nth_type_t <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> nth_type<font color='#5555FF'>&lt;</font>I,Ts...<font color='#5555FF'>&gt;</font>::type;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> details
+    <b>{</b>
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='AlwaysVoid'></a>AlwaysVoid</b>, <font color='#0000FF'>class</font> <b><a name='F'></a>F</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='callable_traits_impl'></a>callable_traits_impl</b>
+        <b>{</b>
+            constexpr <font color='#0000FF'>static</font> <font color='#0000FF'><u>bool</u></font> is_callable <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+        <b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='AlwaysVoid'></a>AlwaysVoid</b>, <font color='#0000FF'>class</font> <b><a name='R'></a>R</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='callable_traits_impl'></a>callable_traits_impl</b><font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>
+        <b>{</b>
+            <font color='#0000FF'>using</font> return_type <font color='#5555FF'>=</font> R;
+            <font color='#0000FF'>using</font> args        <font color='#5555FF'>=</font> types_<font color='#5555FF'>&lt;</font>Args...<font color='#5555FF'>&gt;</font>;
+            constexpr <font color='#0000FF'>static</font> std::<font color='#0000FF'><u>size_t</u></font>    nargs       <font color='#5555FF'>=</font> <font color='#0000FF'>sizeof</font>...<font face='Lucida Console'>(</font>Args<font face='Lucida Console'>)</font>;
+            constexpr <font color='#0000FF'>static</font> <font color='#0000FF'><u>bool</u></font>           is_callable <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+        <b>}</b>; 
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='AlwaysVoid'></a>AlwaysVoid</b>, <font color='#0000FF'>class</font> <b><a name='R'></a>R</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='callable_traits_impl'></a>callable_traits_impl</b><font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> 
+        : <font color='#0000FF'>public</font> callable_traits_impl<font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='AlwaysVoid'></a>AlwaysVoid</b>, <font color='#0000FF'>class</font> <b><a name='C'></a>C</b>, <font color='#0000FF'>class</font> <b><a name='R'></a>R</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='callable_traits_impl'></a>callable_traits_impl</b><font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font>C::<font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> 
+        : <font color='#0000FF'>public</font> callable_traits_impl<font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='AlwaysVoid'></a>AlwaysVoid</b>, <font color='#0000FF'>class</font> <b><a name='C'></a>C</b>, <font color='#0000FF'>class</font> <b><a name='R'></a>R</b>, <font color='#0000FF'>class</font>... <b><a name='Args'></a>Args</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='callable_traits_impl'></a>callable_traits_impl</b><font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font>C::<font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font><font color='#5555FF'>&gt;</font> 
+        : <font color='#0000FF'>public</font> callable_traits_impl<font color='#5555FF'>&lt;</font>AlwaysVoid, <b><a name='R'></a>R</b><font face='Lucida Console'>(</font>Args...<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='F'></a>F</b><font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>struct</font> <b><a name='callable_traits_impl'></a>callable_traits_impl</b><font color='#5555FF'>&lt;</font>void_t<font color='#5555FF'>&lt;</font><b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>std::decay_t<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font>::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>, F<font color='#5555FF'>&gt;</font>
+        : <font color='#0000FF'>public</font> callable_traits_impl<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>void</u></font>, <b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>std::decay_t<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font>::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+    <b>}</b>
+   
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='F'></a>F</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='callable_traits'></a>callable_traits</b> : details::callable_traits_impl<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>void</u></font>, F<font color='#5555FF'>&gt;</font> <b>{</b><b>}</b>;
+    <font color='#009900'>/*!
+        WHAT THIS OBJECT REPRESENTS
+            This is a type trait for callable types.
+
+            If the template parameter F is function pointer, functor or lambda then
+            it provides the following types:
+                return_type : the return type of the callable object
+                args        : a parameter pack packaged in a types_&lt;&gt; meta container containing
+                              all the function argument types
+            It also provides the following static members:
+                nargs       : the number of function arguments
+                is_callable : a boolean which determines whether F is callable. In this case, it is true
+            
+            If the template parameter F is not function-like object, then it provides:
+                is_callable : false
+            
+            For example, a function type F with signature R(T1, T2, T3) has the following traits:
+                callable_traits&lt;F&gt;::return_type == R
+                callable_traits&lt;F&gt;::args        == types_&lt;T1,T2,T3&gt;
+                callable_traits&lt;F&gt;::nargs       == 3
+                callable_traits&lt;F&gt;::is_callable == true
+
+            Another example:
+                callable_traits&lt;int&gt;::is_callable == false
+                callable_traits&lt;int&gt;::return_type == does not exist. Compile error
+                callable_traits&lt;int&gt;::args        == does not exist. Compile error
+                callable_traits&lt;int&gt;::nargs       == does not exist. Compile error
+    !*/</font>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callable'></a>Callable</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> callable_args <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> callable_traits<font color='#5555FF'>&lt;</font>Callable<font color='#5555FF'>&gt;</font>::args;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font> I, <font color='#0000FF'>class</font> <b><a name='Callable'></a>Callable</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> callable_arg <font color='#5555FF'>=</font> nth_type_t<font color='#5555FF'>&lt;</font>I, callable_args<font color='#5555FF'>&lt;</font>Callable<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+    
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callable'></a>Callable</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> callable_nargs <font color='#5555FF'>=</font> std::integral_constant<font color='#5555FF'>&lt;</font>std::<font color='#0000FF'><u>size_t</u></font>, callable_traits<font color='#5555FF'>&lt;</font>Callable<font color='#5555FF'>&gt;</font>::nargs<font color='#5555FF'>&gt;</font>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Callable'></a>Callable</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> callable_return <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> callable_traits<font color='#5555FF'>&lt;</font>Callable<font color='#5555FF'>&gt;</font>::return_type;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='F'></a>F</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> is_callable <font color='#5555FF'>=</font> std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, callable_traits<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font>::is_callable<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_TYPE_TRAITS_H_
+</font>
+</pre></body></html>

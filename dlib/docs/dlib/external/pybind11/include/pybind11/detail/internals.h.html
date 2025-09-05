@@ -1,0 +1,670 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - internals.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+    pybind11/detail/internals.h: Internal data structure and related functions
+
+    Copyright (c) 2017 Wenzel Jakob &lt;wenzel.jakob@epfl.ch&gt;
+
+    All rights reserved. Use of this source code is governed by a
+    BSD-style license that can be found in the LICENSE file.
+*/</font>
+
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='common.h.html'>common.h</a>"
+
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> defined<font face='Lucida Console'>(</font>PYBIND11_SIMPLE_GIL_MANAGEMENT<font face='Lucida Console'>)</font>
+#    include "<font color='#CC0000'>../gil.h</font>"
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../pytypes.h.html'>../pytypes.h</a>"
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>exception<font color='#5555FF'>&gt;</font>
+
+<font color='#009900'>/// Tracks the `internals` and `type_info` ABI version independent of the main library version.
+</font><font color='#009900'>///
+</font><font color='#009900'>/// Some portions of the code use an ABI that is conditional depending on this
+</font><font color='#009900'>/// version number.  That allows ABI-breaking changes to be "pre-implemented".
+</font><font color='#009900'>/// Once the default version number is incremented, the conditional logic that
+</font><font color='#009900'>/// no longer applies can be removed.  Additionally, users that need not
+</font><font color='#009900'>/// maintain ABI compatibility can increase the version number in order to take
+</font><font color='#009900'>/// advantage of any functionality/efficiency improvements that depend on the
+</font><font color='#009900'>/// newer ABI.
+</font><font color='#009900'>///
+</font><font color='#009900'>/// WARNING: If you choose to manually increase the ABI version, note that
+</font><font color='#009900'>/// pybind11 may not be tested as thoroughly with a non-default ABI version, and
+</font><font color='#009900'>/// further ABI-incompatible changes may be made before the ABI is officially
+</font><font color='#009900'>/// changed to the new version.
+</font><font color='#0000FF'>#ifndef</font> PYBIND11_INTERNALS_VERSION
+#    <font color='#0000FF'>if</font> PY_VERSION_HEX <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>0x030C0000</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>_MSC_VER<font face='Lucida Console'>)</font>
+<font color='#009900'>// Version bump for Python 3.12+, before first 3.12 beta release.
+</font><font color='#009900'>// Version bump for MSVC piggy-backed on PR #4779. See comments there.
+</font>#        define PYBIND11_INTERNALS_VERSION <font color='#979000'>5</font>
+#    <font color='#0000FF'>else</font>
+#        define PYBIND11_INTERNALS_VERSION <font color='#979000'>4</font>
+#    endif
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>// This requirement is mainly to reduce the support burden (see PR #4570).
+</font><b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>PY_VERSION_HEX <font color='#5555FF'>&lt;</font> <font color='#979000'>0x030C0000</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>5</font>,
+              "<font color='#CC0000'>pybind11 ABI version 5 is the minimum for Python 3.12+</font>"<font face='Lucida Console'>)</font>;
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>using</font> ExceptionTranslator <font color='#5555FF'>=</font> <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>std::exception_ptr<font face='Lucida Console'>)</font>;
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+constexpr <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font>internals_function_record_capsule_name <font color='#5555FF'>=</font> "<font color='#CC0000'>pybind11_function_record_capsule</font>";
+
+<font color='#009900'>// Forward declarations
+</font><font color='#0000FF'>inline</font> PyTypeObject <font color='#5555FF'>*</font><b><a name='make_static_property_type'></a>make_static_property_type</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>inline</font> PyTypeObject <font color='#5555FF'>*</font><b><a name='make_default_metaclass'></a>make_default_metaclass</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>inline</font> PyObject <font color='#5555FF'>*</font><b><a name='make_object_base_type'></a>make_object_base_type</b><font face='Lucida Console'>(</font>PyTypeObject <font color='#5555FF'>*</font>metaclass<font face='Lucida Console'>)</font>;
+
+<font color='#009900'>// The old Python Thread Local Storage (TLS) API is deprecated in Python 3.7 in favor of the new
+</font><font color='#009900'>// Thread Specific Storage (TSS) API.
+</font><font color='#0000FF'>#if</font> PY_VERSION_HEX <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>0x03070000</font>
+<font color='#009900'>// Avoid unnecessary allocation of `Py_tss_t`, since we cannot use
+</font><font color='#009900'>// `Py_LIMITED_API` anyway.
+</font>#    <font color='#0000FF'>if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font> <font color='#979000'>4</font>
+#        define PYBIND11_TLS_KEY_REF Py_tss_t <font color='#5555FF'>&amp;</font>
+#        <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__clang__<font face='Lucida Console'>)</font>
+#            define <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font>                                                    \
+                <b><a name='_Pragma'></a>_Pragma</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>clang diagnostic push</font>"<font face='Lucida Console'>)</font>                                         <font color='#009900'>/**/</font>     \
+                    <b><a name='_Pragma'></a>_Pragma</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>clang diagnostic ignored \"-Wmissing-field-initializers\"</font>"<font face='Lucida Console'>)</font> <font color='#009900'>/**/</font>     \
+                    Py_tss_t var                                                                  \
+                    <font color='#5555FF'>=</font> Py_tss_NEEDS_INIT;                                                          \
+                <b><a name='_Pragma'></a>_Pragma</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>clang diagnostic pop</font>"<font face='Lucida Console'>)</font>
+#        elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__GNUC__<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font><b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__INTEL_COMPILER<font face='Lucida Console'>)</font>
+#            define <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font>                                                    \
+                <b><a name='_Pragma'></a>_Pragma</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>GCC diagnostic push</font>"<font face='Lucida Console'>)</font>                                         <font color='#009900'>/**/</font>       \
+                    <b><a name='_Pragma'></a>_Pragma</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>GCC diagnostic ignored \"-Wmissing-field-initializers\"</font>"<font face='Lucida Console'>)</font> <font color='#009900'>/**/</font>       \
+                    Py_tss_t var                                                                  \
+                    <font color='#5555FF'>=</font> Py_tss_NEEDS_INIT;                                                          \
+                <b><a name='_Pragma'></a>_Pragma</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>GCC diagnostic pop</font>"<font face='Lucida Console'>)</font>
+#        <font color='#0000FF'>else</font>
+#            define <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> Py_tss_t var <font color='#5555FF'>=</font> Py_tss_NEEDS_INIT;
+#        endif
+#        define <b><a name='PYBIND11_TLS_KEY_CREATE'></a>PYBIND11_TLS_KEY_CREATE</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyThread_tss_create</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_GET_VALUE'></a>PYBIND11_TLS_GET_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_get'></a>PyThread_tss_get</b><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_REPLACE_VALUE'></a>PYBIND11_TLS_REPLACE_VALUE</b><font face='Lucida Console'>(</font>key, value<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_set'></a>PyThread_tss_set</b><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, <font face='Lucida Console'>(</font>value<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_DELETE_VALUE'></a>PYBIND11_TLS_DELETE_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_set'></a>PyThread_tss_set</b><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, nullptr<font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_FREE'></a>PYBIND11_TLS_FREE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_delete'></a>PyThread_tss_delete</b><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#    <font color='#0000FF'>else</font>
+#        define PYBIND11_TLS_KEY_REF Py_tss_t <font color='#5555FF'>*</font>
+#        define <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> Py_tss_t <font color='#5555FF'>*</font>var <font color='#5555FF'>=</font> nullptr;
+#        define <b><a name='PYBIND11_TLS_KEY_CREATE'></a>PYBIND11_TLS_KEY_CREATE</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font>                                                      \
+            <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#BB00BB'>PyThread_tss_alloc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> nullptr <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyThread_tss_create</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_GET_VALUE'></a>PYBIND11_TLS_GET_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_get'></a>PyThread_tss_get</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_REPLACE_VALUE'></a>PYBIND11_TLS_REPLACE_VALUE</b><font face='Lucida Console'>(</font>key, value<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_set'></a>PyThread_tss_set</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, <font face='Lucida Console'>(</font>value<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_DELETE_VALUE'></a>PYBIND11_TLS_DELETE_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_set'></a>PyThread_tss_set</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, nullptr<font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_FREE'></a>PYBIND11_TLS_FREE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_tss_free'></a>PyThread_tss_free</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>
+#    endif
+<font color='#0000FF'>#else</font>
+<font color='#009900'>// Usually an int but a long on Cygwin64 with Python 3.x
+</font>#    define PYBIND11_TLS_KEY_REF <b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#BB00BB'>PyThread_create_key</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#    define <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> PYBIND11_TLS_KEY_REF var <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+#    define <b><a name='PYBIND11_TLS_KEY_CREATE'></a>PYBIND11_TLS_KEY_CREATE</b><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>var<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#BB00BB'>PyThread_create_key</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>-</font><font color='#979000'>1</font><font face='Lucida Console'>)</font>
+#    define <b><a name='PYBIND11_TLS_GET_VALUE'></a>PYBIND11_TLS_GET_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_get_key_value'></a>PyThread_get_key_value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#    <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>PYPY_VERSION<font face='Lucida Console'>)</font>
+<font color='#009900'>// On CPython &lt; 3.4 and on PyPy, `PyThread_set_key_value` strangely does not set
+</font><font color='#009900'>// the value if it has already been set.  Instead, it must first be deleted and
+</font><font color='#009900'>// then set again.
+</font><font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='tls_replace_value'></a>tls_replace_value</b><font face='Lucida Console'>(</font>PYBIND11_TLS_KEY_REF key, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>value<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#BB00BB'>PyThread_delete_key_value</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>;
+    <font color='#BB00BB'>PyThread_set_key_value</font><font face='Lucida Console'>(</font>key, value<font face='Lucida Console'>)</font>;
+<b>}</b>
+#        define <b><a name='PYBIND11_TLS_DELETE_VALUE'></a>PYBIND11_TLS_DELETE_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_delete_key_value'></a>PyThread_delete_key_value</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_REPLACE_VALUE'></a>PYBIND11_TLS_REPLACE_VALUE</b><font face='Lucida Console'>(</font>key, value<font face='Lucida Console'>)</font>                                            \
+            ::pybind11::detail::<b><a name='tls_replace_value'></a>tls_replace_value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, <font face='Lucida Console'>(</font>value<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#    <font color='#0000FF'>else</font>
+#        define <b><a name='PYBIND11_TLS_DELETE_VALUE'></a>PYBIND11_TLS_DELETE_VALUE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <b><a name='PyThread_set_key_value'></a>PyThread_set_key_value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, nullptr<font face='Lucida Console'>)</font>
+#        define <b><a name='PYBIND11_TLS_REPLACE_VALUE'></a>PYBIND11_TLS_REPLACE_VALUE</b><font face='Lucida Console'>(</font>key, value<font face='Lucida Console'>)</font> <b><a name='PyThread_set_key_value'></a>PyThread_set_key_value</b><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>, <font face='Lucida Console'>(</font>value<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+#    endif
+#    define <b><a name='PYBIND11_TLS_FREE'></a>PYBIND11_TLS_FREE</b><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font> key
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>// Python loads modules by default with dlopen with the RTLD_LOCAL flag; under libc++ and possibly
+</font><font color='#009900'>// other STLs, this means `typeid(A)` from one module won't equal `typeid(A)` from another module
+</font><font color='#009900'>// even when `A` is the same, non-hidden-visibility type (e.g. from a common include).  Under
+</font><font color='#009900'>// libstdc++, this doesn't happen: equality and the type_index hash are based on the type name,
+</font><font color='#009900'>// which works.  If not under a known-good stl, provide our own name-based hash and equality
+</font><font color='#009900'>// functions that use the type name.
+</font><font color='#0000FF'>#if</font> <font face='Lucida Console'>(</font>PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>4</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> defined<font face='Lucida Console'>(</font>__GLIBCXX__<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>                                     \
+    <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <font face='Lucida Console'>(</font>PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>5</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font><font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>_LIBCPP_VERSION<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='same_type'></a>same_type</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> lhs <font color='#5555FF'>=</font><font color='#5555FF'>=</font> rhs; <b>}</b>
+<font color='#0000FF'>using</font> type_hash <font color='#5555FF'>=</font> std::hash<font color='#5555FF'>&lt;</font>std::type_index<font color='#5555FF'>&gt;</font>;
+<font color='#0000FF'>using</font> type_equal_to <font color='#5555FF'>=</font> std::equal_to<font color='#5555FF'>&lt;</font>std::type_index<font color='#5555FF'>&gt;</font>;
+<font color='#0000FF'>#else</font>
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='same_type'></a>same_type</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>return</font> lhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> rhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::<font color='#BB00BB'>strcmp</font><font face='Lucida Console'>(</font>lhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, rhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+<b>}</b>
+
+<font color='#0000FF'>struct</font> <b><a name='type_hash'></a>type_hash</b> <b>{</b>
+    <font color='#0000FF'><u>size_t</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::type_index <font color='#5555FF'>&amp;</font>t<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b>
+        <font color='#0000FF'><u>size_t</u></font> hash <font color='#5555FF'>=</font> <font color='#979000'>5381</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font>ptr <font color='#5555FF'>=</font> t.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font color='#0000FF'>auto</font> c <font color='#5555FF'>=</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>ptr<font color='#5555FF'>+</font><font color='#5555FF'>+</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            hash <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>hash <font color='#5555FF'>*</font> <font color='#979000'>33</font><font face='Lucida Console'>)</font> ^ c;
+        <b>}</b>
+        <font color='#0000FF'>return</font> hash;
+    <b>}</b>
+<b>}</b>;
+
+<font color='#0000FF'>struct</font> <b><a name='type_equal_to'></a>type_equal_to</b> <b>{</b>
+    <font color='#0000FF'><u>bool</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::type_index <font color='#5555FF'>&amp;</font>lhs, <font color='#0000FF'>const</font> std::type_index <font color='#5555FF'>&amp;</font>rhs<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b>
+        <font color='#0000FF'>return</font> lhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> rhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> std::<font color='#BB00BB'>strcmp</font><font face='Lucida Console'>(</font>lhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, rhs.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+<b>}</b>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> value_type<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>using</font> type_map <font color='#5555FF'>=</font> std::unordered_map<font color='#5555FF'>&lt;</font>std::type_index, value_type, type_hash, type_equal_to<font color='#5555FF'>&gt;</font>;
+
+<font color='#0000FF'>struct</font> <b><a name='override_hash'></a>override_hash</b> <b>{</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>size_t</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> PyObject <font color='#5555FF'>*</font>, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>v<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font> <b>{</b>
+        <font color='#0000FF'><u>size_t</u></font> value <font color='#5555FF'>=</font> std::hash<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>v.first<font face='Lucida Console'>)</font>;
+        value ^<font color='#5555FF'>=</font> std::hash<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>v.second<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> <font color='#979000'>0x9e3779b9</font> <font color='#5555FF'>+</font> <font face='Lucida Console'>(</font>value <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#979000'>6</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> <font face='Lucida Console'>(</font>value <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> value;
+    <b>}</b>
+<b>}</b>;
+
+<font color='#009900'>/// Internal data structure used to track registered instances and types.
+</font><font color='#009900'>/// Whenever binary incompatible changes are made to this structure,
+</font><font color='#009900'>/// `PYBIND11_INTERNALS_VERSION` must be incremented.
+</font><font color='#0000FF'>struct</font> <b><a name='internals'></a>internals</b> <b>{</b>
+    <font color='#009900'>// std::type_index -&gt; pybind11's type information
+</font>    type_map<font color='#5555FF'>&lt;</font>type_info <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font> registered_types_cpp;
+    <font color='#009900'>// PyTypeObject* -&gt; base type_info(s)
+</font>    std::unordered_map<font color='#5555FF'>&lt;</font>PyTypeObject <font color='#5555FF'>*</font>, std::vector<font color='#5555FF'>&lt;</font>type_info <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> registered_types_py;
+    std::unordered_multimap<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>, instance <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font> registered_instances; <font color='#009900'>// void * -&gt; instance*
+</font>    std::unordered_set<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> PyObject <font color='#5555FF'>*</font>, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font>, override_hash<font color='#5555FF'>&gt;</font>
+        inactive_override_cache;
+    type_map<font color='#5555FF'>&lt;</font>std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> direct_conversions;
+    std::unordered_map<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> PyObject <font color='#5555FF'>*</font>, std::vector<font color='#5555FF'>&lt;</font>PyObject <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> patients;
+    std::forward_list<font color='#5555FF'>&lt;</font>ExceptionTranslator<font color='#5555FF'>&gt;</font> registered_exception_translators;
+    std::unordered_map<font color='#5555FF'>&lt;</font>std::string, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font> shared_data; <font color='#009900'>// Custom data to be shared across
+</font>                                                         <font color='#009900'>// extensions
+</font><font color='#0000FF'>#if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>4</font>
+    std::vector<font color='#5555FF'>&lt;</font>PyObject <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font> unused_loader_patient_stack_remove_at_v5;
+<font color='#0000FF'>#endif</font>
+    std::forward_list<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font> static_strings; <font color='#009900'>// Stores the std::strings backing
+</font>                                                   <font color='#009900'>// detail::c_str()
+</font>    PyTypeObject <font color='#5555FF'>*</font>static_property_type;
+    PyTypeObject <font color='#5555FF'>*</font>default_metaclass;
+    PyObject <font color='#5555FF'>*</font>instance_base;
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font>
+    <font color='#009900'>// Unused if PYBIND11_SIMPLE_GIL_MANAGEMENT is defined:
+</font>    <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>tstate<font face='Lucida Console'>)</font>
+#    <font color='#0000FF'>if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font> <font color='#979000'>4</font>
+    <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>loader_life_support_tls_key<font face='Lucida Console'>)</font>
+#    endif <font color='#009900'>// PYBIND11_INTERNALS_VERSION &gt; 4
+</font>    <font color='#009900'>// Unused if PYBIND11_SIMPLE_GIL_MANAGEMENT is defined:
+</font>    PyInterpreterState <font color='#5555FF'>*</font>istate <font color='#5555FF'>=</font> nullptr;
+
+#    <font color='#0000FF'>if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font> <font color='#979000'>4</font>
+    <font color='#009900'>// Note that we have to use a std::string to allocate memory to ensure a unique address
+</font>    <font color='#009900'>// We want unique addresses since we use pointer equality to compare function records
+</font>    std::string function_record_capsule_name <font color='#5555FF'>=</font> internals_function_record_capsule_name;
+#    endif
+
+    <b><a name='internals'></a>internals</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+    <b><a name='internals'></a>internals</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> internals <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    internals <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> internals <font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    ~<b><a name='internals'></a>internals</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+#    <font color='#0000FF'>if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font> <font color='#979000'>4</font>
+        <font color='#BB00BB'>PYBIND11_TLS_FREE</font><font face='Lucida Console'>(</font>loader_life_support_tls_key<font face='Lucida Console'>)</font>;
+#    endif <font color='#009900'>// PYBIND11_INTERNALS_VERSION &gt; 4
+</font>
+        <font color='#009900'>// This destructor is called *after* Py_Finalize() in finalize_interpreter().
+</font>        <font color='#009900'>// That *SHOULD BE* fine. The following details what happens when PyThread_tss_free is
+</font>        <font color='#009900'>// called. PYBIND11_TLS_FREE is PyThread_tss_free on python 3.7+. On older python, it does
+</font>        <font color='#009900'>// nothing. PyThread_tss_free calls PyThread_tss_delete and PyMem_RawFree.
+</font>        <font color='#009900'>// PyThread_tss_delete just calls TlsFree (on Windows) or pthread_key_delete (on *NIX).
+</font>        <font color='#009900'>// Neither of those have anything to do with CPython internals. PyMem_RawFree *requires*
+</font>        <font color='#009900'>// that the `tstate` be allocated with the CPython allocator.
+</font>        <font color='#BB00BB'>PYBIND11_TLS_FREE</font><font face='Lucida Console'>(</font>tstate<font face='Lucida Console'>)</font>;
+    <b>}</b>
+<font color='#0000FF'>#endif</font>
+<b>}</b>;
+
+<font color='#009900'>/// Additional type information which does not fit into the PyTypeObject.
+</font><font color='#009900'>/// Changes to this struct also require bumping `PYBIND11_INTERNALS_VERSION`.
+</font><font color='#0000FF'>struct</font> <b><a name='type_info'></a>type_info</b> <b>{</b>
+    PyTypeObject <font color='#5555FF'>*</font>type;
+    <font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>*</font>cpptype;
+    <font color='#0000FF'><u>size_t</u></font> type_size, type_align, holder_size_in_ptrs;
+    <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>operator_new<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>init_instance<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>instance <font color='#5555FF'>*</font>, <font color='#0000FF'>const</font> <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'><u>void</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>dealloc<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>value_and_holder <font color='#5555FF'>&amp;</font>v_h<font face='Lucida Console'>)</font>;
+    std::vector<font color='#5555FF'>&lt;</font>PyObject <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>, PyTypeObject <font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> implicit_conversions;
+    std::vector<font color='#5555FF'>&lt;</font>std::pair<font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> std::type_info <font color='#5555FF'>*</font>, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> implicit_casts;
+    std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> <font face='Lucida Console'>(</font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>*</font>direct_conversions;
+    buffer_info <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>get_buffer<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> nullptr;
+    <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>get_buffer_data <font color='#5555FF'>=</font> nullptr;
+    <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>module_local_load<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>, <font color='#0000FF'>const</font> type_info <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> nullptr;
+    <font color='#009900'>/* A simple type never occurs as a (direct or indirect) parent
+     * of a class that makes use of multiple inheritance.
+     * A type can be simple even if it has non-simple ancestors as long as it has no descendants.
+     */</font>
+    <font color='#0000FF'><u>bool</u></font> simple_type : <font color='#979000'>1</font>;
+    <font color='#009900'>/* True if there is no multiple inheritance in this type's inheritance tree */</font>
+    <font color='#0000FF'><u>bool</u></font> simple_ancestors : <font color='#979000'>1</font>;
+    <font color='#009900'>/* for base vs derived holder_type checks */</font>
+    <font color='#0000FF'><u>bool</u></font> default_holder : <font color='#979000'>1</font>;
+    <font color='#009900'>/* true if this is a type registered with py::module_local */</font>
+    <font color='#0000FF'><u>bool</u></font> module_local : <font color='#979000'>1</font>;
+<b>}</b>;
+
+<font color='#009900'>/// On MSVC, debug and release builds are not ABI-compatible!
+</font><font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>_MSC_VER<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> defined<font face='Lucida Console'>(</font>_DEBUG<font face='Lucida Console'>)</font>
+#    define PYBIND11_BUILD_TYPE "<font color='#CC0000'>_debug</font>"
+<font color='#0000FF'>#else</font>
+#    define PYBIND11_BUILD_TYPE "<font color='#CC0000'></font>"
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>/// Let's assume that different compilers are ABI-incompatible.
+</font><font color='#009900'>/// A user can manually set this string if they know their
+</font><font color='#009900'>/// compiler is compatible.
+</font><font color='#0000FF'>#ifndef</font> PYBIND11_COMPILER_TYPE
+#    <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>_MSC_VER<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_msvc</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__INTEL_COMPILER<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_icc</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__clang__<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_clang</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__PGI<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_pgi</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__MINGW32__<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_mingw</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__CYGWIN__<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_gcc_cygwin</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__GNUC__<font face='Lucida Console'>)</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_gcc</font>"
+#    <font color='#0000FF'>else</font>
+#        define PYBIND11_COMPILER_TYPE "<font color='#CC0000'>_unknown</font>"
+#    endif
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>/// Also standard libs
+</font><font color='#0000FF'>#ifndef</font> PYBIND11_STDLIB
+#    <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>_LIBCPP_VERSION<font face='Lucida Console'>)</font>
+#        define PYBIND11_STDLIB "<font color='#CC0000'>_libcpp</font>"
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__GLIBCXX__<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__GLIBCPP__<font face='Lucida Console'>)</font>
+#        define PYBIND11_STDLIB "<font color='#CC0000'>_libstdcpp</font>"
+#    <font color='#0000FF'>else</font>
+#        define PYBIND11_STDLIB "<font color='#CC0000'></font>"
+#    endif
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>/// On Linux/OSX, changes in __GXX_ABI_VERSION__ indicate ABI incompatibility.
+</font><font color='#009900'>/// On MSVC, changes in _MSC_VER may indicate ABI incompatibility (#2898).
+</font><font color='#0000FF'>#ifndef</font> PYBIND11_BUILD_ABI
+#    <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>__GXX_ABI_VERSION<font face='Lucida Console'>)</font>
+#        define PYBIND11_BUILD_ABI "<font color='#CC0000'>_cxxabi</font>" <b><a name='PYBIND11_TOSTRING'></a>PYBIND11_TOSTRING</b><font face='Lucida Console'>(</font>__GXX_ABI_VERSION<font face='Lucida Console'>)</font>
+#    elif <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>_MSC_VER<font face='Lucida Console'>)</font>
+#        define PYBIND11_BUILD_ABI "<font color='#CC0000'>_mscver</font>" <b><a name='PYBIND11_TOSTRING'></a>PYBIND11_TOSTRING</b><font face='Lucida Console'>(</font>_MSC_VER<font face='Lucida Console'>)</font>
+#    <font color='#0000FF'>else</font>
+#        define PYBIND11_BUILD_ABI "<font color='#CC0000'></font>"
+#    endif
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#ifndef</font> PYBIND11_INTERNALS_KIND
+#    <font color='#0000FF'>if</font> <b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font>
+#        define PYBIND11_INTERNALS_KIND "<font color='#CC0000'></font>"
+#    <font color='#0000FF'>else</font>
+#        define PYBIND11_INTERNALS_KIND "<font color='#CC0000'>_without_thread</font>"
+#    endif
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#define</font> PYBIND11_INTERNALS_ID                                                                     \
+    "<font color='#CC0000'>__pybind11_internals_v</font>" <b><a name='PYBIND11_TOSTRING'></a>PYBIND11_TOSTRING</b><font face='Lucida Console'>(</font>PYBIND11_INTERNALS_VERSION<font face='Lucida Console'>)</font>                        \
+        PYBIND11_INTERNALS_KIND PYBIND11_COMPILER_TYPE PYBIND11_STDLIB PYBIND11_BUILD_ABI         \
+            PYBIND11_BUILD_TYPE "<font color='#CC0000'>__</font>"
+
+<font color='#0000FF'>#define</font> PYBIND11_MODULE_LOCAL_ID                                                                  \
+    "<font color='#CC0000'>__pybind11_module_local_v</font>" <b><a name='PYBIND11_TOSTRING'></a>PYBIND11_TOSTRING</b><font face='Lucida Console'>(</font>PYBIND11_INTERNALS_VERSION<font face='Lucida Console'>)</font>                     \
+        PYBIND11_INTERNALS_KIND PYBIND11_COMPILER_TYPE PYBIND11_STDLIB PYBIND11_BUILD_ABI         \
+            PYBIND11_BUILD_TYPE "<font color='#CC0000'>__</font>"
+
+<font color='#009900'>/// Each module locally stores a pointer to the `internals` data. The data
+</font><font color='#009900'>/// itself is shared among modules with the same `PYBIND11_INTERNALS_ID`.
+</font><font color='#0000FF'>inline</font> internals <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#5555FF'>&amp;</font><b><a name='get_internals_pp'></a>get_internals_pp</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>static</font> internals <font color='#5555FF'>*</font><font color='#5555FF'>*</font>internals_pp <font color='#5555FF'>=</font> nullptr;
+    <font color='#0000FF'>return</font> internals_pp;
+<b>}</b>
+
+<font color='#009900'>// forward decl
+</font><font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='translate_exception'></a>translate_exception</b><font face='Lucida Console'>(</font>std::exception_ptr<font face='Lucida Console'>)</font>;
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+          enable_if_t<font color='#5555FF'>&lt;</font>std::is_same<font color='#5555FF'>&lt;</font>std::nested_exception, remove_cvref_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>0</font><font color='#5555FF'>&gt;</font>
+<font color='#0000FF'><u>bool</u></font> <b><a name='handle_nested_exception'></a>handle_nested_exception</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> T <font color='#5555FF'>&amp;</font>exc, <font color='#0000FF'>const</font> std::exception_ptr <font color='#5555FF'>&amp;</font>p<font face='Lucida Console'>)</font> <b>{</b>
+    std::exception_ptr nested <font color='#5555FF'>=</font> exc.<font color='#BB00BB'>nested_ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>nested <font color='#5555FF'>!</font><font color='#5555FF'>=</font> nullptr <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> nested <font color='#5555FF'>!</font><font color='#5555FF'>=</font> p<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>translate_exception</font><font face='Lucida Console'>(</font>nested<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+    <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+<b>}</b>
+
+<font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='T'></a>T</b>,
+          enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>std::nested_exception, remove_cvref_t<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>0</font><font color='#5555FF'>&gt;</font>
+<font color='#0000FF'><u>bool</u></font> <b><a name='handle_nested_exception'></a>handle_nested_exception</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> T <font color='#5555FF'>&amp;</font>exc, <font color='#0000FF'>const</font> std::exception_ptr <font color='#5555FF'>&amp;</font>p<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>nep <font color='#5555FF'>=</font> <font color='#0000FF'>dynamic_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> std::nested_exception <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>addressof</font><font face='Lucida Console'>(</font>exc<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>nep, p<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+<b>}</b>
+
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='raise_err'></a>raise_err</b><font face='Lucida Console'>(</font>PyObject <font color='#5555FF'>*</font>exc_type, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font>msg<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>PyErr_Occurred</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>raise_from</font><font face='Lucida Console'>(</font>exc_type, msg<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+    <b>}</b>
+    <font color='#BB00BB'>set_error</font><font face='Lucida Console'>(</font>exc_type, msg<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> <font color='#979000'>false</font>;
+<b>}</b>
+
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='translate_exception'></a>translate_exception</b><font face='Lucida Console'>(</font>std::exception_ptr p<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>p<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>return</font>;
+    <b>}</b>
+    <font color='#0000FF'>try</font> <b>{</b>
+        std::<font color='#BB00BB'>rethrow_exception</font><font face='Lucida Console'>(</font>p<font face='Lucida Console'>)</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font>error_already_set <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        e.<font color='#BB00BB'>restore</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> builtin_exception <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#009900'>// Could not use template since it's an abstract class.
+</font>        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>nep <font color='#5555FF'>=</font> <font color='#0000FF'>dynamic_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>const</font> std::nested_exception <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>addressof</font><font face='Lucida Console'>(</font>e<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>nep, p<font face='Lucida Console'>)</font>;
+        <b>}</b>
+        e.<font color='#BB00BB'>set_error</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::bad_alloc <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_MemoryError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::domain_error <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_ValueError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::invalid_argument <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_ValueError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::length_error <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_ValueError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::out_of_range <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_IndexError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::range_error <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_ValueError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::overflow_error <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_OverflowError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_RuntimeError, e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::nested_exception <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>handle_nested_exception</font><font face='Lucida Console'>(</font>e, p<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_RuntimeError, "<font color='#CC0000'>Caught an unknown nested exception!</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font>...<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>raise_err</font><font face='Lucida Console'>(</font>PyExc_RuntimeError, "<font color='#CC0000'>Caught an unknown exception!</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b>
+<b>}</b>
+
+<font color='#0000FF'>#if</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>__GLIBCXX__<font face='Lucida Console'>)</font>
+<font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='translate_local_exception'></a>translate_local_exception</b><font face='Lucida Console'>(</font>std::exception_ptr p<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>try</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>p<font face='Lucida Console'>)</font> <b>{</b>
+            std::<font color='#BB00BB'>rethrow_exception</font><font face='Lucida Console'>(</font>p<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font>error_already_set <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        e.<font color='#BB00BB'>restore</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b> <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> builtin_exception <font color='#5555FF'>&amp;</font>e<font face='Lucida Console'>)</font> <b>{</b>
+        e.<font color='#BB00BB'>set_error</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font>;
+    <b>}</b>
+<b>}</b>
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>inline</font> object <b><a name='get_python_state_dict'></a>get_python_state_dict</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+    object state_dict;
+<font color='#0000FF'>#if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> <font color='#979000'>4</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> PY_VERSION_HEX <font color='#5555FF'>&lt;</font> <font color='#979000'>0x03080000</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> defined<font face='Lucida Console'>(</font>PYPY_VERSION<font face='Lucida Console'>)</font>
+    state_dict <font color='#5555FF'>=</font> reinterpret_borrow<font color='#5555FF'>&lt;</font>object<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#BB00BB'>PyEval_GetBuiltins</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#else</font>
+#    <font color='#0000FF'>if</font> PY_VERSION_HEX <font color='#5555FF'>&lt;</font> <font color='#979000'>0x03090000</font>
+    PyInterpreterState <font color='#5555FF'>*</font>istate <font color='#5555FF'>=</font> <font color='#BB00BB'>_PyInterpreterState_Get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+#    <font color='#0000FF'>else</font>
+    PyInterpreterState <font color='#5555FF'>*</font>istate <font color='#5555FF'>=</font> <font color='#BB00BB'>PyInterpreterState_Get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+#    endif
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>istate<font face='Lucida Console'>)</font> <b>{</b>
+        state_dict <font color='#5555FF'>=</font> reinterpret_borrow<font color='#5555FF'>&lt;</font>object<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#BB00BB'>PyInterpreterState_GetDict</font><font face='Lucida Console'>(</font>istate<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+<font color='#0000FF'>#endif</font>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>state_dict<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>raise_from</font><font face='Lucida Console'>(</font>PyExc_SystemError, "<font color='#CC0000'>pybind11::detail::get_python_state_dict() FAILED</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>throw</font> <font color='#BB00BB'>error_already_set</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>return</font> state_dict;
+<b>}</b>
+
+<font color='#0000FF'>inline</font> object <b><a name='get_internals_obj_from_state_dict'></a>get_internals_obj_from_state_dict</b><font face='Lucida Console'>(</font>handle state_dict<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>return</font> reinterpret_borrow<font color='#5555FF'>&lt;</font>object<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#BB00BB'>dict_getitemstring</font><font face='Lucida Console'>(</font>state_dict.<font color='#BB00BB'>ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, PYBIND11_INTERNALS_ID<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+<b>}</b>
+
+<font color='#0000FF'>inline</font> internals <font color='#5555FF'>*</font><font color='#5555FF'>*</font><b><a name='get_internals_pp_from_capsule'></a>get_internals_pp_from_capsule</b><font face='Lucida Console'>(</font>handle obj<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>raw_ptr <font color='#5555FF'>=</font> <font color='#BB00BB'>PyCapsule_GetPointer</font><font face='Lucida Console'>(</font>obj.<font color='#BB00BB'>ptr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#009900'>/*name=*/</font>nullptr<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>raw_ptr <font color='#5555FF'>=</font><font color='#5555FF'>=</font> nullptr<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>raise_from</font><font face='Lucida Console'>(</font>PyExc_SystemError, "<font color='#CC0000'>pybind11::detail::get_internals_pp_from_capsule() FAILED</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>throw</font> <font color='#BB00BB'>error_already_set</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>return</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>internals <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>raw_ptr<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+<font color='#009900'>/// Return a reference to the current `internals` data
+</font>PYBIND11_NOINLINE internals <font color='#5555FF'>&amp;</font><b><a name='get_internals'></a>get_internals</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font><font color='#5555FF'>&amp;</font>internals_pp <font color='#5555FF'>=</font> <font color='#BB00BB'>get_internals_pp</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>internals_pp <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>*</font>internals_pp<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font>internals_pp;
+    <b>}</b>
+
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font>
+#    <font color='#0000FF'>if</font> <font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>PYBIND11_SIMPLE_GIL_MANAGEMENT<font face='Lucida Console'>)</font>
+    gil_scoped_acquire gil;
+#    <font color='#0000FF'>else</font>
+    <font color='#009900'>// Ensure that the GIL is held since we will need to make Python calls.
+</font>    <font color='#009900'>// Cannot use py::gil_scoped_acquire here since that constructor calls get_internals.
+</font>    <font color='#0000FF'>struct</font> <b><a name='gil_scoped_acquire_local'></a>gil_scoped_acquire_local</b> <b>{</b>
+        <b><a name='gil_scoped_acquire_local'></a>gil_scoped_acquire_local</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> : state<font face='Lucida Console'>(</font>PyGILState_Ensure<font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+        <b><a name='gil_scoped_acquire_local'></a>gil_scoped_acquire_local</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire_local <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        gil_scoped_acquire_local <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire_local <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        ~<b><a name='gil_scoped_acquire_local'></a>gil_scoped_acquire_local</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#BB00BB'>PyGILState_Release</font><font face='Lucida Console'>(</font>state<font face='Lucida Console'>)</font>; <b>}</b>
+        <font color='#0000FF'>const</font> PyGILState_STATE state;
+    <b>}</b> gil;
+#    endif
+<font color='#0000FF'>#endif</font>
+    error_scope err_scope;
+
+    dict state_dict <font color='#5555FF'>=</font> <font color='#BB00BB'>get_python_state_dict</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>object internals_obj <font color='#5555FF'>=</font> <font color='#BB00BB'>get_internals_obj_from_state_dict</font><font face='Lucida Console'>(</font>state_dict<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+        internals_pp <font color='#5555FF'>=</font> <font color='#BB00BB'>get_internals_pp_from_capsule</font><font face='Lucida Console'>(</font>internals_obj<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>internals_pp <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>*</font>internals_pp<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#009900'>// We loaded the internals through `state_dict`, which means that our `error_already_set`
+</font>        <font color='#009900'>// and `builtin_exception` may be different local classes than the ones set up in the
+</font>        <font color='#009900'>// initial exception translator, below, so add another for our local exception classes.
+</font>        <font color='#009900'>//
+</font>        <font color='#009900'>// libstdc++ doesn't require this (types there are identified only by name)
+</font>        <font color='#009900'>// libc++ with CPython doesn't require this (types are explicitly exported)
+</font>        <font color='#009900'>// libc++ with PyPy still need it, awaiting further investigation
+</font><font color='#0000FF'>#if</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>__GLIBCXX__<font face='Lucida Console'>)</font>
+        <font face='Lucida Console'>(</font><font color='#5555FF'>*</font>internals_pp<font face='Lucida Console'>)</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>registered_exception_translators.<font color='#BB00BB'>push_front</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>translate_local_exception<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+    <b>}</b> <font color='#0000FF'>else</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>internals_pp<font face='Lucida Console'>)</font> <b>{</b>
+            internals_pp <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> internals <font color='#5555FF'>*</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font><font color='#5555FF'>&amp;</font>internals_ptr <font color='#5555FF'>=</font> <font color='#5555FF'>*</font>internals_pp;
+        internals_ptr <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> <font color='#BB00BB'>internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font>
+
+        PyThreadState <font color='#5555FF'>*</font>tstate <font color='#5555FF'>=</font> <font color='#BB00BB'>PyThreadState_Get</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>// NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
+</font>        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>PYBIND11_TLS_KEY_CREATE</font><font face='Lucida Console'>(</font>internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>tstate<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>get_internals: could not successfully initialize the tstate TSS key!</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#BB00BB'>PYBIND11_TLS_REPLACE_VALUE</font><font face='Lucida Console'>(</font>internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>tstate, tstate<font face='Lucida Console'>)</font>;
+
+#    <font color='#0000FF'>if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font> <font color='#979000'>4</font>
+        <font color='#009900'>// NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
+</font>        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>PYBIND11_TLS_KEY_CREATE</font><font face='Lucida Console'>(</font>internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>loader_life_support_tls_key<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>get_internals: could not successfully initialize the </font>"
+                          "<font color='#CC0000'>loader_life_support TSS key!</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+#    endif
+        internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>istate <font color='#5555FF'>=</font> tstate<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>interp;
+<font color='#0000FF'>#endif</font>
+        state_dict[PYBIND11_INTERNALS_ID] <font color='#5555FF'>=</font> <font color='#BB00BB'>capsule</font><font face='Lucida Console'>(</font>internals_pp<font face='Lucida Console'>)</font>;
+        internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>registered_exception_translators.<font color='#BB00BB'>push_front</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>translate_exception<font face='Lucida Console'>)</font>;
+        internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>static_property_type <font color='#5555FF'>=</font> <font color='#BB00BB'>make_static_property_type</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>default_metaclass <font color='#5555FF'>=</font> <font color='#BB00BB'>make_default_metaclass</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>instance_base <font color='#5555FF'>=</font> <font color='#BB00BB'>make_object_base_type</font><font face='Lucida Console'>(</font>internals_ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>default_metaclass<font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#5555FF'>*</font>internals_pp;
+<b>}</b>
+
+<font color='#009900'>// the internals struct (above) is shared between all the modules. local_internals are only
+</font><font color='#009900'>// for a single module. Any changes made to internals may require an update to
+</font><font color='#009900'>// PYBIND11_INTERNALS_VERSION, breaking backwards compatibility. local_internals is, by design,
+</font><font color='#009900'>// restricted to a single module. Whether a module has local internals or not should not
+</font><font color='#009900'>// impact any other modules, because the only things accessing the local internals is the
+</font><font color='#009900'>// module that contains them.
+</font><font color='#0000FF'>struct</font> <b><a name='local_internals'></a>local_internals</b> <b>{</b>
+    type_map<font color='#5555FF'>&lt;</font>type_info <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font> registered_types_cpp;
+    std::forward_list<font color='#5555FF'>&lt;</font>ExceptionTranslator<font color='#5555FF'>&gt;</font> registered_exception_translators;
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>4</font>
+
+    <font color='#009900'>// For ABI compatibility, we can't store the loader_life_support TLS key in
+</font>    <font color='#009900'>// the `internals` struct directly.  Instead, we store it in `shared_data` and
+</font>    <font color='#009900'>// cache a copy in `local_internals`.  If we allocated a separate TLS key for
+</font>    <font color='#009900'>// each instance of `local_internals`, we could end up allocating hundreds of
+</font>    <font color='#009900'>// TLS keys if hundreds of different pybind11 modules are loaded (which is a
+</font>    <font color='#009900'>// plausible number).
+</font>    <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>loader_life_support_tls_key<font face='Lucida Console'>)</font>
+
+    <font color='#009900'>// Holds the shared TLS key for the loader_life_support stack.
+</font>    <font color='#0000FF'>struct</font> <b><a name='shared_loader_life_support_data'></a>shared_loader_life_support_data</b> <b>{</b>
+        <b><a name='PYBIND11_TLS_KEY_INIT'></a>PYBIND11_TLS_KEY_INIT</b><font face='Lucida Console'>(</font>loader_life_support_tls_key<font face='Lucida Console'>)</font>
+        <b><a name='shared_loader_life_support_data'></a>shared_loader_life_support_data</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#009900'>// NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font><font color='#BB00BB'>PYBIND11_TLS_KEY_CREATE</font><font face='Lucida Console'>(</font>loader_life_support_tls_key<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>local_internals: could not successfully initialize the </font>"
+                              "<font color='#CC0000'>loader_life_support TLS key!</font>"<font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>
+        <font color='#009900'>// We can't help but leak the TLS key, because Python never unloads extension modules.
+</font>    <b>}</b>;
+
+    <b><a name='local_internals'></a>local_internals</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>internals <font color='#5555FF'>=</font> <font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>// Get or create the `loader_life_support_stack_key`.
+</font>        <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>ptr <font color='#5555FF'>=</font> internals.shared_data["<font color='#CC0000'>_life_support</font>"];
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>ptr<font face='Lucida Console'>)</font> <b>{</b>
+            ptr <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> shared_loader_life_support_data;
+        <b>}</b>
+        loader_life_support_tls_key
+            <font color='#5555FF'>=</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font>shared_loader_life_support_data <font color='#5555FF'>*</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font><font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>loader_life_support_tls_key;
+    <b>}</b>
+<font color='#0000FF'>#endif</font> <font color='#009900'>//  defined(WITH_THREAD) &amp;&amp; PYBIND11_INTERNALS_VERSION == 4
+</font><b>}</b>;
+
+<font color='#009900'>/// Works like `get_internals`, but for things which are locally registered.
+</font><font color='#0000FF'>inline</font> local_internals <font color='#5555FF'>&amp;</font><b><a name='get_local_internals'></a>get_local_internals</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>// Current static can be created in the interpreter finalization routine. If the later will be
+</font>    <font color='#009900'>// destroyed in another static variable destructor, creation of this static there will cause
+</font>    <font color='#009900'>// static deinitialization fiasco. In order to avoid it we avoid destruction of the
+</font>    <font color='#009900'>// local_internals static. One can read more about the problem and current solution here:
+</font>    <font color='#009900'>// https://google.github.io/styleguide/cppguide.html#Static_and_Global_Variables
+</font>    <font color='#0000FF'>static</font> <font color='#0000FF'>auto</font> <font color='#5555FF'>*</font>locals <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> <font color='#BB00BB'>local_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> <font color='#5555FF'>*</font>locals;
+<b>}</b>
+
+<font color='#009900'>/// Constructs a std::string with the given arguments, stores it in `internals`, and returns its
+</font><font color='#009900'>/// `c_str()`.  Such strings objects have a long storage duration -- the internal strings are only
+</font><font color='#009900'>/// cleared when the program exits or after interpreter shutdown (when embedding), and so are
+</font><font color='#009900'>/// suitable for c-style strings needed by Python internals (such as PyTypeObject's tp_name).
+</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font>... Args<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><b><a name='c_str'></a>c_str</b><font face='Lucida Console'>(</font>Args <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...args<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>strings <font color='#5555FF'>=</font> <font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.static_strings;
+    strings.<font color='#BB00BB'>emplace_front</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Args<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>args<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> strings.<font color='#BB00BB'>front</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<b>}</b>
+
+<font color='#0000FF'>inline</font> <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font><b><a name='get_function_record_capsule_name'></a>get_function_record_capsule_name</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+<font color='#0000FF'>#if</font> PYBIND11_INTERNALS_VERSION <font color='#5555FF'>&gt;</font> <font color='#979000'>4</font>
+    <font color='#0000FF'>return</font> <font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.function_record_capsule_name.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#else</font>
+    <font color='#0000FF'>return</font> nullptr;
+<font color='#0000FF'>#endif</font>
+<b>}</b>
+
+<font color='#009900'>// Determine whether or not the following capsule contains a pybind11 function record.
+</font><font color='#009900'>// Note that we use `internals` to make sure that only ABI compatible records are touched.
+</font><font color='#009900'>//
+</font><font color='#009900'>// This check is currently used in two places:
+</font><font color='#009900'>// - An important optimization in functional.h to avoid overhead in C++ -&gt; Python -&gt; C++
+</font><font color='#009900'>// - The sibling feature of cpp_function to allow overloads
+</font><font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='is_function_record_capsule'></a>is_function_record_capsule</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> capsule <font color='#5555FF'>&amp;</font>cap<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#009900'>// Pointer equality as we rely on internals() to ensure unique pointers
+</font>    <font color='#0000FF'>return</font> cap.<font color='#BB00BB'>name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#BB00BB'>get_function_record_capsule_name</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<b>}</b>
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#009900'>/// Returns a named pointer that is shared among all extension modules (using the same
+</font><font color='#009900'>/// pybind11 version) running in the current interpreter. Names starting with underscores
+</font><font color='#009900'>/// are reserved for internal usage. Returns `nullptr` if no matching entry was found.
+</font>PYBIND11_NOINLINE <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><b><a name='get_shared_data'></a>get_shared_data</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string <font color='#5555FF'>&amp;</font>name<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>internals <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> it <font color='#5555FF'>=</font> internals.shared_data.<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> it <font color='#5555FF'>!</font><font color='#5555FF'>=</font> internals.shared_data.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? it<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>second : nullptr;
+<b>}</b>
+
+<font color='#009900'>/// Set the shared data that can be later recovered by `get_shared_data()`.
+</font>PYBIND11_NOINLINE <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font><b><a name='set_shared_data'></a>set_shared_data</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string <font color='#5555FF'>&amp;</font>name, <font color='#0000FF'><u>void</u></font> <font color='#5555FF'>*</font>data<font face='Lucida Console'>)</font> <b>{</b>
+    detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.shared_data[name] <font color='#5555FF'>=</font> data;
+    <font color='#0000FF'>return</font> data;
+<b>}</b>
+
+<font color='#009900'>/// Returns a typed reference to a shared data entry (by using `get_shared_data()`) if
+</font><font color='#009900'>/// such entry exists. Otherwise, a new object of default-constructible type `T` is
+</font><font color='#009900'>/// added to the shared data under the given name and a reference to it is returned.
+</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+T <font color='#5555FF'>&amp;</font><b><a name='get_or_create_shared_data'></a>get_or_create_shared_data</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string <font color='#5555FF'>&amp;</font>name<font face='Lucida Console'>)</font> <b>{</b>
+    <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>internals <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> it <font color='#5555FF'>=</font> internals.shared_data.<font color='#BB00BB'>find</font><font face='Lucida Console'>(</font>name<font face='Lucida Console'>)</font>;
+    T <font color='#5555FF'>*</font>ptr <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>T <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>it <font color='#5555FF'>!</font><font color='#5555FF'>=</font> internals.shared_data.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> ? it<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>second : nullptr<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>ptr<font face='Lucida Console'>)</font> <b>{</b>
+        ptr <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> <font color='#BB00BB'>T</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        internals.shared_data[name] <font color='#5555FF'>=</font> ptr;
+    <b>}</b>
+    <font color='#0000FF'>return</font> <font color='#5555FF'>*</font>ptr;
+<b>}</b>
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

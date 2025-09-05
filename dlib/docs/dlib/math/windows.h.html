@@ -1,0 +1,212 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - windows.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2006  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_MATH_WINDOWS
+<font color='#0000FF'>#define</font> DLIB_MATH_WINDOWS
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>type_traits<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='bessel.h.html'>bessel.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#009900'>/*! Strong types !*/</font>
+
+    <font color='#0000FF'>struct</font> <b><a name='attenuation_t'></a>attenuation_t</b>
+    <b>{</b>
+        <font color='#009900'>/*!
+            WHAT THIS OBJECT REPRESENTS
+                This object represents a desired attenuation in dB.
+                This is automatically converted into a beta_t value suitable
+                for constructing a kaiser window.
+                See https://www.mathworks.com/help/signal/ug/kaiser-window.html on
+                filter design.
+        !*/</font>
+        <b><a name='attenuation_t'></a>attenuation_t</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <font color='#0000FF'>explicit</font> <b><a name='attenuation_t'></a>attenuation_t</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>double</u></font> attenuation_db<font face='Lucida Console'>)</font> : v<b>{</b>attenuation_db<b>}</b> <b>{</b><b>}</b>
+        <font color='#0000FF'><u>double</u></font> v <font color='#5555FF'>=</font> <font color='#979000'>0.0</font>;
+    <b>}</b>;
+
+    <font color='#0000FF'>struct</font> <b><a name='beta_t'></a>beta_t</b>
+    <b>{</b>
+        <font color='#009900'>/*!
+            WHAT THIS OBJECT REPRESENTS
+                This value determines the shape of the kaiser window.
+                See https://en.wikipedia.org/wiki/Kaiser_window#Definition for more details.
+        !*/</font>
+        <b><a name='beta_t'></a>beta_t</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <font color='#0000FF'>explicit</font> <b><a name='beta_t'></a>beta_t</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>double</u></font> beta<font face='Lucida Console'>)</font> : v<b>{</b>beta<b>}</b> <b>{</b><b>}</b>
+        <b><a name='beta_t'></a>beta_t</b><font face='Lucida Console'>(</font>attenuation_t attenuation_db<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>attenuation_db.v <font color='#5555FF'>&gt;</font> <font color='#979000'>50.0</font><font face='Lucida Console'>)</font>
+                v <font color='#5555FF'>=</font> <font color='#979000'>0.1102</font><font color='#5555FF'>*</font><font face='Lucida Console'>(</font>attenuation_db.v <font color='#5555FF'>-</font> <font color='#979000'>8.7</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>attenuation_db.v <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>21.0</font><font face='Lucida Console'>)</font>
+                v <font color='#5555FF'>=</font> <font color='#979000'>0.5842</font><font color='#5555FF'>*</font>std::<font color='#BB00BB'>pow</font><font face='Lucida Console'>(</font>attenuation_db.v <font color='#5555FF'>-</font> <font color='#979000'>21</font>, <font color='#979000'>0.4</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> <font color='#979000'>0.07886</font><font color='#5555FF'>*</font><font face='Lucida Console'>(</font>attenuation_db.v <font color='#5555FF'>-</font> <font color='#979000'>21</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'><u>double</u></font> v <font color='#5555FF'>=</font> <font color='#979000'>0.0</font>;
+    <b>}</b>;
+
+    <font color='#0000FF'>enum</font> <b><a name='window_symmetry'></a>window_symmetry</b>
+    <b>{</b>
+        <font color='#009900'>/*!
+            WHAT THIS OBJECT REPRESENTS
+                This enum controls whether the window is a symmetric or periodic window.
+                See https://en.wikipedia.org/wiki/Window_function#Symmetry for a discussion on
+                symmetric vs periodic windows. This is using the same nomenclature as Matlab and Scipy
+                when describing windows as either symmetric or periodic.
+        !*/</font>
+        SYMMETRIC,
+        PERIODIC
+    <b>}</b>;
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='kaiser'></a>kaiser</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>double</u></font> x, <font color='#0000FF'><u>double</u></font> L, beta_t beta<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the kaiser window function or kaiser-bessel window function.
+        See https://en.wikipedia.org/wiki/Kaiser_window.
+
+        ensures
+            - returns the kaiser window function when |x| &lt;= L/2 where L is the window duration
+            - returns 0 otherwise
+    !*/</font>
+    <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>std::<font color='#BB00BB'>abs</font><font face='Lucida Console'>(</font>x<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>=</font> L<font color='#5555FF'>/</font><font color='#979000'>2.0</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> r <font color='#5555FF'>=</font> <font color='#979000'>2</font><font color='#5555FF'>*</font>x<font color='#5555FF'>/</font>L;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> a <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>cyl_bessel_i</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>, beta.v<font color='#5555FF'>*</font>std::<font color='#BB00BB'>sqrt</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font color='#5555FF'>-</font>r<font color='#5555FF'>*</font>r<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> b <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>cyl_bessel_i</font><font face='Lucida Console'>(</font><font color='#979000'>0</font>, beta.v<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> a <font color='#5555FF'>/</font> b;
+        <b>}</b>
+        <font color='#0000FF'>else</font>
+        <b>{</b>
+            <font color='#0000FF'>return</font> <font color='#979000'>0.0</font>;
+        <b>}</b>
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='kaiser'></a>kaiser</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N, beta_t beta, window_symmetry type<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the kaiser window function or kaiser-bessel window function.
+        See https://en.wikipedia.org/wiki/Kaiser_window
+        This variant is a short-cut for computing a window function and storing it
+        in an array of size N where 0 &lt;= i &lt; N is the array index.
+
+        requires
+            - 0 &lt;= i &lt; N
+        ensures
+            - returns kaiser(i - (N-1)/2, window_duration{N-1}, beta)
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> N, "<font color='#CC0000'>index out of range</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> L <font color='#5555FF'>=</font> type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> SYMMETRIC ? N<font color='#5555FF'>-</font><font color='#979000'>1</font> : N;
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>kaiser</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>-</font> L <font color='#5555FF'>/</font> <font color='#979000'>2.0</font>, <font face='Lucida Console'>(</font><font color='#0000FF'><u>double</u></font><font face='Lucida Console'>)</font>L, beta<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='hann'></a>hann</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N, window_symmetry type<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the hann window function.
+        See https://en.wikipedia.org/wiki/Window_function#Hann_and_Hamming_windows.
+
+        requires
+            - 0 &lt;= i &lt; N
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> N, "<font color='#CC0000'>index out of range</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> size <font color='#5555FF'>=</font> type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> SYMMETRIC ? N<font color='#5555FF'>-</font><font color='#979000'>1</font> : N;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> phi <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#979000'>2.0</font> <font color='#5555FF'>*</font> pi <font color='#5555FF'>*</font> i<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> size;
+        <font color='#0000FF'>return</font> <font color='#979000'>0.5</font> <font color='#5555FF'>-</font> <font color='#979000'>0.5</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font>phi<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='blackman'></a>blackman</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N, window_symmetry type<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the Blackman window function.
+        See https://en.wikipedia.org/wiki/Window_function#Blackman_window and
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.blackman.html.
+
+        requires
+            - 0 &lt;= i &lt; N
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> N, "<font color='#CC0000'>index out of range</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> size <font color='#5555FF'>=</font> type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> SYMMETRIC ? N<font color='#5555FF'>-</font><font color='#979000'>1</font> : N;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> phi <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#979000'>2.0</font> <font color='#5555FF'>*</font> pi <font color='#5555FF'>*</font> i<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> size;
+        <font color='#0000FF'>return</font> <font color='#979000'>0.42</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.5</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font>
+               <font color='#979000'>0.08</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>2.0</font> <font color='#5555FF'>*</font> phi<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='blackman_nuttall'></a>blackman_nuttall</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N, window_symmetry type<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the Blackman-Nuttall window function.
+        See https://en.wikipedia.org/wiki/Window_function#Blackman%E2%80%93Nuttall_window.
+
+        requires
+            - 0 &lt;= i &lt; N
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> N, "<font color='#CC0000'>index out of range</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> size <font color='#5555FF'>=</font> type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> SYMMETRIC ? N<font color='#5555FF'>-</font><font color='#979000'>1</font> : N;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> phi <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#979000'>2.0</font> <font color='#5555FF'>*</font> pi <font color='#5555FF'>*</font> i<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> size;
+        <font color='#0000FF'>return</font> <font color='#979000'>0.3635819</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.4891775</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font>
+               <font color='#979000'>0.1365995</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>2</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.0106411</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>3</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='blackman_harris'></a>blackman_harris</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N, window_symmetry type<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the Blackman-Harris window function.
+        See https://en.wikipedia.org/wiki/Window_function#Blackman%E2%80%93Harris_window.
+
+        requires
+            - R is float, double, or long double
+            - 0 &lt;= i &lt; N
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> N, "<font color='#CC0000'>index out of range</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> size <font color='#5555FF'>=</font> type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> SYMMETRIC ? N<font color='#5555FF'>-</font><font color='#979000'>1</font> : N;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> phi <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#979000'>2.0</font> <font color='#5555FF'>*</font> pi <font color='#5555FF'>*</font> i<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> size;
+        <font color='#0000FF'>return</font> <font color='#979000'>0.35875</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.48829</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font>
+               <font color='#979000'>0.14128</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>2</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.01168</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>3</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>double</u></font> <b><a name='blackman_harris7'></a>blackman_harris7</b><font face='Lucida Console'>(</font>std::<font color='#0000FF'><u>size_t</u></font> i, std::<font color='#0000FF'><u>size_t</u></font> N, window_symmetry type<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        This computes the 7-order Blackman-Harris window function.
+
+        requires
+            - R is float, double, or long double
+            - 0 &lt;= i &lt; N
+    !*/</font>
+    <b>{</b>
+        <font color='#BB00BB'>DLIB_ASSERT</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>&lt;</font> N, "<font color='#CC0000'>index out of range</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> size <font color='#5555FF'>=</font> type <font color='#5555FF'>=</font><font color='#5555FF'>=</font> SYMMETRIC ? N<font color='#5555FF'>-</font><font color='#979000'>1</font> : N;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> phi <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#979000'>2.0</font> <font color='#5555FF'>*</font> pi <font color='#5555FF'>*</font> i<font face='Lucida Console'>)</font> <font color='#5555FF'>/</font> size;
+        <font color='#0000FF'>return</font> <font color='#979000'>0.27105</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.43329</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font>
+               <font color='#979000'>0.21812</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>2</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.06592</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>3</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font>
+               <font color='#979000'>0.01081</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>4</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font>
+               <font color='#979000'>0.00077</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>5</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font> <font color='#5555FF'>+</font>
+               <font color='#979000'>0.00001</font> <font color='#5555FF'>*</font> std::<font color='#BB00BB'>cos</font><font face='Lucida Console'>(</font><font color='#979000'>6</font><font color='#5555FF'>*</font>phi<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font><b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_MATH_WINDOWS
+</font>
+</pre></body></html>

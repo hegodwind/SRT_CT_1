@@ -1,0 +1,23 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - libjxl_test.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023 Davis E. King (davis@dlib.net), Adrià Arrufat
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>jxl<font color='#5555FF'>/</font>encode_cxx.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>jxl<font color='#5555FF'>/</font>decode_cxx.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>jxl<font color='#5555FF'>/</font>resizable_parallel_runner_cxx.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>memory<font color='#5555FF'>&gt;</font>
+
+<font color='#009900'>// This code doesn't really make a lot of sense.  It's just calling all the libjpeg functions to make
+</font><font color='#009900'>// sure they can be compiled and linked.
+</font>
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+<b>{</b>
+    std::cerr <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>This program is just for build system testing.  Don't actually run it.</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> std::endl;
+    std::<font color='#BB00BB'>abort</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> enc <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlEncoderMake</font><font face='Lucida Console'>(</font>nullptr<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> dec <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlDecoderMake</font><font face='Lucida Console'>(</font>nullptr<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>auto</font> runner <font color='#5555FF'>=</font> <font color='#BB00BB'>JxlResizableParallelRunnerMake</font><font face='Lucida Console'>(</font>nullptr<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+</pre></body></html>

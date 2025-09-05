@@ -1,0 +1,12 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - common.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (c) 2023 The pybind Community.
+</font>
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#009900'>// Common message for `static_assert()`s, which are useful to easily
+</font><font color='#009900'>// preempt much less obvious errors.
+</font><font color='#0000FF'>#define</font> PYBIND11_EIGEN_MESSAGE_POINTER_TYPES_ARE_NOT_SUPPORTED                                    \
+    "<font color='#CC0000'>Pointer types (in particular `PyObject *`) are not supported as scalar types for Eigen </font>"     \
+    "<font color='#CC0000'>types.</font>"
+
+</pre></body></html>

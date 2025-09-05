@@ -1,0 +1,535 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_details.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>/*
+    PRIVATE IMPLEMENTATION DETAILS
+    USERS, YOU DO NOT NEED TO READ THIS
+*/</font>
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>/*
+    Notes for developers:
+
+    The file structure for all things ffmpeg is as follows:
+
+        - ffmpeg_details.h  : contains implementations details only and everything must be in the
+                              dlib::ffmpeg::details namespace
+        
+        - ffmpeg_utils.h    : contains common public API. Definitions go at the bottom of the file
+                              underneath a block comment saying "DEFINITIONS"
+                              Also contains implementation details that depend on the public API.
+                              This must still go in the dlib::ffmpeg::details namespace
+        
+        - ffmpeg_demuxer.h  : contains public API for all things decoding. Similarly, definitions go 
+                              at the bottom of the file underneath a block comment saying "DEFINITIONS".
+
+        - ffmpeg_muxer.h  :   contains public API for all things encoding. Similarly, definitions go 
+                              at the bottom of the file underneath a block comment saying "DEFINITIONS".
+                            
+*/</font>
+<font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font><font color='#009900'>//////////////////////////////////////////////////////////////////////////////////////////////////////
+</font>
+<font color='#0000FF'>#ifndef</font> DLIB_FFMPEG_DETAILS
+<font color='#0000FF'>#define</font> DLIB_FFMPEG_DETAILS
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../test_for_odr_violations.h.html'>../test_for_odr_violations.h</a>"
+
+<font color='#0000FF'>#ifndef</font> DLIB_USE_FFMPEG
+<b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#979000'>false</font>, "<font color='#CC0000'>This version of dlib isn't built with the FFMPEG wrappers</font>"<font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>extern</font> "<font color='#CC0000'>C</font>" <b>{</b>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>dict.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>opt.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>pixdesc.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>frame.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>channel_layout.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>audio_fifo.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>imgutils.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavutil<font color='#5555FF'>/</font>log.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libswscale<font color='#5555FF'>/</font>swscale.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libswresample<font color='#5555FF'>/</font>swresample.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavformat<font color='#5555FF'>/</font>avformat.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavdevice<font color='#5555FF'>/</font>avdevice.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>libavcodec<font color='#5555FF'>/</font>avcodec.h<font color='#5555FF'>&gt;</font>
+<b>}</b>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>memory<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../logger.h.html'>../logger.h</a>"
+
+<font color='#0000FF'>#if</font> LIBAVCODEC_VERSION_INT <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>59</font>, <font color='#979000'>24</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+<font color='#0000FF'>#define</font> FFMPEG_HAS_CH_LAYOUT <font color='#979000'>1</font>
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>namespace</font> dlib <b>{</b> <font color='#0000FF'>namespace</font> ffmpeg <b>{</b> <font color='#0000FF'>namespace</font> details
+<b>{</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> dlib::logger<font color='#5555FF'>&amp;</font> <b><a name='logger_ffmpeg_private'></a>logger_ffmpeg_private</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>static</font> dlib::logger <font color='#BB00BB'>GLOBAL</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>ffmpeg.internal</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> GLOBAL;
+    <b>}</b>
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='register_ffmpeg'></a>register_ffmpeg</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>static</font> <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> REGISTERED <font color='#5555FF'>=</font> []
+        <b>{</b>
+            <font color='#BB00BB'>avdevice_register_all</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#if</font> LIBAVCODEC_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>58</font>, <font color='#979000'>10</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+            <font color='#009900'>// See https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L91
+</font>            <font color='#BB00BB'>avcodec_register_all</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+<font color='#0000FF'>#if</font> LIBAVFORMAT_VERSION_INT <font color='#5555FF'>&lt;</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>58</font>, <font color='#979000'>9</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font> 
+            <font color='#009900'>// See https://github.com/FFmpeg/FFmpeg/blob/70d25268c21cbee5f08304da95be1f647c630c15/doc/APIchanges#L86
+</font>            <font color='#BB00BB'>av_register_all</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+
+            <font color='#BB00BB'>av_log_set_callback</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font color='#5555FF'>*</font> ptr, <font color='#0000FF'><u>int</u></font> level, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font> <font color='#5555FF'>*</font>fmt, va_list vl<font face='Lucida Console'>)</font> 
+            <b>{</b>
+                <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> logger <font color='#5555FF'>=</font> <font color='#BB00BB'>logger_ffmpeg_private</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+                <font color='#0000FF'><u>char</u></font> line[<font color='#979000'>256</font>] <font color='#5555FF'>=</font> <b>{</b><font color='#979000'>0</font><b>}</b>;
+                <font color='#0000FF'>static</font> <font color='#0000FF'><u>int</u></font> print_prefix <font color='#5555FF'>=</font> <font color='#979000'>1</font>;
+
+                <font color='#009900'>// Not sure if copying to vl2 is required by internal ffmpeg functions do this...
+</font>                va_list vl2;
+                <font color='#BB00BB'>va_copy</font><font face='Lucida Console'>(</font>vl2, vl<font face='Lucida Console'>)</font>;
+                <font color='#0000FF'><u>int</u></font> size <font color='#5555FF'>=</font> <font color='#BB00BB'>av_log_format_line2</font><font face='Lucida Console'>(</font>ptr, level, fmt, vl2, <font color='#5555FF'>&amp;</font>line[<font color='#979000'>0</font>], <font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>line<font face='Lucida Console'>)</font>, <font color='#5555FF'>&amp;</font>print_prefix<font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>va_end</font><font face='Lucida Console'>(</font>vl2<font face='Lucida Console'>)</font>;
+
+                <font color='#009900'>// Remove all '\n' since dlib's logger already adds one
+</font>                size <font color='#5555FF'>=</font> std::min<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>size, <font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>line<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+                line[size] <font color='#5555FF'>=</font> '<font color='#FF0000'>\0</font>';
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> size <font color='#5555FF'>-</font> <font color='#979000'>1</font> ; i <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ; <font color='#5555FF'>-</font><font color='#5555FF'>-</font>i<font face='Lucida Console'>)</font>
+                    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>line[i] <font color='#5555FF'>=</font><font color='#5555FF'>=</font> '<font color='#FF0000'>\n</font>'<font face='Lucida Console'>)</font>
+                        line[i] <font color='#5555FF'>=</font> '<font color='#FF0000'> </font>';
+
+                <font color='#0000FF'>switch</font><font face='Lucida Console'>(</font>level<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    <font color='#0000FF'>case</font> AV_LOG_PANIC:
+                    <font color='#0000FF'>case</font> AV_LOG_FATAL:      logger <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LFATAL <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> line; <font color='#0000FF'>break</font>;
+                    <font color='#0000FF'>case</font> AV_LOG_ERROR:      logger <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LERROR <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> line; <font color='#0000FF'>break</font>;
+                    <font color='#0000FF'>case</font> AV_LOG_WARNING:    logger <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LWARN  <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> line; <font color='#0000FF'>break</font>;
+                    <font color='#0000FF'>case</font> AV_LOG_INFO:       
+                    <font color='#0000FF'>case</font> AV_LOG_VERBOSE:    logger <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LINFO  <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> line; <font color='#0000FF'>break</font>;
+                    <font color='#0000FF'>case</font> AV_LOG_DEBUG:      logger <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LDEBUG <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> line; <font color='#0000FF'>break</font>;
+                    <font color='#0000FF'>case</font> AV_LOG_TRACE:      logger <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> LTRACE <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> line; <font color='#0000FF'>break</font>;
+                    <font color='#0000FF'>default</font>: <font color='#0000FF'>break</font>;
+                <b>}</b>
+            <b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>return</font> <font color='#979000'>true</font>;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font>REGISTERED;
+    <b>}</b>        
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> std::string <b><a name='get_av_error'></a>get_av_error</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> ret<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'><u>char</u></font> buf[<font color='#979000'>128</font>] <font color='#5555FF'>=</font> <b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>int</u></font> suc <font color='#5555FF'>=</font> <font color='#BB00BB'>av_strerror</font><font face='Lucida Console'>(</font>ret, buf, <font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font>buf<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> suc <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> ? buf : "<font color='#CC0000'>couldn't set error</font>";
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#009900'>///////////////////////////
+</font>    <font color='#009900'>// Channel layout stuff 
+</font>    <font color='#009900'>///////////////////////////
+</font>
+    <font color='#0000FF'>inline</font> uint64_t <b><a name='get_layout_from_channels'></a>get_layout_from_channels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::<font color='#0000FF'><u>size_t</u></font> nchannels<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#009900'>// This function is a bit ambiguous but good enough for dlib.
+</font>        <font color='#009900'>// Multiple layouts can have the same number of channels
+</font>        <font color='#0000FF'>switch</font><font face='Lucida Console'>(</font>nchannels<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>case</font> <font color='#979000'>1</font>: <font color='#0000FF'>return</font> AV_CH_LAYOUT_MONO;
+            <font color='#0000FF'>case</font> <font color='#979000'>2</font>: <font color='#0000FF'>return</font> AV_CH_LAYOUT_STEREO;
+            <font color='#0000FF'>default</font>: <font color='#BB00BB'>DLIB_CASSERT</font><font face='Lucida Console'>(</font><font color='#979000'>false</font>, "<font color='#CC0000'>Don't support </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> nchannels <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> yet</font>"<font face='Lucida Console'>)</font>; <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#0000FF'>#if</font> FFMPEG_HAS_CH_LAYOUT
+
+    <font color='#0000FF'>inline</font> AVChannelLayout <b><a name='convert_layout'></a>convert_layout</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        AVChannelLayout ch_layout;
+        ch_layout.order         <font color='#5555FF'>=</font> AV_CHANNEL_ORDER_NATIVE;
+        ch_layout.u.mask        <font color='#5555FF'>=</font> channel_layout;
+        ch_layout.nb_channels   <font color='#5555FF'>=</font> [<font color='#5555FF'>=</font>] 
+        <b>{</b>
+            <font color='#0000FF'>switch</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_MONO:                 <font color='#0000FF'>return</font> <font color='#979000'>1</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_STEREO:               <font color='#0000FF'>return</font> <font color='#979000'>2</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_2POINT1:              <font color='#0000FF'>return</font> <font color='#979000'>3</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_2_1:                  <font color='#0000FF'>return</font> <font color='#979000'>3</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_SURROUND:             <font color='#0000FF'>return</font> <font color='#979000'>3</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_3POINT1:              <font color='#0000FF'>return</font> <font color='#979000'>4</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_4POINT0:              <font color='#0000FF'>return</font> <font color='#979000'>4</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_4POINT1:              <font color='#0000FF'>return</font> <font color='#979000'>5</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_2_2:                  <font color='#0000FF'>return</font> <font color='#979000'>4</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_QUAD:                 <font color='#0000FF'>return</font> <font color='#979000'>4</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_5POINT0:              <font color='#0000FF'>return</font> <font color='#979000'>5</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_5POINT1:              <font color='#0000FF'>return</font> <font color='#979000'>6</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_5POINT0_BACK:         <font color='#0000FF'>return</font> <font color='#979000'>5</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_5POINT1_BACK:         <font color='#0000FF'>return</font> <font color='#979000'>6</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_6POINT0:              <font color='#0000FF'>return</font> <font color='#979000'>6</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_6POINT0_FRONT:        <font color='#0000FF'>return</font> <font color='#979000'>6</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_HEXAGONAL:            <font color='#0000FF'>return</font> <font color='#979000'>6</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_6POINT1:              <font color='#0000FF'>return</font> <font color='#979000'>7</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_6POINT1_BACK:         <font color='#0000FF'>return</font> <font color='#979000'>7</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_6POINT1_FRONT:        <font color='#0000FF'>return</font> <font color='#979000'>7</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_7POINT0:              <font color='#0000FF'>return</font> <font color='#979000'>7</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_7POINT0_FRONT:        <font color='#0000FF'>return</font> <font color='#979000'>7</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_7POINT1:              <font color='#0000FF'>return</font> <font color='#979000'>8</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_7POINT1_WIDE:         <font color='#0000FF'>return</font> <font color='#979000'>8</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_7POINT1_WIDE_BACK:    <font color='#0000FF'>return</font> <font color='#979000'>8</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_OCTAGONAL:            <font color='#0000FF'>return</font> <font color='#979000'>8</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_HEXADECAGONAL:        <font color='#0000FF'>return</font> <font color='#979000'>16</font>;
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_STEREO_DOWNMIX:       <font color='#0000FF'>return</font> <font color='#979000'>2</font>;
+<font color='#0000FF'>#if</font> LIBAVUTIL_VERSION_INT <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>56</font>, <font color='#979000'>58</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+                <font color='#0000FF'>case</font> AV_CH_LAYOUT_22POINT2:             <font color='#0000FF'>return</font> <font color='#979000'>24</font>;
+<font color='#0000FF'>#endif</font>
+                <font color='#0000FF'>default</font>: <font color='#0000FF'>break</font>;
+            <b>}</b>
+            <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>return</font> ch_layout;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVChannelLayout<font color='#5555FF'>&amp;</font> ch_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        std::string <font color='#BB00BB'>str</font><font face='Lucida Console'>(</font><font color='#979000'>32</font>, '<font color='#FF0000'>\0</font>'<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_channel_layout_describe</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ch_layout, <font color='#5555FF'>&amp;</font>str[<font color='#979000'>0</font>], str.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ret <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            str.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>else</font>
+            str.<font color='#BB00BB'>clear</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> str;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font>uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font><font color='#BB00BB'>convert_layout</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='channel_layout_empty'></a>channel_layout_empty</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>av_channel_layout_check</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='channel_layout_empty'></a>channel_layout_empty</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>*</font> frame<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> frame <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#BB00BB'>av_channel_layout_check</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> uint64_t <b><a name='get_layout'></a>get_layout</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout.u.mask : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> uint64_t <b><a name='get_layout'></a>get_layout</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>*</font> frame<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> frame ? frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout.u.mask : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='set_layout'></a>set_layout</b><font face='Lucida Console'>(</font>AVCodecContext<font color='#5555FF'>*</font> pCodecCtx, <font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout <font color='#5555FF'>=</font> <font color='#BB00BB'>convert_layout</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='set_layout'></a>set_layout</b><font face='Lucida Console'>(</font>AVFrame<font color='#5555FF'>*</font> frame, <font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout <font color='#5555FF'>=</font> <font color='#BB00BB'>convert_layout</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font> <b><a name='get_nchannels'></a>get_nchannels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout.nb_channels : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font> <b><a name='get_nchannels'></a>get_nchannels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>*</font> frame<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> frame ? frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout.nb_channels : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font> <b><a name='get_nchannels'></a>get_nchannels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>convert_layout</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font>.nb_channels;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='check_layout'></a>check_layout</b><font face='Lucida Console'>(</font>AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>get_layout</font><font face='Lucida Console'>(</font>pCodecCtx<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout.nb_channels <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>av_channel_layout_default</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout, pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>ch_layout.nb_channels<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#0000FF'>#else</font>
+
+    <font color='#0000FF'>inline</font> std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font>uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        std::string <font color='#BB00BB'>str</font><font face='Lucida Console'>(</font><font color='#979000'>32</font>, '<font color='#FF0000'>\0</font>'<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>av_get_channel_layout_string</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>str[<font color='#979000'>0</font>], str.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>0</font>, channel_layout<font face='Lucida Console'>)</font>;
+        str.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font><font color='#BB00BB'>strlen</font><font face='Lucida Console'>(</font>str.<font color='#BB00BB'>data</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> str;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> std::string <b><a name='get_channel_layout_str'></a>get_channel_layout_str</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>get_channel_layout_str</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='channel_layout_empty'></a>channel_layout_empty</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>bool</u></font> <b><a name='channel_layout_empty'></a>channel_layout_empty</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>*</font> frame<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> uint64_t <b><a name='get_layout'></a>get_layout</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> pCodecCtx ? pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> uint64_t <b><a name='get_layout'></a>get_layout</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>*</font> frame<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> frame ? frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='set_layout'></a>set_layout</b><font face='Lucida Console'>(</font>AVCodecContext<font color='#5555FF'>*</font> pCodecCtx, <font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font> channel_layout;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='set_layout'></a>set_layout</b><font face='Lucida Console'>(</font>AVFrame<font color='#5555FF'>*</font> frame, <font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font> channel_layout;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font> <b><a name='get_nchannels'></a>get_nchannels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> uint64_t channel_layout<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>av_get_channel_layout_nb_channels</font><font face='Lucida Console'>(</font>channel_layout<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font> <b><a name='get_nchannels'></a>get_nchannels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> pCodecCtx ? <font color='#BB00BB'>get_nchannels</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout<font face='Lucida Console'>)</font> : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>int</u></font> <b><a name='get_nchannels'></a>get_nchannels</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> AVFrame<font color='#5555FF'>*</font> frame<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> frame ? <font color='#BB00BB'>get_nchannels</font><font face='Lucida Console'>(</font>frame<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout<font face='Lucida Console'>)</font> : <font color='#979000'>0</font>;
+    <b>}</b>    
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> <b><a name='check_layout'></a>check_layout</b><font face='Lucida Console'>(</font>AVCodecContext<font color='#5555FF'>*</font> pCodecCtx<font face='Lucida Console'>)</font> 
+    <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channels <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channel_layout <font color='#5555FF'>=</font> <font color='#BB00BB'>av_get_default_channel_layout</font><font face='Lucida Console'>(</font>pCodecCtx<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>channels<font face='Lucida Console'>)</font>;
+    <b>}</b>       
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>struct</font> <b><a name='av_deleter'></a>av_deleter</b>
+    <b>{</b>
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVFrame<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>               <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVPacket<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>              <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVAudioFifo<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>           <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>SwsContext<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>            <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>SwrContext<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>            <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVCodecContext<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>        <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVCodecParserContext<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>  <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVFormatContext<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>       <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVDeviceInfoList<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>      <font color='#0000FF'>const</font>;
+    <b>}</b>;
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVFrame <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>               <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>av_frame_free</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVPacket <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>              <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>av_packet_free</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVAudioFifo <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>           <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>av_audio_fifo_free</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>SwsContext <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>            <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>sws_freeContext</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>SwrContext <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>            <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>swr_free</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVCodecContext <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>        <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>avcodec_free_context</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVCodecParserContext <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>  <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>av_parser_close</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVDeviceInfoList<font color='#5555FF'>*</font> ptr<font face='Lucida Console'>)</font>      <font color='#0000FF'>const</font> <b>{</b> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> <font color='#BB00BB'>avdevice_free_list_devices</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_deleter::<b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>AVFormatContext <font color='#5555FF'>*</font>ptr<font face='Lucida Console'>)</font>       <font color='#0000FF'>const</font> 
+    <b>{</b> 
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font> 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>iformat<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>avformat_close_input</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>ptr<font face='Lucida Console'>)</font>; 
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ptr<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>oformat<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>avformat_free_context</font><font face='Lucida Console'>(</font>ptr<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='AVObject'></a>AVObject</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> av_ptr <font color='#5555FF'>=</font> std::unique_ptr<font color='#5555FF'>&lt;</font>AVObject, details::av_deleter<font color='#5555FF'>&gt;</font>;
+
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> av_ptr<font color='#5555FF'>&lt;</font>AVFrame<font color='#5555FF'>&gt;</font> <b><a name='make_avframe'></a>make_avframe</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        av_ptr<font color='#5555FF'>&lt;</font>AVFrame<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>obj</font><font face='Lucida Console'>(</font><font color='#BB00BB'>av_frame_alloc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>obj<font face='Lucida Console'>)</font>
+            <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Failed to allocate AVframe</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> obj;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> av_ptr<font color='#5555FF'>&lt;</font>AVPacket<font color='#5555FF'>&gt;</font> <b><a name='make_avpacket'></a>make_avpacket</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        av_ptr<font color='#5555FF'>&lt;</font>AVPacket<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>obj</font><font face='Lucida Console'>(</font><font color='#BB00BB'>av_packet_alloc</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>obj<font face='Lucida Console'>)</font>
+            <font color='#0000FF'>throw</font> std::<font color='#BB00BB'>runtime_error</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Failed to allocate AVPacket</font>"<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> obj;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>struct</font> <b><a name='av_dict'></a>av_dict</b>
+    <b>{</b>
+        <b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font> <font color='#5555FF'>&amp;</font>options<font face='Lucida Console'>)</font>;
+        <b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> av_dict <font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font>;
+        av_dict <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> av_dict <font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font>;
+        <b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font>av_dict <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font> noexcept;
+        av_dict <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>av_dict <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font> noexcept;
+        ~<b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'><u>size_t</u></font> <b><a name='size'></a>size</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#0000FF'><u>void</u></font> <b><a name='print'></a>print</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        AVDictionary<font color='#5555FF'>*</font><font color='#5555FF'>*</font> <b><a name='get'></a>get</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        AVDictionary <font color='#5555FF'>*</font>avdic <font color='#5555FF'>=</font> nullptr;
+    <b>}</b>;
+
+    <font color='#0000FF'>inline</font> av_dict::<b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::unordered_map<font color='#5555FF'>&lt;</font>std::string, std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> options<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'><u>int</u></font> ret <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+
+        <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font> opt : options<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>ret <font color='#5555FF'>=</font> <font color='#BB00BB'>av_dict_set</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>avdic, opt.first.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, opt.second.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>0</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>av_dict_set() failed : %s\n</font>", <font color='#BB00BB'>get_av_error</font><font face='Lucida Console'>(</font>ret<font face='Lucida Console'>)</font>.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>break</font>;
+            <b>}</b>
+        <b>}</b>
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> av_dict::<b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> av_dict<font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#BB00BB'>av_dict_copy</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>avdic, ori.avdic, <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> av_dict<font color='#5555FF'>&amp;</font> av_dict::<b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> av_dict<font color='#5555FF'>&amp;</font> ori<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#5555FF'>*</font><font color='#0000FF'>this</font> <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>av_dict<b>{</b>ori<b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> av_dict::<b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font>av_dict <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font> noexcept
+    : avdic<b>{</b>std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>ori.avdic, nullptr<font face='Lucida Console'>)</font><b>}</b>
+    <b>{</b>
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> av_dict <font color='#5555FF'>&amp;</font>av_dict::<b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>av_dict <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font> noexcept
+    <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#5555FF'>&amp;</font>ori<font face='Lucida Console'>)</font>
+            avdic <font color='#5555FF'>=</font> std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>ori.avdic, nullptr<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> av_dict::~<b><a name='av_dict'></a>av_dict</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>avdic<font face='Lucida Console'>)</font>
+            <font color='#BB00BB'>av_dict_free</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>avdic<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> AVDictionary<font color='#5555FF'>*</font><font color='#5555FF'>*</font> av_dict::<b><a name='get'></a>get</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> avdic ? <font color='#5555FF'>&amp;</font>avdic: nullptr;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> std::<font color='#0000FF'><u>size_t</u></font> av_dict::<b><a name='size'></a>size</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> avdic ? <font color='#BB00BB'>av_dict_count</font><font face='Lucida Console'>(</font>avdic<font face='Lucida Console'>)</font> : <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>inline</font> <font color='#0000FF'><u>void</u></font> av_dict::<b><a name='print'></a>print</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>
+    <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>avdic<font face='Lucida Console'>)</font>
+        <b>{</b>
+            AVDictionaryEntry <font color='#5555FF'>*</font>tag <font color='#5555FF'>=</font> nullptr;
+            <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>tag <font color='#5555FF'>=</font> <font color='#BB00BB'>av_dict_get</font><font face='Lucida Console'>(</font>avdic, "<font color='#CC0000'></font>", tag, AV_DICT_IGNORE_SUFFIX<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>%s : %s\n</font>", tag<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>key, tag<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>value<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>    
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>inline</font> AVCodecID <b><a name='pick_codec_from_filename'></a>pick_codec_from_filename</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> filename<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> ext_pos <font color='#5555FF'>=</font> filename.<font color='#BB00BB'>find_last_of</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>.</font>"<font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext_pos <font color='#5555FF'>!</font><font color='#5555FF'>=</font> std::string::npos<font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>const</font> std::string ext <font color='#5555FF'>=</font> filename.<font color='#BB00BB'>substr</font><font face='Lucida Console'>(</font>ext_pos <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>png</font>" <font color='#5555FF'>|</font><font color='#5555FF'>|</font> ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>PNG</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_PNG;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>jpeg</font>" <font color='#5555FF'>|</font><font color='#5555FF'>|</font> ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>jpg</font>" <font color='#5555FF'>|</font><font color='#5555FF'>|</font> ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>JPEG</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_MJPEG;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>tiff</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_TIFF;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>webp</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_WEBP;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>bmp</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_BMP;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>h264</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_H264;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>h265</font>" <font color='#5555FF'>|</font><font color='#5555FF'>|</font> ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>hevc</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_H265;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>aac</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_AAC;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>ac3</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_AC3;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>jls</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_JPEGLS;
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>jp2</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_JPEG2000;
+<font color='#0000FF'>#if</font> LIBAVCODEC_VERSION_INT <font color='#5555FF'>&gt;</font><font color='#5555FF'>=</font> AV_VERSION_INT<font face='Lucida Console'>(</font><font color='#979000'>59</font>, <font color='#979000'>37</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>
+            <font color='#0000FF'>else</font> <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>ext <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>jxl</font>"<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>return</font> AV_CODEC_ID_JPEGXL;
+<font color='#0000FF'>#endif</font>
+        <b>}</b>
+
+        <font color='#0000FF'>return</font> AV_CODEC_ID_NONE;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+<b>}</b><b>}</b><b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_FFMPEG_DETAILS
+</font>
+</pre></body></html>

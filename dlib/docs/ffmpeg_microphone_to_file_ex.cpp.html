@@ -1,0 +1,93 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_microphone_to_file_ex.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// The contents of this file are in the public domain. See LICENSE_FOR_EXAMPLE_PROGRAMS.txt
+</font><font color='#009900'>/*
+
+    This is an example illustrating the use of the ffmpeg wrappers.
+    It attempts to read audio from a microphone if available, and saves the audio to wav.
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>chrono<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>media.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>cmd_line_parser.h<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std::chrono;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std::chrono_literals;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib::ffmpeg;
+
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> argc, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font> argv<font face='Lucida Console'>)</font>
+<font color='#0000FF'>try</font>
+<b>{</b>
+    command_line_parser parser;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>t</font>",      "<font color='#CC0000'>capture time in seconds</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>",      "<font color='#CC0000'>input microphone device. E.g. hw:0,0</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>o</font>",      "<font color='#CC0000'>output audio file. E.g. recording.m4a, recording.wav. Default: recording.m4a</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>codec</font>",  "<font color='#CC0000'>audio codec. E.g. `aac`, `pcm_s16le`. Recommend `pcm_s16le` for WAV files and `aac` for `M4A` files. Default: `aac`</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>set_group_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Help Options</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>",      "<font color='#CC0000'>alias of --help</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>",   "<font color='#CC0000'>display this message and exit</font>"<font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>parse</font><font face='Lucida Console'>(</font>argc, argv<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> one_time_opts[] <font color='#5555FF'>=</font> <b>{</b>"<font color='#CC0000'>t</font>", "<font color='#CC0000'>i</font>", "<font color='#CC0000'>o</font>", "<font color='#CC0000'>codec</font>"<b>}</b>;
+    parser.<font color='#BB00BB'>check_one_time_options</font><font face='Lucida Console'>(</font>one_time_opts<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        parser.<font color='#BB00BB'>print_options</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>const</font> seconds time<b>{</b><font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>t</font>",  <font color='#979000'>1</font><font face='Lucida Console'>)</font><b>}</b>;
+    <font color='#0000FF'>const</font> std::string device    <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>i</font>",       "<font color='#CC0000'>hw:0,0</font>"<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> std::string filename  <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>o</font>",       "<font color='#CC0000'>recording.m4a</font>"<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> std::string codec     <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>codec</font>",   "<font color='#CC0000'>aac</font>"<font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// Open microphone
+</font>    demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+        demuxer::args args;
+        args.filepath       <font color='#5555FF'>=</font> device;
+        args.input_format   <font color='#5555FF'>=</font> "<font color='#CC0000'>alsa</font>";
+        <font color='#0000FF'>return</font> args;
+    <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Failed to open device: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> device <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> '<font color='#FF0000'>\n</font>';
+        <font color='#0000FF'>return</font> EXIT_FAILURE;
+    <b>}</b>
+
+    <font color='#009900'>// Create WAV file
+</font>    muxer <font color='#BB00BB'>writer</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+        muxer::args args;
+        args.filepath                   <font color='#5555FF'>=</font> filename;
+        args.enable_image               <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+        args.args_audio.codec_name      <font color='#5555FF'>=</font> codec;
+        args.args_audio.sample_rate     <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>sample_rate</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        args.args_audio.channel_layout  <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>channel_layout</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        args.args_audio.fmt             <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>sample_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> args;
+    <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>writer.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Failed to open wav file</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+        <font color='#0000FF'>return</font> EXIT_FAILURE;
+    <b>}</b>
+
+    <font color='#009900'>// Pull and push
+</font>    <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> start <font color='#5555FF'>=</font> high_resolution_clock::<font color='#BB00BB'>now</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    frame f;
+    <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font face='Lucida Console'>(</font>high_resolution_clock::<font color='#BB00BB'>now</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> start<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font> time<font face='Lucida Console'>)</font>
+        writer.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>return</font> EXIT_SUCCESS;
+<b>}</b>
+<font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font>
+<b>{</b>
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>%s\n</font>", e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> EXIT_FAILURE;
+<b>}</b>
+</pre></body></html>

@@ -1,0 +1,1308 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<u>Revision</u>: 2e0b3846b4dcd0953951<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 27, 2025
+         (16:07:10 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Created release v20.0</p><pre class="files_changed"> dlib/CMakeLists.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 7555da790abd269cc664<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 26, 2025
+         (19:50:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">update docs</p><pre class="files_changed"> dlib/constexpr_if.h         | 6 +++---
+ dlib/media/ffmpeg_demuxer.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 8161cfcacdd8fcfd0a19<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 24, 2025
+         (11:23:26 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">cleanup.  Fixes linker error about those constants not being defined right with some compiler settings.</p><pre class="files_changed"> dlib/test/dnn.cpp              |  1 -
+ dlib/tokenizer/bpe_tokenizer.h | 83 +++++++++++++++++++++---------------------
+ 2 files changed, 41 insertions(+), 43 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 134475ac427393c23e83<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 15, 2025
+         (03:41:16 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">put back to .99</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: e3128dc83a7153e4c81a<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 15, 2025
+         (03:40:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">tagging a new release</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 66be36e0fb7d4a80b1c8<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: May 23, 2025
+         (15:27:34 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add `reshape_to` layer for flexible tensor reshaping/rescaling (#3076)</p><pre class="files_changed"> dlib/dnn/layers.h          | 180 +++++++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/layers_abstract.h | 170 ++++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/visitors.h        |  23 ++++++
+ dlib/test/dnn.cpp          |  48 +++++++++++-
+ 4 files changed, 420 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 55134f1c2f64e5d9d8cd<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: May 03, 2025
+         (19:17:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add linear_ layer for neural networks (#3074)</p><pre class="files_changed"> dlib/dnn/layers.h          | 200 ++++++++++++++++++++++++++++++++++
+ dlib/dnn/layers_abstract.h | 260 +++++++++++++++++++++++++++++++++++++++++++++
+ dlib/test/dnn.cpp          |  75 +++++++++++++
+ 3 files changed, 535 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 12561a1d30690b8abf8f<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 23, 2025
+         (17:23:33 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Some more cleanup</p><pre class="files_changed"> dlib/tokenizer/bpe_tokenizer.h          | 20 +++++----
+ dlib/tokenizer/bpe_tokenizer_abstract.h | 80 +++++++++++++--------------------
+ 2 files changed, 41 insertions(+), 59 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: dfb60899d23d258b0cfa<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 23, 2025
+         (16:44:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">cleanup serialization code and add missing fields</p><pre class="files_changed"> dlib/test/tokenizer.cpp        |  4 +-
+ dlib/tokenizer/bpe_tokenizer.h | 87 +++++++++---------------------------------
+ 2 files changed, 19 insertions(+), 72 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 1cd06349a31e1051c0e4<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Mar 23, 2025
+         (22:46:23 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add Byte Pair Encoding (BPE) class for subword tokenization (#3056)</p><pre class="files_changed"> dlib/test/queue.cpp                     |  12 +-
+ dlib/test/static_set.cpp                |   2 +-
+ dlib/test/tokenizer.cpp                 |  62 ++++-
+ dlib/tokenizer.h                        |   2 +-
+ dlib/tokenizer/bpe_tokenizer.h          | 453 ++++++++++++++++++++++++++++++++
+ dlib/tokenizer/bpe_tokenizer_abstract.h | 155 +++++++++++
+ tools/htmlify/htmlify.cpp               |   4 +-
+ 7 files changed, 676 insertions(+), 14 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 427d2d3aff6df84f5537<br><u>Author</u>: <a href="mailto:devel@penguinpee.nl">Sandro</a><br><u>Date</u>: Mar 16, 2025
+         (20:44:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Drop namespace std (#3067)</p><pre class="files_changed"> tools/python/src/sequence_segmenter.cpp | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: c43417fcca0c4f96cacb<br><u>Author</u>: <a href="mailto:davis685@gmail.com">Davis E. King</a><br><u>Date</u>: Mar 10, 2025
+         (15:57:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Merge pull request #3064 from r-barnes/patch-1</p><pre class="files_changed"></pre><hr class="fullhr"><u>Revision</u>: 5f58d49d5f2767e2aa48<br><u>Author</u>: <a href="mailto:64760144+tabudz@users.noreply.github.com">tabudz</a><br><u>Date</u>: Mar 04, 2025
+         (26:15:50 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix a bug when getting a gzip header extra field with inflate(). (#3063)</p><pre class="files_changed"> dlib/external/zlib/inflate.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: e2abc789e7f2442421b5<br><u>Author</u>: <a href="mailto:rbarnes@umn.edu">Richard Barnes</a><br><u>Date</u>: Mar 03, 2025
+         (03:54:17 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">`throw()` -&amp;gt; `noexcept`</p><pre class="files_changed"> dlib/any/storage.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 0f2b6c12274da49942e2<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 03, 2025
+         (03:25:37 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">change version back</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 636c0bcd1e4f428d1676<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 03, 2025
+         (03:25:09 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Change version</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: d3520131a6e0e0fb62bc<br><u>Author</u>: <a href="mailto:10278425+wenbingl@users.noreply.github.com">Wenbing Li</a><br><u>Date</u>: Feb 26, 2025
+         (11:48:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">change the default u32string char type to char32_t (#3059)</p><pre class="files_changed"> dlib/serialize.h       | 1 +
+ dlib/unicode/unicode.h | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 8dab9c385112e1be9fd8<br><u>Author</u>: <a href="mailto:64760144+tabudz@users.noreply.github.com">tabudz</a><br><u>Date</u>: Feb 27, 2025
+         (19:47:32 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Check image size when reading targa file (#3058)</p><pre class="files_changed"> dlib/external/libjpeg/rdtarga.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: e8b6c05b9ac29732e9ba<br><u>Author</u>: <a href="mailto:kSkip@users.noreply.github.com">kSkip</a><br><u>Date</u>: Feb 15, 2025
+         (08:56:10 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Slice layer (#3055)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp     |  70 +++++++++++
+ dlib/cuda/cpu_dlib.h       |  11 ++
+ dlib/cuda/cuda_dlib.cu     |  71 +++++++++++
+ dlib/cuda/cuda_dlib.h      |  11 ++
+ dlib/cuda/tensor_tools.cpp |  18 +++
+ dlib/cuda/tensor_tools.h   |  32 +++++
+ dlib/dnn/layers.h          | 125 +++++++++++++++++++
+ dlib/dnn/layers_abstract.h |  79 ++++++++++++
+ dlib/test/dnn.cpp          | 290 +++++++++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 707 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: ef3d636af2d23011ba6a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià</a><br><u>Date</u>: Feb 05, 2025
+         (17:18:07 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Update minimum CMake version to 3.10.0 (#3052)</p><pre class="files_changed"> dlib/CMakeLists.txt                                                  | 2 +-
+ dlib/cmake_utils/check_if_avx_instructions_executable_on_host.cmake  | 2 +-
+ dlib/cmake_utils/check_if_neon_available.cmake                       | 2 +-
+ dlib/cmake_utils/check_if_sse4_instructions_executable_on_host.cmake | 2 +-
+ dlib/cmake_utils/find_ffmpeg.cmake                                   | 2 +-
+ dlib/cmake_utils/find_libjpeg.cmake                                  | 2 +-
+ dlib/cmake_utils/find_libpng.cmake                                   | 2 +-
+ dlib/cmake_utils/set_compiler_specific_options.cmake                 | 2 +-
+ dlib/cmake_utils/tell_visual_studio_to_use_static_runtime.cmake      | 2 +-
+ dlib/cmake_utils/test_for_avx/CMakeLists.txt                         | 2 +-
+ dlib/cmake_utils/test_for_cuda/CMakeLists.txt                        | 2 +-
+ dlib/cmake_utils/test_for_cudnn/CMakeLists.txt                       | 2 +-
+ dlib/cmake_utils/test_for_libjpeg/CMakeLists.txt                     | 2 +-
+ dlib/cmake_utils/test_for_libjxl/CMakeLists.txt                      | 2 +-
+ dlib/cmake_utils/test_for_libpng/CMakeLists.txt                      | 2 +-
+ dlib/cmake_utils/test_for_libwebp/CMakeLists.txt                     | 2 +-
+ dlib/cmake_utils/test_for_neon/CMakeLists.txt                        | 2 +-
+ dlib/cmake_utils/test_for_sse4/CMakeLists.txt                        | 2 +-
+ dlib/java/CMakeLists.txt                                             | 2 +-
+ dlib/matlab/CMakeLists.txt                                           | 2 +-
+ dlib/test/CMakeLists.txt                                             | 2 +-
+ dlib/test/blas_bindings/CMakeLists.txt                               | 2 +-
+ dlib/test/tools/CMakeLists.txt                                       | 2 +-
+ examples/CMakeLists.txt                                              | 2 +-
+ tools/archive/CMakeLists.txt                                         | 2 +-
+ tools/convert_dlib_nets_to_caffe/CMakeLists.txt                      | 2 +-
+ tools/htmlify/CMakeLists.txt                                         | 2 +-
+ tools/imglab/CMakeLists.txt                                          | 2 +-
+ tools/python/CMakeLists.txt                                          | 2 +-
+ 29 files changed, 29 insertions(+), 29 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 28c46fb8582cae98d15a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià</a><br><u>Date</u>: Jan 24, 2025
+         (20:36:44 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">minor tweaks to the transformer example (#3048)</p><pre class="files_changed"> examples/slm_basic_train_ex.cpp | 77 +++++++++++++++++++++--------------------
+ examples/slm_data.h             |  4 +--
+ examples/slm_defs.h             | 10 +++---
+ 3 files changed, 47 insertions(+), 44 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 8fdd2a6779b014b30d0b<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Jan 19, 2025
+         (22:50:08 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add a first example for the new Dlib layers to build a transform-type network (#3041)</p><pre class="files_changed"> examples/CMakeLists.txt         |   1 +
+ examples/slm_basic_train_ex.cpp | 352 ++++++++++++++++++++++++
+ examples/slm_data.h             | 593 ++++++++++++++++++++++++++++++++++++++++
+ examples/slm_defs.h             | 286 +++++++++++++++++++
+ 4 files changed, 1232 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: d6706a5f52314c75fe42<br><u>Author</u>: <a href="mailto:32012735+hscodesolution@users.noreply.github.com">hscodesolution</a><br><u>Date</u>: Jan 19, 2025
+         (27:50:31 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">find blas and cudnn update for windows OS (#3047)</p><pre class="files_changed"> dlib/cmake_utils/find_blas.cmake               | 3 +++
+ dlib/cmake_utils/test_for_cudnn/find_cudnn.txt | 4 ++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 8454765a716237da8fb0<br><u>Author</u>: <a href="mailto:shfu29r4bu@liamekaens.com">Sandro</a><br><u>Date</u>: Jan 19, 2025
+         (18:08:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Replace deprecated pkgutil.find_loader() (#3043)</p><pre class="files_changed"> tools/python/test/utils.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 230c0b0198a79b3eacbe<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Dec 20, 2024
+         (18:53:53 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add multm_prev_ layer and enhance gemm() function for PLANE_WISE operations (#3020)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp       | 221 +++++++++++++++++++++++++++----------------
+ dlib/cuda/cpu_dlib.h         |  10 +-
+ dlib/cuda/cublas_dlibapi.cpp | 149 ++++++++++++++++++++---------
+ dlib/cuda/cublas_dlibapi.h   |  53 ++++++++---
+ dlib/cuda/cudnn_dlibapi.cpp  | 132 +++++++++++++++++++-------
+ dlib/cuda/cudnn_dlibapi.h    |  15 +--
+ dlib/cuda/operation_mode.h   |  23 +++++
+ dlib/cuda/tensor_tools.cpp   | 123 ++++++++++++++++++------
+ dlib/cuda/tensor_tools.h     | 109 ++++++++++++++-------
+ dlib/dnn/layers.h            | 133 ++++++++++++++++++++++----
+ dlib/dnn/layers_abstract.h   | 145 ++++++++++++++++++++++++----
+ dlib/dnn/visitors.h          |  16 +++-
+ dlib/test/dnn.cpp            | 136 +++++++++++++++++++++++++-
+ 13 files changed, 979 insertions(+), 286 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: dfbee6d3c02a9b191ee0<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià</a><br><u>Date</u>: Nov 18, 2024
+         (29:53:59 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix saving JXL generic grayscale images (#3032)</p><pre class="files_changed"> dlib/image_saver/save_jxl.h | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 39240959fadbe7a7d1f6<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Oct 22, 2024
+         (18:26:14 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make event_correlation() work on fractional counts</p><pre class="files_changed"> dlib/statistics/statistics.h          | 24 ++++++++++++------------
+ dlib/statistics/statistics_abstract.h | 16 ++++++++--------
+ 2 files changed, 20 insertions(+), 20 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 856707536ba249ad1d51<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Oct 17, 2024
+         (07:48:55 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add embeddings_ layer and supporting utility functions (#3021)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp     | 115 +++++++++++++++++++
+ dlib/cuda/cpu_dlib.h       |  17 +++
+ dlib/cuda/cuda_dlib.cu     | 120 ++++++++++++++++++++
+ dlib/cuda/cuda_dlib.h      |  17 +++
+ dlib/cuda/tensor_tools.cpp |  31 +++++
+ dlib/cuda/tensor_tools.h   |  72 ++++++++++++
+ dlib/dnn/layers.h          | 276 +++++++++++++++++++++++++++++++++++++++++++--
+ dlib/dnn/layers_abstract.h | 222 +++++++++++++++++++++++++++++++++++-
+ dlib/dnn/visitors.h        |  20 +++-
+ dlib/test/dnn.cpp          |  97 ++++++++++++++++
+ 10 files changed, 977 insertions(+), 10 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 488ee5c59ead73a44c49<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Oct 06, 2024
+         (08:57:24 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">handle empty proto objects</p><pre class="files_changed"> dlib/serialize.h | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 44689c1e9bb2a9b87fb2<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Oct 04, 2024
+         (18:52:02 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">added docs</p><pre class="files_changed"> dlib/image_transforms/interpolation_abstract.h | 6 ++++++
+ 1 file changed, 6 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: fa5d37a62f6e8f8fcae8<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià</a><br><u>Date</u>: Oct 05, 2024
+         (20:50:09 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">add serialization support to chip_details (#3026)</p><pre class="files_changed"> dlib/image_transforms/interpolation.h | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 4e53f83160aaeea58df9<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Sep 30, 2024
+         (05:59:21 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add tril_ layer for lower triangular matrix operations (#3018)</p><pre class="files_changed"> dlib/dnn/layers.h          | 126 ++++++++++++++++++++++++++++++++++++
+ dlib/dnn/layers_abstract.h | 156 +++++++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/visitors.h        |  16 +++++
+ dlib/test/dnn.cpp          |  48 ++++++++++++++
+ 4 files changed, 346 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 72822fe4f9ca43f7a41a<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Sep 23, 2024
+         (15:44:21 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix stride indexing bugs in `reorg` and `reorg_gradient` functions (CPU &amp; CUDA) (#3012)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp     | 91 ++++++++++++++++++++++++++--------------------
+ dlib/cuda/cpu_dlib.h       |  2 +
+ dlib/cuda/cuda_dlib.cu     | 87 +++++++++++++++++++++++---------------------
+ dlib/cuda/cuda_dlib.h      |  2 +
+ dlib/cuda/tensor_tools.cpp | 10 +++--
+ dlib/cuda/tensor_tools.h   | 71 ++++++++++++++++++++++++++----------
+ dlib/dnn/layers.h          |  4 +-
+ dlib/dnn/layers_abstract.h | 44 +++++++++++++---------
+ dlib/test/dnn.cpp          |  8 ++--
+ 9 files changed, 190 insertions(+), 129 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 90c8d7830f83597ecb56<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Sep 23, 2024
+         (15:26:02 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add Transpose Layer for 2D matrix transposition in 4D tensors (#3013)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp     | 42 ++++++++++++++++++++++++++++++-
+ dlib/cuda/cpu_dlib.h       |  8 ++++++
+ dlib/cuda/cuda_dlib.cu     | 40 ++++++++++++++++++++++++++++++
+ dlib/cuda/cuda_dlib.h      |  7 ++++++
+ dlib/cuda/tensor_tools.cpp | 15 ++++++++++++
+ dlib/cuda/tensor_tools.h   | 26 ++++++++++++++++++++
+ dlib/dnn/layers.h          | 61 ++++++++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/layers_abstract.h | 54 ++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/visitors.h        |  8 ++++++
+ dlib/test/dnn.cpp          | 38 +++++++++++++++++++++++++++++
+ 10 files changed, 298 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: fe6e052e03638d08c07d<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià</a><br><u>Date</u>: Sep 23, 2024
+         (29:18:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Cleanup: remove using namespace std; (#3016)</p><pre class="files_changed"> dlib/any/any_function_abstract.h                   |  1 -
+ dlib/cmd_line_parser/cmd_line_parser_kernel_1.h    |  2 -
+ dlib/config_reader/config_reader_thread_safe_1.h   |  1 -
+ .../cpp_pretty_printer_kernel_1.h                  | 15 +++----
+ .../cpp_pretty_printer_kernel_2.h                  | 13 +++---
+ dlib/cpp_tokenizer/cpp_tokenizer_kernel_1.h        | 10 ++---
+ dlib/data_io/libsvm_io.h                           | 27 ++++++-------
+ dlib/dir_nav/dir_nav_kernel_1.h                    |  8 ++--
+ dlib/dir_nav/dir_nav_kernel_2.h                    | 10 ++---
+ dlib/dnn/core.h                                    | 33 ++++++----------
+ dlib/dnn/loss.h                                    |  5 +--
+ dlib/dnn/trainer.h                                 | 19 ++++-----
+ dlib/dnn/utilities.h                               |  2 -
+ dlib/error.h                                       |  1 -
+ dlib/global_optimization/find_max_global.h         |  4 +-
+ dlib/graph_utils/graph_utils.h                     |  5 ---
+ dlib/image_keypoint/hessian_pyramid.h              |  1 -
+ dlib/image_loader/image_loader.h                   |  4 +-
+ dlib/image_processing/detection_template_tools.h   |  1 -
+ dlib/matrix/matrix.h                               |  9 ++---
+ dlib/matrix/matrix_lu.h                            |  1 -
+ dlib/media/ffmpeg_demuxer.h                        |  7 +++-
+ dlib/media/ffmpeg_muxer.h                          |  4 +-
+ dlib/media/ffmpeg_utils.h                          |  4 +-
+ dlib/optimization/elastic_net.h                    |  9 ++---
+ .../optimization_solve_qp2_using_smo.h             | 13 +++---
+ .../optimization_solve_qp3_using_smo.h             |  9 ++---
+ .../optimization/optimization_solve_qp_using_smo.h |  2 -
+ dlib/optimization/optimization_stop_strategies.h   |  6 +--
+ dlib/pixel.h                                       | 34 +++++++---------
+ dlib/string/string.h                               | 25 +++++-------
+ dlib/svm/feature_ranking.h                         | 18 +++------
+ dlib/svm/rr_trainer.h                              |  7 ++--
+ dlib/svm/structural_svm_object_detection_problem.h | 44 ++++++++++-----------
+ dlib/svm/structural_svm_problem.h                  | 29 +++++++-------
+ dlib/svm/svm_c_linear_dcd_trainer.h                |  9 ++---
+ dlib/svm/svm_c_linear_trainer.h                    | 15 ++++---
+ dlib/svm/svm_c_trainer.h                           |  5 +--
+ dlib/svm/svm_nu_trainer.h                          |  9 ++---
+ dlib/svm/svm_one_class_trainer.h                   |  1 -
+ dlib/svm/svm_rank_trainer.h                        | 15 ++++---
+ dlib/svm/svr_linear_trainer.h                      | 15 ++++---
+ dlib/svm/svr_trainer.h                             |  5 +--
+ dlib/test/binary_search_tree.h                     |  7 ++--
+ dlib/test/cmd_line_parser.h                        |  1 -
+ dlib/test/conditioning_class.h                     | 46 +++++++++++-----------
+ dlib/threads/thread_pool_extension.h               |  2 -
+ dlib/time_this.h                                   |  2 +-
+ dlib/timing.h                                      | 25 ++++++------
+ dlib/tokenizer/tokenizer_kernel_c.h                |  7 ++--
+ 50 files changed, 230 insertions(+), 317 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: fafdac37f12814981fdc<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Sep 07, 2024
+         (21:29:40 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add RMS Normalization Layer (#2999)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp       | 138 ++++++++++++++++++++++++++++++++++
+ dlib/cuda/cpu_dlib.h         |  20 +++++
+ dlib/cuda/cuda_dlib.cu       | 160 ++++++++++++++++++++++++++++++++++++++++
+ dlib/cuda/cuda_dlib.h        |  20 +++++
+ dlib/cuda/tensor_tools.cpp   |  34 +++++++++
+ dlib/cuda/tensor_tools.h     |  53 ++++++++++++-
+ dlib/dnn/layers.h            | 125 +++++++++++++++++++++++++++++++
+ dlib/dnn/layers_abstract.h   | 172 +++++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/visitors.h          |  39 ++++++++++
+ dlib/dnn/visitors_abstract.h |   4 +-
+ dlib/test/dnn.cpp            | 102 ++++++++++++++++++++++++-
+ 11 files changed, 863 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 253098eb1bebb39ea7ca<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià</a><br><u>Date</u>: Sep 01, 2024
+         (31:05:09 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix layer_normalize gradients (#3001)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp     | 130 +++++++++++++++++--------------
+ dlib/cuda/cpu_dlib.h       |   4 +-
+ dlib/cuda/cuda_dlib.cu     | 186 +++++++++++++++++++++++++++------------------
+ dlib/cuda/cuda_dlib.h      |   4 +-
+ dlib/cuda/tensor_tools.cpp |   8 +-
+ dlib/cuda/tensor_tools.h   |  12 +--
+ dlib/dnn/layers.h          |   5 +-
+ dlib/test/dnn.cpp          |  13 ++--
+ 8 files changed, 213 insertions(+), 149 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 27a0135220935b9118ad<br><u>Author</u>: <a href="mailto:53169060+Cydral@users.noreply.github.com">Cydral</a><br><u>Date</u>: Aug 29, 2024
+         (15:40:10 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add customizable dropout layer with compile-time rate specification (#3000)</p><pre class="files_changed"> dlib/dnn/layers.h          | 18 ++++++++++++++++++
+ dlib/dnn/layers_abstract.h | 35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 98d26dfaf5355534df0f<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 09, 2024
+         (11:25:41 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">change the version back</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 986889d97895ba00ccbb<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 09, 2024
+         (11:14:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">make a new dlib version to get us cmake installer instructions for python users</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 3ca155da6853dd6cbaf1<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Aug 01, 2024
+         (14:48:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[FFMPEG] support ffmpeg 7 (#2987)</p><pre class="files_changed"> dlib/media/ffmpeg_details.h | 6 +++++-
+ dlib/media/ffmpeg_muxer.h   | 2 +-
+ dlib/media/ffmpeg_utils.h   | 2 +-
+ 3 files changed, 7 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 58b50552feab5c32c2d2<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 01, 2024
+         (04:46:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">put version back to .99</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: a2eec6aa19be807d3ea5<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 01, 2024
+         (04:45:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">just to tag v19.24.5</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 0947215ddb268fef192e<br><u>Author</u>: <a href="mailto:10198051+drewrisinger@users.noreply.github.com">Drew Risinger</a><br><u>Date</u>: Jun 25, 2024
+         (12:01:12 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">global_optimization: add template argument list (#2973)</p><pre class="files_changed"> dlib/global_optimization/find_max_global.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 6233808ce91f693e07d3<br><u>Author</u>: <a href="mailto:jtyuzawa@gmail.com">James Yuzawa</a><br><u>Date</u>: Jun 23, 2024
+         (05:46:17 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Update Pybind11 to v2.12.0 for numpy v2 support (#2970)</p><pre class="files_changed"> dlib/external/pybind11/CMakeLists.txt              |  86 ++-
+ dlib/external/pybind11/README.rst                  |  11 +-
+ dlib/external/pybind11/include/pybind11/attr.h     |  18 +-
+ .../pybind11/include/pybind11/buffer_info.h        |  17 +-
+ dlib/external/pybind11/include/pybind11/cast.h     | 250 ++++++--
+ .../pybind11/include/pybind11/detail/class.h       |  80 +--
+ .../pybind11/include/pybind11/detail/common.h      | 190 ++++--
+ .../pybind11/include/pybind11/detail/descr.h       |  13 +
+ .../pybind11/include/pybind11/detail/init.h        |  42 +-
+ .../pybind11/include/pybind11/detail/internals.h   | 141 +++-
+ .../include/pybind11/detail/type_caster_base.h     | 278 +++++++-
+ dlib/external/pybind11/include/pybind11/eigen.h    | 698 +-------------------
+ .../pybind11/include/pybind11/eigen/common.h       |   9 +
+ .../pybind11/include/pybind11/eigen/matrix.h       | 714 +++++++++++++++++++++
+ .../pybind11/include/pybind11/eigen/tensor.h       | 517 +++++++++++++++
+ dlib/external/pybind11/include/pybind11/embed.h    | 131 ++--
+ .../pybind11/include/pybind11/functional.h         |  16 +-
+ dlib/external/pybind11/include/pybind11/gil.h      |  71 +-
+ .../pybind11/include/pybind11/gil_safe_call_once.h |  91 +++
+ dlib/external/pybind11/include/pybind11/numpy.h    | 227 +++++--
+ .../external/pybind11/include/pybind11/operators.h |   1 +
+ dlib/external/pybind11/include/pybind11/options.h  |  16 +
+ dlib/external/pybind11/include/pybind11/pybind11.h | 323 ++++++----
+ dlib/external/pybind11/include/pybind11/pytypes.h  | 356 +++++++---
+ dlib/external/pybind11/include/pybind11/stl.h      |  63 +-
+ dlib/external/pybind11/include/pybind11/stl_bind.h | 146 +++--
+ .../include/pybind11/type_caster_pyobject_ptr.h    |  61 ++
+ dlib/external/pybind11/include/pybind11/typing.h   | 125 ++++
+ dlib/external/pybind11/tools/FindCatch.cmake       |   8 +-
+ .../pybind11/tools/FindPythonLibsNew.cmake         |  37 +-
+ dlib/external/pybind11/tools/JoinPaths.cmake       |  23 +
+ .../tools/codespell_ignore_lines_from_errors.py    |  39 ++
+ dlib/external/pybind11/tools/make_changelog.py     |  39 +-
+ dlib/external/pybind11/tools/pybind11.pc.in        |   7 +
+ dlib/external/pybind11/tools/pybind11Common.cmake  |  78 ++-
+ .../pybind11/tools/pybind11Config.cmake.in         |   6 +-
+ .../external/pybind11/tools/pybind11NewTools.cmake |  99 ++-
+ dlib/external/pybind11/tools/pybind11Tools.cmake   |  30 +-
+ dlib/external/pybind11/tools/setup_global.py.in    |   6 +-
+ dlib/external/pybind11/tools/setup_main.py.in      |   4 +
+ 40 files changed, 3720 insertions(+), 1347 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 1a51998ff026d1737043<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jun 23, 2024
+         (05:38:35 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make docs more clear</p><pre class="files_changed"> examples/fhog_object_detector_ex.cpp | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 51c7a3597935ed2cb969<br><u>Author</u>: <a href="mailto:kSkip@users.noreply.github.com">kSkip</a><br><u>Date</u>: May 11, 2024
+         (14:07:36 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add input_tensor input type (#2951)</p><pre class="files_changed"> dlib/cuda/tensor.h          |  8 +++++
+ dlib/cuda/tensor_abstract.h |  8 +++++
+ dlib/dnn/input.h            | 87 +++++++++++++++++++++++++++++++++++++++++++++
+ dlib/dnn/input_abstract.h   | 51 ++++++++++++++++++++++++++
+ dlib/test/dnn.cpp           | 33 +++++++++++++++++
+ 5 files changed, 187 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: fa0e3ff9541c55d6bd9e<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis E. King</a><br><u>Date</u>: Apr 27, 2024
+         (06:57:23 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Hide windows.h in .cc file (#2952)</p><pre class="files_changed"> dlib/misc_api/misc_api_kernel_1.cpp |  2 +-
+ dlib/threads/threads_kernel_1.cpp   |  9 +++++++++
+ dlib/threads/threads_kernel_1.h     | 10 ++--------
+ 3 files changed, 12 insertions(+), 9 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: e9bd9b864aadc5032797<br><u>Author</u>: <a href="mailto:schwab@linux-m68k.org">Andreas Schwab</a><br><u>Date</u>: Apr 27, 2024
+         (16:50:02 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add support for riscv64 (#2949)</p><pre class="files_changed"> dlib/matrix/lapack/fortran_id.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 87da2959d8fad8f5c61b<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Apr 27, 2024
+         (04:43:27 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">suppress another one</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: b9355f08c4bb8443a9af<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Apr 27, 2024
+         (04:41:42 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">suppress incorrect warning</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 11 +++++++++++
+ 1 file changed, 11 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 48e63317050420259e55<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 12, 2024
+         (13:59:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fixed bug in decoder (#2946)</p><pre class="files_changed"> dlib/media/ffmpeg_demuxer.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 2dbc7b9f7cc1382d08bc<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Apr 09, 2024
+         (18:07:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix typo (which turns out builds on gcc)</p><pre class="files_changed"> dlib/image_loader/jpeg_loader.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 73c990dd189a7d3b61c9<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Apr 09, 2024
+         (17:49:07 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Use size_t to avoid possible numeric overflow for the very largest images.</p><pre class="files_changed"> dlib/image_loader/jpeg_loader.cpp |  2 +-
+ dlib/image_loader/jpeg_loader.h   | 12 ++++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 792b744402c33a2dd8f2<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Apr 09, 2024
+         (17:39:33 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">better docs</p><pre class="files_changed"> dlib/matrix/matrix_utilities_abstract.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: ca7fd9d1ad2c487f5a62<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 04, 2024
+         (17:26:02 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Actually load rgb_alpha images. (#2942)</p><pre class="files_changed"> tools/python/src/numpy_returns.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 8edfa542b8843b4263db<br><u>Author</u>: <a href="mailto:chainfire@chainfire.eu">Chainfire</a><br><u>Date</u>: Mar 31, 2024
+         (24:04:44 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Remove MMX header (#2939)</p><pre class="files_changed"> dlib/simd/simd_check.h | 1 -
+ 1 file changed, 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: f8bf6caef3fab6a581f4<br><u>Author</u>: <a href="mailto:34715449+PowerLay@users.noreply.github.com">PowerLay</a><br><u>Date</u>: Mar 31, 2024
+         (25:36:12 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix incorrect version check for libgif (#2936)</p><pre class="files_changed"> dlib/image_loader/load_image.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 0af9e7a8db07cf6be773<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 31, 2024
+         (11:34:08 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">adjust head back to .99</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: de5c1c8665ce31025743<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 31, 2024
+         (11:33:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">tagging another minor version</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 1db5a38539cb04cabdc1<br><u>Author</u>: <a href="mailto:chainfire@chainfire.eu">Chainfire</a><br><u>Date</u>: Mar 31, 2024
+         (23:26:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Reduce FOREVER from 290 to 200 years (#2938)</p><pre class="files_changed"> dlib/global_optimization/find_max_global.h          | 2 +-
+ dlib/global_optimization/find_max_global_abstract.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 14ba5572e7b1ce4c5eb5<br><u>Author</u>: <a href="mailto:schueller@phimeca.com">Julien Schueller</a><br><u>Date</u>: Mar 27, 2024
+         (01:15:42 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">CMake: Set LAPACK libs as public (#2923)</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: c26b1238df2b96563df0<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Mar 13, 2024
+         (30:14:59 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">jxl: use float for quality (#2930)</p><pre class="files_changed"> dlib/image_saver/save_jxl.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 1529b690da080f2a04d3<br><u>Author</u>: <a href="mailto:juha.reunanen@tomaattinen.com">Juha Reunanen</a><br><u>Date</u>: Mar 10, 2024
+         (20:59:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Apply the new patch from Davis (#2929)</p><pre class="files_changed"> dlib/threads/threads_kernel_1.h | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: d5909ed9773f89f78203<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Mar 06, 2024
+         (19:17:36 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">allow reading and writing rgb-alpha images in Python (#2925)</p><pre class="files_changed"> dlib/python/numpy_image.h          |  1 +
+ tools/python/src/numpy_returns.cpp | 11 +++++++++++
+ 2 files changed, 12 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: d45f534d684328299225<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Mar 06, 2024
+         (19:15:10 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add missing magic number for JPEG XL (#2924)</p><pre class="files_changed"> dlib/image_loader/load_image.h | 5 +++--
+ dlib/image_saver/save_jxl.cpp  | 5 -----
+ 2 files changed, 3 insertions(+), 7 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 9a30c6d48f6b4455ccba<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Mar 04, 2024
+         (30:56:31 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add JXL support (#2917)</p><pre class="files_changed"> dlib/CMakeLists.txt                              |  26 ++-
+ dlib/cmake_utils/find_libjxl.cmake               |  50 +++++
+ dlib/cmake_utils/test_for_libjxl/CMakeLists.txt  |   7 +
+ dlib/cmake_utils/test_for_libjxl/libjxl_test.cpp |  20 ++
+ dlib/config.h.in                                 |   3 +-
+ dlib/image_io.h                                  |   1 +
+ dlib/image_loader/jxl_loader.cpp                 | 180 ++++++++++++++++++
+ dlib/image_loader/jxl_loader.h                   | 138 ++++++++++++++
+ dlib/image_loader/jxl_loader_abstract.h          | 223 +++++++++++++++++++++++
+ dlib/image_loader/load_image.h                   |  56 +++++-
+ dlib/image_saver/save_jxl.cpp                    | 167 +++++++++++++++++
+ dlib/image_saver/save_jxl.h                      | 119 ++++++++++++
+ dlib/image_saver/save_jxl_abstract.h             |  55 ++++++
+ dlib/image_saver/save_webp.h                     |   2 +-
+ tools/imglab/src/cluster.cpp                     |  11 +-
+ tools/imglab/src/common.cpp                      |  12 ++
+ tools/imglab/src/common.h                        |   3 +
+ tools/imglab/src/flip_dataset.cpp                |   8 +
+ tools/imglab/src/main.cpp                        |  62 ++++++-
+ tools/python/src/numpy_returns.cpp               |  36 +++-
+ 20 files changed, 1156 insertions(+), 23 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: c7ba757bc1271575bdb2<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Mar 04, 2024
+         (30:30:18 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">add nr and nc methods to jpeg, png and webp loaders (#2920)</p><pre class="files_changed"> dlib/image_loader/jpeg_loader.cpp        | 15 +++++++++++++++
+ dlib/image_loader/jpeg_loader.h          |  2 ++
+ dlib/image_loader/jpeg_loader_abstract.h | 16 ++++++++++++++++
+ dlib/image_loader/png_loader.cpp         |  4 +++-
+ dlib/image_loader/png_loader.h           |  4 +++-
+ dlib/image_loader/png_loader_abstract.h  | 18 +++++++++++++++++-
+ dlib/image_loader/webp_loader.cpp        |  5 +++++
+ dlib/image_loader/webp_loader.h          |  3 +++
+ dlib/image_loader/webp_loader_abstract.h | 16 ++++++++++++++++
+ 9 files changed, 80 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 405536051b4c4c897b0d<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Mar 04, 2024
+         (12:29:17 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Use STD in testing suite (#2922)</p><pre class="files_changed"> dlib/test/main.cpp   | 10 ++++------
+ dlib/test/tester.cpp | 25 +++++++++----------------
+ dlib/test/tester.h   |  6 +++---
+ 3 files changed, 16 insertions(+), 25 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 3d3bd7cee1bc0ce4c35d<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 29, 2024
+         (18:44:24 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix documentation of inv_color_transform (#2918)</p><pre class="files_changed"> dlib/image_transforms/random_color_transform_abstract.h | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: f775b55cd9932b906aea<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 21, 2024
+         (29:44:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add color transform and inv color transform (#2914)</p><pre class="files_changed"> dlib/image_transforms/random_color_transform.h     | 111 +++++++++++++++-----
+ .../random_color_transform_abstract.h              | 113 +++++++++++++++++----
+ 2 files changed, 183 insertions(+), 41 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 631c47c7fd8435df0a48<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 05, 2024
+         (31:07:16 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix letterbox_image in yolo example (#2911)</p><pre class="files_changed"> examples/dnn_yolo_train_ex.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 85aa29a4e88e2a0963c4<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jan 29, 2024
+         (09:04:12 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Return shortcut in disturb_colors (#2909)</p><pre class="files_changed"> dlib/image_transforms/random_color_transform.h | 3 +++
+ 1 file changed, 3 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: b0f6be80587b94585949<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jan 09, 2024
+         (20:59:09 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">loss_barlow_twins: add get_eccm member function (#2906)</p><pre class="files_changed"> dlib/dnn/loss.h                              |  3 +++
+ dlib/dnn/loss_abstract.h                     | 14 +++++++++++
+ examples/dnn_self_supervised_learning_ex.cpp | 37 +++-------------------------
+ 3 files changed, 21 insertions(+), 33 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 19a952c3a4d983b456d4<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Dec 08, 2023
+         (21:22:05 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">extend letterbox behavior (#2899)</p><pre class="files_changed"> dlib/image_transforms/interpolation.h          | 34 +++++++------------
+ dlib/image_transforms/interpolation_abstract.h | 45 +++-----------------------
+ dlib/test/image.cpp                            |  4 +--
+ examples/dnn_yolo_train_ex.cpp                 | 15 +++++----
+ 4 files changed, 26 insertions(+), 72 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: b20e97446b3e8cbb034d<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Nov 13, 2023
+         (19:10:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add find_convex_hull using Graham scan (#2889)</p><pre class="files_changed"> dlib/geometry/vector.h          | 66 +++++++++++++++++++++++++++++++++++++++++
+ dlib/geometry/vector_abstract.h | 16 ++++++++++
+ dlib/test/geometry.cpp          | 23 ++++++++++++++
+ 3 files changed, 105 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 106c5a265daf81e2a407<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Oct 11, 2023
+         (24:54:34 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[PNG] save_png() now works with std::vector and std::ostream (#2873)</p><pre class="files_changed"> dlib/image_loader/png_loader.cpp        | 333 +++++++++-----------------------
+ dlib/image_loader/png_loader.h          | 253 ++++++++++--------------
+ dlib/image_loader/png_loader_abstract.h |  38 ++--
+ dlib/image_saver/save_png.cpp           |  53 +++--
+ dlib/image_saver/save_png.h             | 231 ++++++++++++++--------
+ dlib/image_saver/save_png_abstract.h    |  64 ++++++
+ dlib/test/image.cpp                     | 118 ++++++++++-
+ 7 files changed, 577 insertions(+), 513 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 3624bf9f058f7531b86c<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Oct 07, 2023
+         (04:57:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[scope] Adding scope_exit (#2875)</p><pre class="files_changed"> dlib/scope.h             |  89 ++++++++++++++++++++++++
+ dlib/test/CMakeLists.txt |   1 +
+ dlib/test/scope.cpp      | 171 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 261 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: afede571cb34df4a3938<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Sep 30, 2023
+         (13:11:13 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">potential fix for gcc 5.1 onward (#2870)</p><pre class="files_changed"> dlib/functional.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 57b77a0e416360fe08b3<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Sep 24, 2023
+         (11:05:33 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix incorrect assert and typo in docs</p><pre class="files_changed"> dlib/matrix/matrix_fft.h          | 2 +-
+ dlib/matrix/matrix_fft_abstract.h | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: b74a6710d1137cc2d4cc<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Sep 20, 2023
+         (13:07:36 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">simplify and fix bug (#2866)</p><pre class="files_changed"> examples/ffmpeg_webcam_face_pose_ex.cpp | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: dad29bfae71d6cdd8397<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Sep 19, 2023
+         (14:12:02 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Apple Clang complains about sprintf. Use snprintf instead. (#2862)</p><pre class="files_changed"> dlib/gui_core/gui_core_kernel_2.cpp |  4 ++--
+ dlib/gui_widgets/nativefont.h       | 11 +++++------
+ dlib/http_client/http_client.cpp    |  4 ++--
+ 3 files changed, 9 insertions(+), 10 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: c53ff25952845837560c<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Sep 19, 2023
+         (14:09:55 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">bug fix when multiple streams are present (#2863)</p><pre class="files_changed"> dlib/media/ffmpeg_demuxer.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 4161cc30173f7911882f<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Sep 17, 2023
+         (17:34:25 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">oops, fix build error</p><pre class="files_changed"> dlib/any/storage.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 1ffab7c210afd6c2deb5<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Sep 17, 2023
+         (17:26:29 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">update docs and some cleanup</p><pre class="files_changed"> dlib/any/storage.h                            |  11 ++
+ dlib/geometry/polygon.h                       |   2 +-
+ dlib/geometry/polygon_abstract.h              |  16 +-
+ dlib/gui_widgets/canvas_drawing.h             |   2 +-
+ dlib/image_processing/generic_image.h         |  41 +++--
+ dlib/image_transforms/draw.h                  |   2 +-
+ dlib/image_transforms/draw_abstract.h         |  16 +-
+ dlib/optional.h                               |  21 ++-
+ dlib/pixel.h                                  |  19 +--
+ dlib/test/geometry.cpp                        |   2 +-
+ dlib/type_safe_union/type_safe_union_kernel.h |   2 +-
+ dlib/type_traits.h                            | 225 ++++++++++++++++++++++----
+ dlib/unicode/unicode_abstract.h               |   9 ++
+ 13 files changed, 285 insertions(+), 83 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: b4acae25a284f056bd2c<br><u>Author</u>: <a href="mailto:paterno@fnal.gov">Marc Paterno</a><br><u>Date</u>: Sep 12, 2023
+         (02:30:58 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Apply archiver flags only on Apple using Apple compilers (#2854)</p><pre class="files_changed"> dlib/CMakeLists.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: f6c58c2d21a49d84967e<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis E. King</a><br><u>Date</u>: Aug 26, 2023
+         (15:55:59 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make type safe union docs more clear regarding exceptions.</p><pre class="files_changed"> dlib/type_safe_union/type_safe_union_kernel_abstract.h | 4 ++++
+ 1 file changed, 4 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: c6c865ba71fb41ff71f6<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 06, 2023
+         (05:33:09 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make test threshold a little more robust.  1e-6 was right on the edge and sometimes failed.</p><pre class="files_changed"> dlib/test/dnn.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: be2fa7f93c7216f9220a<br><u>Author</u>: <a href="mailto:facug91@users.noreply.github.com">Facundo Galán</a><br><u>Date</u>: Aug 05, 2023
+         (10:38:29 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add fuse layers for conv+affine+relu and conv+relu (#2842)</p><pre class="files_changed"> dlib/cuda/cpu_dlib.cpp       |  8 +++-
+ dlib/cuda/cpu_dlib.h         |  6 ++-
+ dlib/cuda/cudnn_dlibapi.cpp  | 13 ++++---
+ dlib/cuda/cudnn_dlibapi.h    |  6 ++-
+ dlib/cuda/tensor_tools.h     | 12 ++++--
+ dlib/dnn/layers.h            | 91 ++++++++++++++++++++++++++++++++++++--------
+ dlib/dnn/layers_abstract.h   | 47 +++++++++++++++--------
+ dlib/dnn/visitors.h          | 38 +++++++++++++++++-
+ dlib/dnn/visitors_abstract.h | 21 ++++++++++
+ 9 files changed, 195 insertions(+), 47 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: efae6428130c4295db2a<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 05, 2023
+         (08:24:42 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Work around bug in gcc 11.4.0 causing spurious compile error</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 9a9b4af6c5aee660423d<br><u>Author</u>: <a href="mailto:43705140+prashanthar2000@users.noreply.github.com">Prashanth</a><br><u>Date</u>: Aug 05, 2023
+         (13:39:56 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">updated cudnn path (#2843)</p><pre class="files_changed"> dlib/cmake_utils/test_for_cudnn/find_cudnn.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: c7b2917498aac1beebf9<br><u>Author</u>: <a href="mailto:facug91@users.noreply.github.com">Facundo Galán</a><br><u>Date</u>: Jul 27, 2023
+         (16:11:32 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Perform conv with bias for specific algo with cudnn (#2839)</p><pre class="files_changed"> dlib/cuda/cudnn_dlibapi.cpp | 15 ++++++++++++++-
+ dlib/dnn/layers.h           | 22 ++++++++++++----------
+ 2 files changed, 26 insertions(+), 11 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 3cca5df0fde2d362f26b<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 21, 2023
+         (04:19:09 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add sig_traits back since the matlab wrapper depedned on it.</p><pre class="files_changed"> dlib/matlab/mex_wrapper.cpp |   2 +-
+ dlib/matlab/sig_traits.h    | 761 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 762 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 3f9c5c1cfdd9c861be1e<br><u>Author</u>: <a href="mailto:facug91@users.noreply.github.com">Facundo Galán</a><br><u>Date</u>: Jul 17, 2023
+         (05:53:32 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix convolution backward filter cache when using cudnn 7 and above (#2828)</p><pre class="files_changed"> dlib/cuda/cudnn_dlibapi.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 7736832cafe91333aaaa<br><u>Author</u>: <a href="mailto:facug91@users.noreply.github.com">Facundo Galán</a><br><u>Date</u>: Jul 16, 2023
+         (13:27:59 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Optimize pointer to matrix assignment (#2822)</p><pre class="files_changed"> dlib/matrix/matrix_mat.h | 34 ++++++++++++++++++++++++++++++++++
+ dlib/test/matrix.cpp     | 22 ++++++++++++++++++++++
+ 2 files changed, 56 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 8fc180545cc2de3bc14b<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jul 10, 2023
+         (30:25:58 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Python: Add grayscale overloads to get_face_chip (#2820)</p><pre class="files_changed"> tools/python/src/numpy_returns.cpp | 48 +++++++++++++++++++++++++++-----------
+ 1 file changed, 35 insertions(+), 13 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4e22715eb506d066470b<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jul 08, 2023
+         (15:12:56 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">dlib::optional (#2815)</p><pre class="files_changed"> dlib/optional.h          | 1017 ++++++++++++++++++++++++++++++++++++++++++++++
+ dlib/test/CMakeLists.txt |    1 +
+ dlib/test/optional.cpp   |  465 +++++++++++++++++++++
+ dlib/utility.h           |   11 +-
+ 4 files changed, 1493 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 4d2db66cc589d17d67da<br><u>Author</u>: <a href="mailto:schueller@phimeca.com">Julien Schueller</a><br><u>Date</u>: Jun 29, 2023
+         (16:24:07 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make cblas public (#2817)</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 18927f93e223fa2cc111<br><u>Author</u>: <a href="mailto:56817415+nullchilly@users.noreply.github.com">Null Chilly</a><br><u>Date</u>: Jun 12, 2023
+         (14:21:05 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix typos (#2811)</p><pre class="files_changed"> examples/dnn_dcgan_train_ex.cpp         | 2 +-
+ examples/dnn_semantic_segmentation_ex.h | 2 +-
+ examples/ffmpeg_rtsp_ex.cpp             | 2 +-
+ examples/ffmpeg_screen_grab_ex.cpp      | 2 +-
+ examples/optimization_ex.cpp            | 2 +-
+ examples/sockstreambuf_ex.cpp           | 2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 759170d3d6cae1607290<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jun 02, 2023
+         (19:52:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix pixel saturation in interpolate_quadratic (#2806)</p><pre class="files_changed"> dlib/image_transforms/interpolation.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: eccb9675ffae443336cf<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 24, 2023
+         (13:46:30 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[FFmpeg] added save_frame() and improved picking of codecs when not specified (#2800)</p><pre class="files_changed"> dlib/media/ffmpeg_demuxer.h            |   2 +-
+ dlib/media/ffmpeg_details.h            |  41 ++++++++++
+ dlib/media/ffmpeg_muxer.h              | 137 +++++++++++++++++++++++++--------
+ dlib/test/ffmpeg.cpp                   |  46 +++++++++++
+ examples/ffmpeg_file_to_speaker_ex.cpp |   4 +-
+ 5 files changed, 195 insertions(+), 35 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: b86871241b3b9685063a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: May 19, 2023
+         (21:02:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Remove unneeded using namespace std (#2799)</p><pre class="files_changed"> dlib/media/ffmpeg_demuxer.h | 3 ---
+ dlib/media/ffmpeg_muxer.h   | 4 ----
+ 2 files changed, 7 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 5b9ab23cc04bbb07b64f<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 18, 2023
+         (14:11:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[FFmpeg] added push(image_type) methods to encoder and muxer (#2797)</p><pre class="files_changed"> dlib/media/ffmpeg_muxer.h | 79 +++++++++++++++++++++++++++++++++++++++++++
+ dlib/test/ffmpeg.cpp      | 86 +++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 163 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: dab9aa1fa5ae245c2f8b<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 18, 2023
+         (14:03:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">missing include (#2798)</p><pre class="files_changed"> dlib/type_traits.h | 1 +
+ 1 file changed, 1 insertion(+)</pre><hr class="fullhr"><u>Revision</u>: b6418e349e3f8073310a<br><u>Author</u>: <a href="mailto:juha.reunanen@tomaattinen.com">Juha Reunanen</a><br><u>Date</u>: May 16, 2023
+         (18:03:58 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Problem: CUDA error having `code: 716, reason: misaligned address` (#2796)</p><pre class="files_changed"> dlib/cuda/cuda_dlib.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: decdef12f5145b244088<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 16, 2023
+         (03:24:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[FFmpeg] decoding and demuxing improvements (#2784)</p><pre class="files_changed"> dlib/media/ffmpeg_demuxer.h                        | 805 ++++++++++-------
+ dlib/media/ffmpeg_details.h                        |  24 +-
+ dlib/media/ffmpeg_muxer.h                          | 265 +++---
+ dlib/media/ffmpeg_utils.h                          | 287 +++---
+ dlib/test/ffmpeg.cpp                               | 980 +++++++++++++--------
+ .../test/ffmpeg_data/MOT20-05-raw_even_shorter.mp4 | Bin 0 -&gt; 518817 bytes
+ dlib/test/ffmpeg_data/MOT20-05-raw_shorter.mp4     | Bin 2752263 -&gt; 0 bytes
+ dlib/test/ffmpeg_data/MOT20-08-raw.h264            | Bin 2582995 -&gt; 0 bytes
+ dlib/test/ffmpeg_data/MOT20-08-raw_shorter.h264    | Bin 0 -&gt; 452582 bytes
+ dlib/test/ffmpeg_data/details.cfg                  |  36 +-
+ dlib/test/ffmpeg_data/dog.jpg                      | Bin 0 -&gt; 163759 bytes
+ dlib/test/ffmpeg_data/eagle.jpg                    | Bin 0 -&gt; 141886 bytes
+ dlib/test/ffmpeg_data/giraffe.jpg                  | Bin 0 -&gt; 382965 bytes
+ dlib/test/ffmpeg_data/horses.jpg                   | Bin 0 -&gt; 133495 bytes
+ dlib/test/ffmpeg_data/scream.jpg                   | Bin 0 -&gt; 174515 bytes
+ examples/CMakeLists.txt                            |   2 +
+ examples/ffmpeg_microphone_to_file_ex.cpp          |   4 +-
+ examples/ffmpeg_rtsp_ex.cpp                        |  18 +-
+ examples/ffmpeg_video_decoding2_ex.cpp             |  99 +++
+ examples/ffmpeg_video_decoding_ex.cpp              |  38 +-
+ examples/ffmpeg_video_demuxing2_ex.cpp             |  84 ++
+ examples/ffmpeg_video_demuxing_ex.cpp              | 153 +---
+ examples/ffmpeg_video_encoding_ex.cpp              |  50 +-
+ examples/ffmpeg_video_muxing_ex.cpp                |  24 +-
+ examples/ffmpeg_webcam_face_pose_ex.cpp            |  13 +-
+ 25 files changed, 1728 insertions(+), 1154 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: adf8a3573ef241319f00<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 14, 2023
+         (05:11:31 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">put patch level back to 99</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 39749fba5163d4e25030<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 14, 2023
+         (05:06:12 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">tag v19.24.2</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: e2a0c3dfca5a6ea185a3<br><u>Author</u>: <a href="mailto:craftit@gmail.com">Charles Galambos</a><br><u>Date</u>: May 09, 2023
+         (16:39:05 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">std::chrono::system_time on osx isn't in nanoseconds (#2795)</p><pre class="files_changed"> dlib/dnn/utilities.h        | 2 +-
+ dlib/media/ffmpeg_demuxer.h | 2 +-
+ dlib/media/ffmpeg_utils.h   | 8 ++++----
+ 3 files changed, 6 insertions(+), 6 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 775ac0799ffb55b1405c<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 09, 2023
+         (04:39:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">- moved is_detected in type_traits.h (#2794)</p><pre class="files_changed"> dlib/constexpr_if.h  |  15 +-------
+ dlib/test/invoke.cpp |  13 +++++++
+ dlib/type_traits.h   | 100 ++++++++++++++++++++++++++++++++++++---------------
+ 3 files changed, 85 insertions(+), 43 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 191d280d64221fc5baaa<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 07, 2023
+         (01:53:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[Meta] added callable traits (#2790)</p><pre class="files_changed"> dlib/constexpr_if.h                           |  10 --
+ dlib/test/invoke.cpp                          | 144 ++++++++++++++++++++++++++
+ dlib/type_safe_union/type_safe_union_kernel.h |  14 +--
+ dlib/type_traits.h                            | 138 +++++++++++++++++++++---
+ 4 files changed, 269 insertions(+), 37 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: ff331517b9f9ee309355<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: May 06, 2023
+         (17:43:10 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">[FFT] split FFT API into different layers (#2793)</p><pre class="files_changed"> dlib/CMakeLists.txt               |   1 +
+ dlib/fft/fft.cpp                  |  49 ++++++++++++++++
+ dlib/fft/fft.h                    | 102 ++++++++++++++++++++++++++++++++
+ dlib/{matrix =&gt; fft}/fft_size.h   |   0
+ dlib/fft/fft_stl.h                |  54 +++++++++++++++++
+ dlib/{matrix =&gt; fft}/kiss_fft.h   |   0
+ dlib/{matrix =&gt; fft}/mkl_fft.h    |   0
+ dlib/matrix/matrix_fft.h          | 118 ++++----------------------------------
+ dlib/matrix/matrix_fft_abstract.h |  63 --------------------
+ 9 files changed, 216 insertions(+), 171 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 48fdace2713619fca57e<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 22, 2023
+         (31:19:58 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Use dpoint instead of dlib::vector&amp;lt;double, 2&amp;gt; (#2782)</p><pre class="files_changed"> dlib/image_transforms/interpolation.h | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 74a55fb5c9e91b515677<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 22, 2023
+         (13:51:42 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFMPEG : inline docs (#2778)</p><pre class="files_changed"> dlib/media/ffmpeg_abstract.h | 1671 ------------------------------------------
+ dlib/media/ffmpeg_demuxer.h  | 1120 +++++++++++++++++++---------
+ dlib/media/ffmpeg_details.h  |  487 ++++++++++++
+ dlib/media/ffmpeg_muxer.h    |  553 ++++++++++++--
+ dlib/media/ffmpeg_utils.h    | 1066 ++++++++++++---------------
+ dlib/media/sink.h            |   16 +
+ 6 files changed, 2223 insertions(+), 2690 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: edc66451506fbb795dd2<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 22, 2023
+         (21:55:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add insert_image_chip (#2781)</p><pre class="files_changed"> dlib/image_transforms/interpolation.h          | 44 ++++++++++++++++++++++++++
+ dlib/image_transforms/interpolation_abstract.h | 44 ++++++++++++++++++++++++++
+ tools/python/src/image2.cpp                    | 43 +++++++++++++++++++++++++
+ 3 files changed, 131 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: d41571ea5a55dcef2134<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 22, 2023
+         (05:37:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">10X speedup (#2779)</p><pre class="files_changed"> dlib/sliding_buffer/circular_buffer.h | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 49ac2eb3ae1105993c5a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 22, 2023
+         (21:36:02 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add draw solid polygon (#2775)</p><pre class="files_changed"> dlib/geometry/polygon.h               |   5 ++
+ dlib/image_transforms/draw.h          | 141 +++++++++++++++++++++++-----------
+ dlib/image_transforms/draw_abstract.h |  30 +++++++-
+ 3 files changed, 129 insertions(+), 47 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 53c4be90269b607a225e<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 19, 2023
+         (14:32:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFmpeg : logging (#2774)</p><pre class="files_changed"> dlib/media/ffmpeg_abstract.h          |  16 ++++
+ dlib/media/ffmpeg_demuxer.h           |  65 +++++++--------
+ dlib/media/ffmpeg_muxer.h             |  90 ++++++++++-----------
+ dlib/media/ffmpeg_utils.h             | 147 ++++++++++++++++++++++------------
+ examples/ffmpeg_video_demuxing_ex.cpp |  20 ++++-
+ 5 files changed, 200 insertions(+), 138 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 5f7026ab52a1761a7d18<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 15, 2023
+         (15:28:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFmpeg : improvements to ffmpeg::list() functions  (#2773)</p><pre class="files_changed"> dlib/media/ffmpeg_abstract.h |  58 ++++---
+ dlib/media/ffmpeg_muxer.h    |   4 +-
+ dlib/media/ffmpeg_utils.h    | 375 +++++++++++++++++++++++++------------------
+ examples/ffmpeg_info_ex.cpp  |  20 ++-
+ 4 files changed, 269 insertions(+), 188 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: b1fe026e0610aa0e154c<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 14, 2023
+         (30:18:25 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add ffmpeg load_frame (#2770)</p><pre class="files_changed"> dlib/media/ffmpeg_abstract.h | 16 ++++++++++++++++
+ dlib/media/ffmpeg_demuxer.h  | 13 +++++++++++++
+ dlib/media/ffmpeg_utils.h    | 20 ++++++++++----------
+ 3 files changed, 39 insertions(+), 10 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: c21c9c92b52e689a47a1<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 13, 2023
+         (30:48:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Update widgets and draw_string on images to use convert_to_utf32 (#2769)</p><pre class="files_changed"> dlib/gui_widgets/widgets.cpp         | 16 ++++++------
+ dlib/image_transforms/draw.h         | 47 ++++++++++++++++++++++++------------
+ tools/imglab/src/metadata_editor.cpp |  2 +-
+ 3 files changed, 41 insertions(+), 24 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 07f7425170a6938740e9<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 13, 2023
+         (21:08:00 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Unify all conversions to UTF-32 (#2737)</p><pre class="files_changed"> dlib/gui_core/gui_core_kernel_1.cpp  |   2 +-
+ dlib/gui_core/gui_core_kernel_2.cpp  |   2 +-
+ dlib/gui_widgets/base_widgets.cpp    |   2 +-
+ dlib/gui_widgets/base_widgets.h      |  20 +-
+ dlib/gui_widgets/fonts.h             |  34 +-
+ dlib/gui_widgets/widgets.cpp         |  28 +-
+ dlib/gui_widgets/widgets.h           |   4 +-
+ dlib/unicode/unicode.cpp             |  93 +---
+ dlib/unicode/unicode.h               | 852 ++++++++++++++++++++++-------------
+ dlib/unicode/unicode_abstract.h      |  33 +-
+ tools/imglab/src/metadata_editor.cpp |   2 +-
+ 11 files changed, 624 insertions(+), 448 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 89fc01beb541aed48d73<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 13, 2023
+         (04:47:58 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFmpeg : examples (#2764)</p><pre class="files_changed"> dlib/media.h                              |  4 +-
+ dlib/media/ffmpeg_demuxer.h               |  6 +-
+ dlib/media/ffmpeg_utils.h                 | 16 +++++-
+ examples/CMakeLists.txt                   |  2 +
+ examples/ffmpeg_file_to_speaker_ex.cpp    | 90 ++++++++++++++++++++++++++++++
+ examples/ffmpeg_microphone_to_file_ex.cpp | 91 +++++++++++++++++++++++++++++++
+ 6 files changed, 205 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 20c6364bb51b3a4c945c<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 13, 2023
+         (20:40:54 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Silence warning about unused variable (#2765)</p><pre class="files_changed"> dlib/media/ffmpeg_utils.h | 1 +
+ 1 file changed, 1 insertion(+)</pre><hr class="fullhr"><u>Revision</u>: 252d76f3564eaf71ce1a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 13, 2023
+         (20:33:34 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix outdated comment in self supervised learning example (#2768)</p><pre class="files_changed"> examples/dnn_self_supervised_learning_ex.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 9148a47c7e94144f2dcb<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 09, 2023
+         (16:34:31 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">RTSP example (#2763)</p><pre class="files_changed"> examples/CMakeLists.txt     |   1 +
+ examples/ffmpeg_rtsp_ex.cpp | 161 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 162 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 7155daeeeac029543dbd<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 08, 2023
+         (20:45:30 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFmpeg : muxing (#2755)</p><pre class="files_changed"> dlib/media/ffmpeg_abstract.h        | 426 +++++++++++++++++++++-----
+ dlib/media/ffmpeg_demuxer.h         |   5 +-
+ dlib/media/ffmpeg_muxer.h           | 595 ++++++++++++++++++++++++++++--------
+ dlib/media/ffmpeg_utils.h           |  17 +-
+ dlib/test/ffmpeg.cpp                | 107 ++++++-
+ examples/CMakeLists.txt             |   1 +
+ examples/ffmpeg_video_muxing_ex.cpp | 117 +++++++
+ 7 files changed, 1059 insertions(+), 209 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 004b2fe6fe520316258a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 07, 2023
+         (30:08:27 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix imglab changing the current dir too soon (#2761)</p><pre class="files_changed"> tools/imglab/src/flip_dataset.cpp | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4224951c38261e806477<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Apr 05, 2023
+         (31:03:12 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add HSV support (#2758)</p><pre class="files_changed"> dlib/matrix/matrix_utilities.h |  36 +++-
+ dlib/pixel.h                   | 388 +++++++++++++++++++++++++++++++++++++++++
+ dlib/test/pixel.cpp            |  82 ++++++++-
+ 3 files changed, 503 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 937e07e90d02e50047f1<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Apr 01, 2023
+         (15:48:26 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFmpeg : encoding (#2754)</p><pre class="files_changed"> dlib/media.h                                   |   2 +
+ dlib/media/ffmpeg_abstract.h                   | 318 ++++++++++++++-
+ dlib/media/ffmpeg_demuxer.h                    |  69 ++--
+ dlib/media/ffmpeg_muxer.h                      | 543 +++++++++++++++++++++++++
+ dlib/media/ffmpeg_utils.h                      |  30 +-
+ dlib/media/sink.h                              |  47 +++
+ dlib/test/ffmpeg.cpp                           | 235 +++++++++--
+ dlib/test/ffmpeg_data/MOT20-05-raw.mp4         | Bin 13410105 -&gt; 0 bytes
+ dlib/test/ffmpeg_data/MOT20-05-raw_shorter.mp4 | Bin 0 -&gt; 2752263 bytes
+ dlib/test/ffmpeg_data/details.cfg              |   6 +-
+ dlib/type_traits.h                             |  13 +-
+ examples/CMakeLists.txt                        |   1 +
+ examples/ffmpeg_video_encoding_ex.cpp          | 127 ++++++
+ 13 files changed, 1313 insertions(+), 78 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: f586d0a552191ee1eec6<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Mar 30, 2023
+         (04:12:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFMPEG : misc + ffmpeg5 support (#2746)</p><pre class="files_changed"> dlib/CMakeLists.txt                     |   9 +-
+ dlib/media/ffmpeg_abstract.h            | 102 +++++++--
+ dlib/media/ffmpeg_demuxer.h             | 274 +++++++++++-----------
+ dlib/media/ffmpeg_utils.h               | 387 +++++++++++++++++++++++++++-----
+ dlib/test/ffmpeg.cpp                    |   6 +-
+ examples/ffmpeg_info_ex.cpp             |  52 +++--
+ examples/ffmpeg_webcam_face_pose_ex.cpp |   8 +-
+ 7 files changed, 597 insertions(+), 241 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4ffa9b02a5ca17aabe16<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Mar 27, 2023
+         (19:05:43 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add simple polygon class (#2750)</p><pre class="files_changed"> dlib/geometry.h                       |   1 +
+ dlib/geometry/polygon.h               |  92 ++++++++++++++++++++
+ dlib/geometry/polygon_abstract.h      | 108 +++++++++++++++++++++++
+ dlib/gui_widgets/canvas_drawing.h     |  84 +-----------------
+ dlib/image_transforms/draw.h          | 156 +++++++++++++++++++++++++++++++++-
+ dlib/image_transforms/draw_abstract.h |  29 +++++++
+ dlib/test/geometry.cpp                |  34 ++++++++
+ 7 files changed, 422 insertions(+), 82 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 049c59d0f672d178ce02<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 25, 2023
+         (11:56:54 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">set correct cmake version in check</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 2 +-
+ examples/CMakeLists.txt  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 91dcb04055cd698c85ad<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 23, 2023
+         (19:44:23 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix ffmpeg cmake scripts not working with cmake 3.8</p><pre class="files_changed"> dlib/CMakeLists.txt                | 2 +-
+ dlib/cmake_utils/find_ffmpeg.cmake | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4d5db9940f1642ca7d1a<br><u>Author</u>: <a href="mailto:asherkin@limetech.io">Erin</a><br><u>Date</u>: Mar 24, 2023
+         (01:45:30 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix crash when libX11 is missing locale support (#2747)</p><pre class="files_changed"> dlib/gui_core/gui_core_kernel_2.cpp | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 806b62903500a1aa1d45<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 23, 2023
+         (16:07:48 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make everything work in cmake 3.8</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 12 ++++++++++--
+ examples/CMakeLists.txt  |  8 ++++++--
+ 2 files changed, 16 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 15b28513189bd04eed9d<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 22, 2023
+         (18:02:30 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">improve docs</p><pre class="files_changed"> tools/python/src/image_dataset_metadata.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 3c0b3620af4dec77041f<br><u>Author</u>: <a href="mailto:cchadowitz@pixelforensics.com">cchadowitz-pf</a><br><u>Date</u>: Mar 11, 2023
+         (03:16:48 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Added bottom_up_cluster to python api (#2739)</p><pre class="files_changed"> tools/python/src/face_recognition.cpp | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 398e2cb5beb77187cf73<br><u>Author</u>: <a href="mailto:hramrach@gmail.com">Michal Suchánek</a><br><u>Date</u>: Mar 11, 2023
+         (15:16:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">powerpc/altivec: use __vector instead of vector (#2740)</p><pre class="files_changed"> dlib/simd/simd4f.h     |  6 +++---
+ dlib/simd/simd4i.h     | 14 +++++++-------
+ dlib/simd/simd_check.h |  6 +++++-
+ 3 files changed, 15 insertions(+), 11 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 257b81a17288edece7ff<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Mar 01, 2023
+         (14:09:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">update docs</p><pre class="files_changed"> dlib/image_processing/box_overlap_testing_abstract.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: ddad576d3ecc139f9eda<br><u>Author</u>: <a href="mailto:40388566+smoosbau@users.noreply.github.com">smoosbau</a><br><u>Date</u>: Mar 02, 2023
+         (02:08:26 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix wrong union calculation in box_overlap_testing.h (#2735)</p><pre class="files_changed"> dlib/image_processing/box_overlap_testing.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: eb5de0d534f637253a7b<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 24, 2023
+         (21:34:06 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add support for loading custom label fonts in imglab (#2733)</p><pre class="files_changed"> tools/imglab/src/main.cpp            |  7 +++++--
+ tools/imglab/src/metadata_editor.cpp | 23 ++++++++++++++++++++++-
+ tools/imglab/src/metadata_editor.h   |  5 ++++-
+ 3 files changed, 31 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: dc947546076a148b1760<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Feb 21, 2023
+         (01:01:13 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix for #2729 (#2731)</p><pre class="files_changed"> dlib/media/ffmpeg_utils.h             | 11 +++++++++--
+ examples/ffmpeg_video_decoding_ex.cpp |  2 +-
+ 2 files changed, 10 insertions(+), 3 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: e006bfe5e8f444d9d038<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 11, 2023
+         (21:04:22 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix typo in input_layer documentation (#2725)</p><pre class="files_changed"> dlib/dnn/core_abstract.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 73a1c2f4fc22e1050abb<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 11, 2023
+         (21:03:47 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix unused variable warning in Pybind11 (#2726)</p><pre class="files_changed"> dlib/python/numpy_image.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 1958da78da6cd571471a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 11, 2023
+         (21:03:25 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Rename ffmpeg examples (#2727)</p><pre class="files_changed"> examples/CMakeLists.txt                                           | 8 ++++----
+ examples/{ffmpeg_info.cpp =&gt; ffmpeg_info_ex.cpp}                  | 0
+ examples/{ffmpeg_screen_grab.cpp =&gt; ffmpeg_screen_grab_ex.cpp}    | 0
+ .../{ffmpeg_video_decoding.cpp =&gt; ffmpeg_video_decoding_ex.cpp}   | 0
+ .../{ffmpeg_video_demuxing.cpp =&gt; ffmpeg_video_demuxing_ex.cpp}   | 0
+ 5 files changed, 4 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4519a7a6bdf4e5fb455d<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Feb 11, 2023
+         (21:02:54 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add sum method to running stats (#2728)</p><pre class="files_changed"> dlib/statistics/statistics.h          | 32 +++++++++++++++++++-------------
+ dlib/statistics/statistics_abstract.h | 13 +++++++++++--
+ 2 files changed, 30 insertions(+), 15 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 50b33753bb60843cb1d3<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Feb 03, 2023
+         (22:43:00 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Strip binaries in release mode (#2721)</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 17 ++++++-----------
+ examples/CMakeLists.txt  |  4 +++-
+ 2 files changed, 9 insertions(+), 12 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 2138915dfe77f60886ba<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Feb 03, 2023
+         (22:38:30 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">added DLIB_USE_FFMPEG to config.h.in (#2720)</p><pre class="files_changed"> dlib/config.h.in | 1 +
+ 1 file changed, 1 insertion(+)</pre><hr class="fullhr"><u>Revision</u>: 9d3ba472dd3bb8958b15<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jan 30, 2023
+         (01:17:34 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">FFMPEG wrappers: dlib::ffmpeg::decoder and dlib::ffmpeg::demuxer (#2707)</p><pre class="files_changed"> dlib/CMakeLists.txt                         |   20 +-
+ dlib/cmake_utils/find_ffmpeg.cmake          |   27 +
+ dlib/constexpr_if.h                         |    6 +-
+ dlib/image_processing/generic_image.h       |   70 +-
+ dlib/media.h                                |   15 +
+ dlib/media/ffmpeg_abstract.h                |  963 +++++++++++++++++++++
+ dlib/media/ffmpeg_demuxer.h                 | 1016 ++++++++++++++++++++++
+ dlib/media/ffmpeg_utils.h                   | 1239 +++++++++++++++++++++++++++
+ dlib/overloaded.h                           |   19 +-
+ dlib/pixel.h                                |   27 +
+ dlib/test/CMakeLists.txt                    |    4 +
+ dlib/test/ffmpeg.cpp                        |  270 ++++++
+ dlib/test/ffmpeg_data/116-288045-0000.flac  |  Bin 0 -&gt; 200761 bytes
+ dlib/test/ffmpeg_data/116-288045-0001.m4a   |  Bin 0 -&gt; 76264 bytes
+ dlib/test/ffmpeg_data/LICENSE.TXT           |    6 +
+ dlib/test/ffmpeg_data/MOT17-13-SDP-raw.h265 |  Bin 0 -&gt; 2726926 bytes
+ dlib/test/ffmpeg_data/MOT20-05-raw.mp4      |  Bin 0 -&gt; 13410105 bytes
+ dlib/test/ffmpeg_data/MOT20-08-raw.h264     |  Bin 0 -&gt; 2582995 bytes
+ dlib/test/ffmpeg_data/details.cfg           |   62 ++
+ dlib/test/ffmpeg_data/elon-musk-smoke.gif   |  Bin 0 -&gt; 2975863 bytes
+ dlib/test/image.cpp                         |   61 ++
+ dlib/test/pixel.cpp                         |   30 +
+ dlib/type_traits.h                          |   15 +
+ examples/CMakeLists.txt                     |   11 +-
+ examples/ffmpeg_info.cpp                    |   85 ++
+ examples/ffmpeg_screen_grab.cpp             |   56 ++
+ examples/ffmpeg_video_decoding.cpp          |  116 +++
+ examples/ffmpeg_video_demuxing.cpp          |  155 ++++
+ examples/ffmpeg_webcam_face_pose_ex.cpp     |  124 +++
+ 29 files changed, 4354 insertions(+), 43 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 16a8a46a358384e4454d<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jan 29, 2023
+         (18:13:00 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fixed is_nothrow_swappable&amp;lt;&amp;gt; and simplified invoke-related type traits (#2716)</p><pre class="files_changed"> dlib/functional.h    | 29 +++++++++++++----------------
+ dlib/test/invoke.cpp | 26 ++++++++++++++++++++++++++
+ dlib/type_traits.h   | 31 +++++++++++++++++--------------
+ 3 files changed, 56 insertions(+), 30 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: b9ac46816966689970be<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jan 04, 2023
+         (12:38:36 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Added bind_front() and bind_back() (#2705)</p><pre class="files_changed"> dlib/any/any_function.h    |   2 +-
+ dlib/functional.h          | 398 +++++++++++++++++++++++++++++++++++++++++++++
+ dlib/invoke.h              | 311 +----------------------------------
+ dlib/metaprogramming.h     |   2 +-
+ dlib/test/constexpr_if.cpp |   2 +-
+ dlib/test/invoke.cpp       |  48 +++++-
+ 6 files changed, 449 insertions(+), 314 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: a12824d42584e292ecb3<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Dec 15, 2022
+         (17:15:18 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">update example to refer to newer dlib version</p><pre class="files_changed"> examples/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 2ac3cdbad752518bc392<br><u>Author</u>: <a href="mailto:schueller@phimeca.com">Julien Schueller</a><br><u>Date</u>: Dec 16, 2022
+         (05:13:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">CMake: Make dependencies private (#2697)</p><pre class="files_changed"> dlib/CMakeLists.txt | 85 +++++++++++++++++++++++++++--------------------------
+ 1 file changed, 43 insertions(+), 42 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: f932f33b1032bb5699ed<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Dec 09, 2022
+         (03:10:25 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix incorrect xml blocks for leaky_relu and smelu</p><pre class="files_changed"> dlib/dnn/layers.h | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 2efc172c4689f000267e<br><u>Author</u>: <a href="mailto:34965151+mattbn@users.noreply.github.com">mattbn</a><br><u>Date</u>: Dec 09, 2022
+         (15:08:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">removed extra '&amp;lt;' in fc, added '\n' in layers/inputs/losses XML strings (#2698)</p><pre class="files_changed"> dlib/dnn/input.h  | 16 ++++++++--------
+ dlib/dnn/layers.h |  7 +++----
+ dlib/dnn/loss.h   | 40 ++++++++++++++++++++--------------------
+ 3 files changed, 31 insertions(+), 32 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 01c7bfe880478a4234df<br><u>Author</u>: <a href="mailto:schueller@phimeca.com">Julien Schueller</a><br><u>Date</u>: Nov 28, 2022
+         (05:25:22 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix build on ppc64/mips64 (#2689)</p><pre class="files_changed"> dlib/matrix/lapack/fortran_id.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 4d38ffa0824cb9344330<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis E. King</a><br><u>Date</u>: Nov 27, 2022
+         (17:23:29 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Suppress incorrect warning from gcc (#2691)</p><pre class="files_changed"> dlib/test/CMakeLists.txt | 10 ++++++++++
+ 1 file changed, 10 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 136b2d9e5c944ce2e556<br><u>Author</u>: <a href="mailto:Kicer86@gmail.com">Michał Walenciak</a><br><u>Date</u>: Nov 12, 2022
+         (19:57:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Reset last cuda error (#2685)</p><pre class="files_changed"> dlib/cuda/cuda_utils.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: e5b2cedff8d8cd7e88ce<br><u>Author</u>: <a href="mailto:swiftscythe@gmail.com">Adria Arrufat</a><br><u>Date</u>: Nov 10, 2022
+         (21:07:00 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Improve the data augmentation in the SSL example (#2684)</p><pre class="files_changed"> examples/dnn_self_supervised_learning_ex.cpp | 57 +++++++---------------------
+ 1 file changed, 13 insertions(+), 44 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 3d5fb6fc7f614d4734bf<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Nov 08, 2022
+         (16:50:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add an informative comment</p><pre class="files_changed"> tools/python/src/dlib.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: bdb1089ae64c17f1f02f<br><u>Author</u>: <a href="mailto:swiftscythe@gmail.com">Adria Arrufat</a><br><u>Date</u>: Nov 02, 2022
+         (29:55:58 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix computation of the Barlow Twins loss gradient (#2680)</p><pre class="files_changed"> dlib/dnn/loss.h                              | 10 +++++-----
+ examples/dnn_self_supervised_learning_ex.cpp | 26 ++++++++++++++------------
+ 2 files changed, 19 insertions(+), 17 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 7f06f6e1851779383ce7<br><u>Author</u>: <a href="mailto:swiftscythe@gmail.com">Adria Arrufat</a><br><u>Date</u>: Nov 01, 2022
+         (17:52:24 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix empirical cross-correlation computation in the SSL example (#2679)</p><pre class="files_changed"> examples/dnn_self_supervised_learning_ex.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 1bebccfb8728f6112d61<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Oct 09, 2022
+         (03:36:54 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Type erasure tooling (#2666)</p><pre class="files_changed"> dlib/any/any.h                            | 176 +-----
+ dlib/any/any_abstract.h                   |  19 +-
+ dlib/any/any_decision_function.h          | 194 +-----
+ dlib/any/any_decision_function_abstract.h | 206 +------
+ dlib/any/any_function.h                   | 945 +++--------------------------
+ dlib/any/any_function_abstract.h          | 138 ++---
+ dlib/any/any_function_impl.h              | 516 ----------------
+ dlib/any/any_function_impl2.h             |  44 --
+ dlib/any/any_trainer.h                    | 204 ++-----
+ dlib/any/any_trainer_abstract.h           |   9 +
+ dlib/any/storage.h                        | 966 ++++++++++++++++++++++++++++++
+ dlib/invoke.h                             |  14 +-
+ dlib/test/CMakeLists.txt                  |   1 +
+ dlib/test/any.cpp                         |   5 +
+ dlib/test/te.cpp                          | 505 ++++++++++++++++
+ 15 files changed, 1751 insertions(+), 2191 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: dd1ec1fcff9479b00b23<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Sep 19, 2022
+         (14:18:39 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Miscellaneous cleanup and refresh (#2661)</p><pre class="files_changed"> dlib/algs.h                                        | 338 +++------------------
+ dlib/any/any.h                                     |  11 +-
+ dlib/any/any_decision_function.h                   |  10 +-
+ dlib/any/any_function_impl.h                       |  26 +-
+ dlib/any/any_trainer.h                             |  10 +-
+ .../bound_function_pointer_kernel_1.h              |  20 +-
+ dlib/bridge/bridge.h                               |   4 +-
+ dlib/constexpr_if.h                                |   8 +-
+ dlib/dnn/core.h                                    | 258 +++++++---------
+ dlib/global_optimization/find_max_global.h         |  10 +-
+ dlib/metaprogramming.h                             |  44 +--
+ dlib/overloaded.h                                  |   2 +-
+ dlib/serialize.h                                   |  94 ++----
+ dlib/threads/thread_pool_extension.h               |  20 +-
+ dlib/type_safe_union/type_safe_union_kernel.h      | 110 +++----
+ .../type_safe_union_kernel_abstract.h              |  13 +
+ dlib/type_traits.h                                 | 188 ++++++++++++
+ dlib/utility.h                                     |  76 +----
+ tools/python/src/global_optimization.cpp           |   2 +-
+ 19 files changed, 493 insertions(+), 751 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 20b6c17e7fcb32c1bcdb<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Sep 11, 2022
+         (12:42:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix typo in docs</p><pre class="files_changed"> dlib/type_safe_union/type_safe_union_kernel_abstract.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 90a8be6400fce56f739f<br><u>Author</u>: <a href="mailto:102013500+kxc-waddlaw@users.noreply.github.com">kxc-waddlaw</a><br><u>Date</u>: Sep 10, 2022
+         (17:39:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">add missing palette_neon_intrinsics.c file (#2664)</p><pre class="files_changed"> dlib/CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)</pre><hr class="fullhr"><u>Revision</u>: 19507d4a00a87af05c32<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Sep 10, 2022
+         (17:31:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Modernize random_color_transform (#2665)</p><pre class="files_changed"> dlib/image_transforms/random_color_transform.h | 29 ++++++++++++--------------
+ 1 file changed, 13 insertions(+), 16 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: e50987df4dd7160c237c<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Sep 06, 2022
+         (14:00:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix visitor when tag layer is followed by skip layer (#2662)</p><pre class="files_changed"> dlib/dnn/visitors.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 65bce59a1512cf222dec<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Sep 06, 2022
+         (13:59:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Update Pybind11 to v2.10.0 (#2660)</p><pre class="files_changed"> dlib/external/pybind11/CMakeLists.txt              |  376 ++-
+ dlib/external/pybind11/CONTRIBUTING.md             |   47 -
+ dlib/external/pybind11/LICENSE                     |    2 +-
+ dlib/external/pybind11/README.md                   |  129 -
+ dlib/external/pybind11/README.rst                  |  180 ++
+ dlib/external/pybind11/include/pybind11/attr.h     |  397 ++-
+ .../pybind11/include/pybind11/buffer_info.h        |  175 +-
+ dlib/external/pybind11/include/pybind11/cast.h     | 2200 +++++++---------
+ dlib/external/pybind11/include/pybind11/chrono.h   |  187 +-
+ dlib/external/pybind11/include/pybind11/complex.h  |   43 +-
+ .../pybind11/include/pybind11/detail/class.h       |  406 +--
+ .../pybind11/include/pybind11/detail/common.h      | 1090 +++++---
+ .../pybind11/include/pybind11/detail/descr.h       |  267 +-
+ .../pybind11/include/pybind11/detail/init.h        |  301 ++-
+ .../pybind11/include/pybind11/detail/internals.h   |  473 +++-
+ .../include/pybind11/detail/type_caster_base.h     | 1010 ++++++++
+ .../pybind11/include/pybind11/detail/typeid.h      |   38 +-
+ dlib/external/pybind11/include/pybind11/eigen.h    |  568 +++--
+ dlib/external/pybind11/include/pybind11/embed.h    |  193 +-
+ dlib/external/pybind11/include/pybind11/eval.h     |  129 +-
+ .../pybind11/include/pybind11/functional.h         |  101 +-
+ dlib/external/pybind11/include/pybind11/gil.h      |  202 ++
+ dlib/external/pybind11/include/pybind11/iostream.h |  157 +-
+ dlib/external/pybind11/include/pybind11/numpy.h    | 1553 ++++++-----
+ .../external/pybind11/include/pybind11/operators.h |  259 +-
+ dlib/external/pybind11/include/pybind11/options.h  |   45 +-
+ dlib/external/pybind11/include/pybind11/pybind11.h | 2689 +++++++++++++-------
+ dlib/external/pybind11/include/pybind11/pytypes.h  | 1838 ++++++++++---
+ dlib/external/pybind11/include/pybind11/stl.h      |  301 ++-
+ .../pybind11/include/pybind11/stl/filesystem.h     |  116 +
+ dlib/external/pybind11/include/pybind11/stl_bind.h |  696 +++--
+ dlib/external/pybind11/tools/FindCatch.cmake       |   23 +-
+ dlib/external/pybind11/tools/FindEigen3.cmake      |   31 +-
+ .../pybind11/tools/FindPythonLibsNew.cmake         |  263 +-
+ dlib/external/pybind11/tools/check-style.sh        |   40 +-
+ .../pybind11/tools/cmake_uninstall.cmake.in        |   23 +
+ dlib/external/pybind11/tools/libsize.py            |   10 +-
+ dlib/external/pybind11/tools/make_changelog.py     |   63 +
+ dlib/external/pybind11/tools/mkdoc.py              |  304 ---
+ dlib/external/pybind11/tools/pybind11Common.cmake  |  385 +++
+ .../pybind11/tools/pybind11Config.cmake.in         |  305 ++-
+ .../external/pybind11/tools/pybind11NewTools.cmake |  254 ++
+ dlib/external/pybind11/tools/pybind11Tools.cmake   |  322 +--
+ dlib/external/pybind11/tools/pyproject.toml        |    3 +
+ dlib/external/pybind11/tools/setup_global.py.in    |   59 +
+ dlib/external/pybind11/tools/setup_main.py.in      |   40 +
+ dlib/python/numpy_image.h                          |   34 +-
+ tools/python/test/test_numpy_returns.py            |   25 +-
+ 48 files changed, 12155 insertions(+), 6197 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: efe46ce76abfb265fc05<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Sep 01, 2022
+         (04:52:55 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add missing include</p><pre class="files_changed"> dlib/test/constexpr_if.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 4db03ee6fd1695fbfd4c<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Sep 01, 2022
+         (14:34:32 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">if constexpr() for C++14 (#2654)</p><pre class="files_changed"> dlib/constexpr_if.h                                | 138 ++++++++++++++
+ dlib/overloaded.h                                  | 115 ++++++++++++
+ dlib/test/CMakeLists.txt                           |   1 +
+ dlib/test/constexpr_if.cpp                         | 206 +++++++++++++++++++++
+ dlib/type_safe_union/type_safe_union_kernel.h      |  49 +----
+ .../type_safe_union_kernel_abstract.h              |  62 -------
+ dlib/utility.h                                     |  74 +++-----
+ 7 files changed, 493 insertions(+), 152 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 902c70193af57f72ef08<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Sep 01, 2022
+         (29:39:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Do the bias addition in the convolution in a separate call (#2656)</p><pre class="files_changed"> dlib/dnn/layers.h | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: da2f45b2e523e4b63cbd<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Aug 29, 2022
+         (32:55:36 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add test for libwebp at configure time (#2658)</p><pre class="files_changed"> dlib/cmake_utils/find_libwebp.cmake                | 34 +++++++++++++++++-----
+ dlib/cmake_utils/test_for_libwebp/CMakeLists.txt   |  7 +++++
+ dlib/cmake_utils/test_for_libwebp/libwebp_test.cpp | 22 ++++++++++++++
+ dlib/image_loader/webp_loader.cpp                  |  3 --
+ 4 files changed, 55 insertions(+), 11 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 9b8f5d88f845cc0d9611<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Aug 26, 2022
+         (19:35:24 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Small YOLO loss improvements (#2653)</p><pre class="files_changed"> dlib/dnn/loss.h | 118 ++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 59 insertions(+), 59 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: bf273a8c2ee901733a08<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Aug 18, 2022
+         (17:29:04 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Add multiclass SVM trainer to svm/auto.h (#2642)</p><pre class="files_changed"> dlib/svm/auto.cpp                            | 107 +++++++++++++++++++++--
+ dlib/svm/auto.h                              |  20 +++++
+ dlib/svm/auto_abstract.h                     |  47 +++++++++-
+ dlib/svm/svm_multiclass_linear_trainer.h     |   1 +
+ examples/dnn_self_supervised_learning_ex.cpp | 124 ++++++++++-----------------
+ 5 files changed, 213 insertions(+), 86 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 83ec371f127dc643fcef<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Aug 14, 2022
+         (30:27:49 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Use only a fraction of labels for the multiclass SVM in SSL example (#2641)</p><pre class="files_changed"> examples/dnn_self_supervised_learning_ex.cpp | 45 ++++++++++++++++++++++++----
+ 1 file changed, 39 insertions(+), 6 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: a5fb8940be29bc4e532b<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Aug 09, 2022
+         (24:38:53 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">- possible for fix for MSVC (#2637)</p><pre class="files_changed"> dlib/math/bessel.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: e2f53a52e974515a67e4<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Aug 09, 2022
+         (15:00:06 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">stft(), istft(), stftr() and istftr() (#2627)</p><pre class="files_changed"> dlib/math.h                       |    9 +
+ dlib/math/bessel.h                |   37 ++
+ dlib/math/details/bessel.h        |  104 ++++
+ dlib/math/windows.h               |  209 +++++++
+ dlib/matrix/matrix_fft.h          |  249 ++++++++
+ dlib/matrix/matrix_fft_abstract.h |  165 ++++++
+ dlib/numeric_constants.h          |   38 +-
+ dlib/test/CMakeLists.txt          |    1 +
+ dlib/test/fft.cpp                 |  150 ++++-
+ dlib/test/math.cpp                |  381 ++++++++++++
+ dlib/test/stft_good_data.h        | 1164 +++++++++++++++++++++++++++++++++++++
+ 11 files changed, 2492 insertions(+), 15 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: e2fa5f1e3a69d67b836a<br><u>Author</u>: <a href="mailto:MiMohamud012@gmail.com">Mohamed Isse</a><br><u>Date</u>: Aug 04, 2022
+         (13:26:16 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix Cudnn test project bug (#2634)</p><pre class="files_changed"> dlib/cuda/cudnn_dlibapi.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 69665eb0f70baf92157c<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Aug 05, 2022
+         (16:36:12 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Modernize rounding and cast statements (#2633)</p><pre class="files_changed"> dlib/bigint/bigint_kernel_2.cpp              |  4 ++--
+ dlib/geometry/drectangle.h                   |  8 ++++----
+ dlib/geometry/rectangle.h                    | 12 ++++++------
+ dlib/gui_widgets/canvas_drawing.h            | 24 ++++++++++++------------
+ dlib/image_keypoint/hessian_pyramid.h        |  4 ++--
+ dlib/image_keypoint/surf.h                   |  4 ++--
+ dlib/image_transforms/draw.h                 |  8 ++++----
+ dlib/image_transforms/fhog.h                 | 14 +++++++-------
+ dlib/image_transforms/image_pyramid.h        |  4 ++--
+ dlib/image_transforms/interpolation.h        |  2 +-
+ dlib/matrix/matrix_math_functions.h          |  4 ++--
+ dlib/test/CMakeLists.txt                     | 15 ++++++++-------
+ dlib/test/fhog.cpp                           | 18 +++++++++---------
+ examples/dnn_self_supervised_learning_ex.cpp |  2 +-
+ 14 files changed, 62 insertions(+), 61 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 89d573645b21866e60ce<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 01, 2022
+         (04:27:15 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Only try to find iomp if we have really found the IntelMKL</p><pre class="files_changed"> dlib/cmake_utils/find_blas.cmake | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4867898c595c1bda9fd8<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Aug 01, 2022
+         (03:56:06 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make parallel_for_verbose() only print finish statement if it also printed something before then.</p><pre class="files_changed"> dlib/threads/parallel_for_extension.h | 15 +++------------
+ 1 file changed, 3 insertions(+), 12 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 29288e5d895b21f5508c<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 31, 2022
+         (13:45:18 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make C++14 and CMake 3.8.0 the new minimum required versions</p><pre class="files_changed"> dlib/CMakeLists.txt                                |  26 ++---
+ dlib/cmake                                         |   2 +-
+ dlib/cmake_utils/add_global_compiler_switch.cmake  |  35 -------
+ ...ck_if_avx_instructions_executable_on_host.cmake |   2 +-
+ dlib/cmake_utils/check_if_neon_available.cmake     |   2 +-
+ ...k_if_sse4_instructions_executable_on_host.cmake |   2 +-
+ dlib/cmake_utils/find_libjpeg.cmake                |   2 +-
+ dlib/cmake_utils/find_libpng.cmake                 |   2 +-
+ .../set_compiler_specific_options.cmake            |  41 +-------
+ .../tell_visual_studio_to_use_static_runtime.cmake |   5 +-
+ dlib/cmake_utils/test_for_avx/CMakeLists.txt       |   2 +-
+ dlib/cmake_utils/test_for_cpp11/CMakeLists.txt     |  17 ---
+ dlib/cmake_utils/test_for_cpp11/cpp11_test.cpp     |  53 ----------
+ dlib/cmake_utils/test_for_cuda/CMakeLists.txt      |   4 +-
+ dlib/cmake_utils/test_for_cudnn/CMakeLists.txt     |   7 +-
+ dlib/cmake_utils/test_for_libjpeg/CMakeLists.txt   |   2 +-
+ dlib/cmake_utils/test_for_libpng/CMakeLists.txt    |   2 +-
+ dlib/cmake_utils/test_for_neon/CMakeLists.txt      |   2 +-
+ dlib/cmake_utils/test_for_sse4/CMakeLists.txt      |   2 +-
+ dlib/cmake_utils/use_cpp_11.cmake                  | 115 ---------------------
+ dlib/external/cblas/CMakeLists.txt                 |   2 +-
+ dlib/external/pybind11/CMakeLists.txt              |  14 +--
+ dlib/external/pybind11/tools/pybind11Tools.cmake   |   2 +-
+ dlib/java/CMakeLists.txt                           |   2 +-
+ dlib/java/cmake_swig_jni                           |   8 +-
+ dlib/matlab/CMakeLists.txt                         |   2 +-
+ dlib/matlab/cmake_mex_wrapper                      |   2 +-
+ dlib/test/CMakeLists.txt                           |   2 +-
+ dlib/test/blas_bindings/CMakeLists.txt             |   2 +-
+ dlib/test/tools/CMakeLists.txt                     |   2 +-
+ examples/CMakeLists.txt                            |  98 +++++++-----------
+ tools/archive/CMakeLists.txt                       |   2 +-
+ tools/convert_dlib_nets_to_caffe/CMakeLists.txt    |   2 +-
+ tools/htmlify/CMakeLists.txt                       |   2 +-
+ tools/imglab/CMakeLists.txt                        |   2 +-
+ tools/python/CMakeLists.txt                        |   7 +-
+ 36 files changed, 80 insertions(+), 396 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 4de26f14412097e5eefd<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 30, 2022
+         (18:25:29 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix non-determinism in test due to reading uninitialized values.</p><pre class="files_changed"> dlib/test/image.cpp | 62 +++++++++++++++++++++++++++--------------------------
+ 1 file changed, 32 insertions(+), 30 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 42a707d7500fc62cc0ad<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 30, 2022
+         (05:09:35 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Make xml parser more robust to bad inputs</p><pre class="files_changed"> dlib/xml_parser/xml_parser_kernel_1.h | 5 +++++
+ 1 file changed, 5 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: f81c4b2d00efc12d3d40<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jul 23, 2022
+         (32:54:28 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">YOLO improvements: Smoothed L1 loss, Focal Loss, Weighted Loss (#2628)</p><pre class="files_changed"> dlib/dnn/loss.h          | 92 ++++++++++++++++++++++++++++++++++--------------
+ dlib/dnn/loss_abstract.h | 26 ++++++++++----
+ 2 files changed, 85 insertions(+), 33 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 6dfba4970d3bf40fabfd<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jul 19, 2022
+         (03:50:45 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Bug fix for fftr on matrix expression. Clearly nobody is doing FFTs with dlib as this bug has been lingering for a couple years now (#2626)</p><pre class="files_changed"> dlib/matrix/matrix_fft.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: ad06471a1525da346159<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jul 14, 2022
+         (16:54:10 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix typo in the self-supervised learning example (#2623)</p><pre class="files_changed"> examples/dnn_self_supervised_learning_ex.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 71d95d76d9c0eca2238f<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 12, 2022
+         (16:40:11 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">more tweaks cleanup and fixes for ci builds</p><pre class="files_changed"> dlib/appveyor/dtest.yml        | 19 -------------------
+ dlib/appveyor/dtest_vc2017.yml | 21 ---------------------
+ dlib/appveyor/examples.yml     | 16 ----------------
+ dlib/appveyor/python.yml       | 14 --------------
+ 4 files changed, 70 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: a517aaa0bbb0524a1a7b<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 12, 2022
+         (15:51:19 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">remove broken python tests</p><pre class="files_changed"> tools/python/test/test_face_chip.npy    | Bin 67628 -&gt; 0 bytes
+ tools/python/test/test_numpy_returns.py |  16 ----------------
+ 2 files changed, 16 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 20add2c88edd76759638<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jul 12, 2022
+         (15:01:46 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">removing travis configs since we haven't used travis in months</p><pre class="files_changed"> dlib/travis/build-and-test.sh | 62 -------------------------------------------
+ dlib/travis/get-old-cmakes.sh | 42 -----------------------------
+ 2 files changed, 104 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 1066be80fd4e9417e664<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jul 11, 2022
+         (30:28:06 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Update libjpeg to version 9e (#2619)</p><pre class="files_changed"> dlib/external/libjpeg/README      |   725 +--
+ dlib/external/libjpeg/cderror.h   |   270 +-
+ dlib/external/libjpeg/cdjpeg.h    |   376 +-
+ dlib/external/libjpeg/jaricom.c   |   306 +-
+ dlib/external/libjpeg/jcapimin.c  |   576 +-
+ dlib/external/libjpeg/jcapistd.c  |   323 +-
+ dlib/external/libjpeg/jcarith.c   |  1882 +++----
+ dlib/external/libjpeg/jccoefct.c  |   910 ++--
+ dlib/external/libjpeg/jccolor.c   |  1091 ++--
+ dlib/external/libjpeg/jcdctmgr.c  |   948 ++--
+ dlib/external/libjpeg/jchuff.c    |  3216 +++++------
+ dlib/external/libjpeg/jcinit.c    |   314 +-
+ dlib/external/libjpeg/jcmainct.c  |   590 +-
+ dlib/external/libjpeg/jcmarker.c  |  1399 ++---
+ dlib/external/libjpeg/jcmaster.c  |  1533 +++---
+ dlib/external/libjpeg/jcomapi.c   |   350 +-
+ dlib/external/libjpeg/jconfig.h   |   103 +-
+ dlib/external/libjpeg/jcparam.c   |  1223 ++---
+ dlib/external/libjpeg/jcprepct.c  |   716 +--
+ dlib/external/libjpeg/jcsample.c  |  1090 ++--
+ dlib/external/libjpeg/jctrans.c   |   781 +--
+ dlib/external/libjpeg/jdapimin.c  |   808 +--
+ dlib/external/libjpeg/jdapistd.c  |   551 +-
+ dlib/external/libjpeg/jdarith.c   |  1572 +++---
+ dlib/external/libjpeg/jdatadst.c  |   534 +-
+ dlib/external/libjpeg/jdatasrc.c  |   549 +-
+ dlib/external/libjpeg/jdcoefct.c  |  1485 +++---
+ dlib/external/libjpeg/jdcolor.c   |  1290 +++--
+ dlib/external/libjpeg/jdct.h      |   802 +--
+ dlib/external/libjpeg/jddctmgr.c  |   768 +--
+ dlib/external/libjpeg/jdhuff.c    |  3100 +++++------
+ dlib/external/libjpeg/jdinput.c   |  1318 +++--
+ dlib/external/libjpeg/jdmainct.c  |  1023 ++--
+ dlib/external/libjpeg/jdmarker.c  |  2911 +++++-----
+ dlib/external/libjpeg/jdmaster.c  |  1063 ++--
+ dlib/external/libjpeg/jdmerge.c   |   838 +--
+ dlib/external/libjpeg/jdpostct.c  |   580 +-
+ dlib/external/libjpeg/jdsample.c  |   702 ++-
+ dlib/external/libjpeg/jdtrans.c   |   280 +-
+ dlib/external/libjpeg/jerror.c    |   505 +-
+ dlib/external/libjpeg/jerror.h    |   608 +--
+ dlib/external/libjpeg/jfdctflt.c  |   350 +-
+ dlib/external/libjpeg/jfdctfst.c  |   462 +-
+ dlib/external/libjpeg/jfdctint.c  |  8763 +++++++++++++++---------------
+ dlib/external/libjpeg/jidctflt.c  |   473 +-
+ dlib/external/libjpeg/jidctfst.c  |   719 ++-
+ dlib/external/libjpeg/jidctint.c  | 10377 ++++++++++++++++++------------------
+ dlib/external/libjpeg/jinclude.h  |   188 +-
+ dlib/external/libjpeg/jmemansi.c  |   334 +-
+ dlib/external/libjpeg/jmemmgr.c   |  2234 ++++----
+ dlib/external/libjpeg/jmemname.c  |   552 +-
+ dlib/external/libjpeg/jmemnobs.c  |   222 +-
+ dlib/external/libjpeg/jmemsys.h   |   396 +-
+ dlib/external/libjpeg/jmorecfg.h  |   815 +--
+ dlib/external/libjpeg/jpegint.h   |   871 +--
+ dlib/external/libjpeg/jpeglib.h   |  2343 ++++----
+ dlib/external/libjpeg/jpegtran.c  |  1214 +++--
+ dlib/external/libjpeg/jquant1.c   |  1708 +++---
+ dlib/external/libjpeg/jquant2.c   |  2622 ++++-----
+ dlib/external/libjpeg/jutils.c    |   451 +-
+ dlib/external/libjpeg/jversion.h  |    28 +-
+ dlib/external/libjpeg/makefile.dj |   227 -
+ dlib/external/libjpeg/rdbmp.c     |   949 ++--
+ dlib/external/libjpeg/rdcolmap.c  |   506 +-
+ dlib/external/libjpeg/rdgif.c     |   717 ++-
+ dlib/external/libjpeg/rdjpgcom.c  |  1030 ++--
+ dlib/external/libjpeg/rdppm.c     |   960 ++--
+ dlib/external/libjpeg/rdrle.c     |   767 ++-
+ dlib/external/libjpeg/rdswitch.c  |   728 ++-
+ dlib/external/libjpeg/rdtarga.c   |  1000 ++--
+ dlib/external/libjpeg/readme.dos  |    15 -
+ dlib/external/libjpeg/transupp.c  |  4031 ++++++++------
+ dlib/external/libjpeg/transupp.h  |   443 +-
+ dlib/external/libjpeg/wrbmp.c     |   879 ++-
+ dlib/external/libjpeg/wrgif.c     |   965 ++--
+ dlib/external/libjpeg/wrjpgcom.c  |  1182 ++--
+ dlib/external/libjpeg/wrppm.c     |   533 +-
+ dlib/external/libjpeg/wrrle.c     |   611 +--
+ dlib/external/libjpeg/wrtarga.c   |   507 +-
+ 79 files changed, 46911 insertions(+), 44270 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 550a5744de1d3535f58a<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jul 07, 2022
+         (18:05:22 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Use chrono in console progress indicator and add finish method (#2617)</p><pre class="files_changed"> dlib/console_progress_indicator.h     | 93 ++++++++++++++++++++++++-----------
+ dlib/threads/parallel_for_extension.h |  9 ++++
+ 2 files changed, 74 insertions(+), 28 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 3c73978de80f901fa77e<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jul 03, 2022
+         (02:43:00 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">type_safe_union : visit() and apply_to_contents() performance improvements (#2615)</p><pre class="files_changed"> dlib/type_safe_union/type_safe_union_kernel.h | 136 ++++++++------------------
+ dlib/utility.h                                |  13 +++
+ 2 files changed, 55 insertions(+), 94 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 7c32e1c18ebdee18154b<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jun 28, 2022
+         (12:55:34 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">fix spelling (#2614)</p><pre class="files_changed"> dlib/type_safe_union/type_safe_union_kernel.h |  8 ++++----
+ dlib/utility.h                                | 14 +++++++-------
+ 2 files changed, 11 insertions(+), 11 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: ec9a143e078fbc9dab8a<br><u>Author</u>: <a href="mailto:45853521+pfeatherstone@users.noreply.github.com">pfeatherstone</a><br><u>Date</u>: Jun 27, 2022
+         (14:05:50 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">noexcept dlib::type_safe_union::swap() (#2604)</p><pre class="files_changed"> dlib/type_safe_union/type_safe_union_kernel.h      | 89 +++++++++++++---------
+ .../type_safe_union_kernel_abstract.h              |  7 +-
+ dlib/utility.h                                     | 87 +++++++++++++++++++++
+ 3 files changed, 143 insertions(+), 40 deletions(-)</pre><hr class="fullhr"><u>Revision</u>: 7f46535cce2ca2cd23af<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: Jun 14, 2022
+         (29:59:38 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix potential memory leak when writing WebP throws (#2600)</p><pre class="files_changed"> dlib/image_saver/save_webp.cpp | 3 +++
+ 1 file changed, 3 insertions(+)</pre><hr class="fullhr"><u>Revision</u>: 0f1d8e964f60a8a76c23<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: Jun 06, 2022
+         (18:01:59 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix assert having wrong condition</p><pre class="files_changed"> tools/python/src/global_optimization.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 1de79246946458546de2<br><u>Author</u>: <a href="mailto:1671644+arrufat@users.noreply.github.com">Adrià Arrufat</a><br><u>Date</u>: May 29, 2022
+         (32:53:01 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Fix saving grayscale WebP images (#2591)</p><pre class="files_changed"> dlib/image_saver/save_webp.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 842931975eb0c7667b56<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 08, 2022
+         (06:35:36 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Record last changeset and set PATCH version to 99</p><pre class="files_changed"> dlib/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</pre><hr class="fullhr"><u>Revision</u>: 6097093ab329fcd19aed<br><u>Author</u>: <a href="mailto:davis@dlib.net">Davis King</a><br><u>Date</u>: May 08, 2022
+         (06:30:31 UTC)
+      <br><p xmlns:gcse="googleCustomSearch" style="margin:0.4em">Created release v19.24</p><pre class="files_changed"> dlib/CMakeLists.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)</pre><hr class="fullhr">

@@ -1,0 +1,151 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - ffmpeg_rtsp_ex.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// The contents of this file are in the public domain. See LICENSE_FOR_EXAMPLE_PROGRAMS.txt
+</font><font color='#009900'>/*
+
+    This is an example illustrating the use of the ffmpeg wrappers.
+    It decodes a video, pushes frames over an RTSP client connection and receives on another RTSP server connection.
+    
+    Please see all the other ffmpeg examples:
+        - <a href="ffmpeg_info_ex.cpp.html">ffmpeg_info_ex.cpp</a>
+        - <a href="ffmpeg_video_decoding_ex.cpp.html">ffmpeg_video_decoding_ex.cpp</a>
+        - <a href="ffmpeg_video_decoding2_ex.cpp.html">ffmpeg_video_decoding2_ex.cpp</a>
+        - <a href="ffmpeg_video_demuxing_ex.cpp.html">ffmpeg_video_demuxing_ex.cpp</a>
+        - <a href="ffmpeg_video_demuxing2_ex.cpp.html">ffmpeg_video_demuxing2_ex.cpp</a>
+        - <a href="ffmpeg_video_encoding_ex.cpp.html">ffmpeg_video_encoding_ex.cpp</a>
+        - <a href="ffmpeg_video_muxing_ex.cpp.html">ffmpeg_video_muxing_ex.cpp</a>
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdio<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>media.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>cmd_line_parser.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>gui_widgets.h<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std::chrono;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std::chrono_literals;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib::ffmpeg;
+
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> argc, <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font> argv<font face='Lucida Console'>)</font>
+<font color='#0000FF'>try</font>
+<b>{</b>
+    command_line_parser parser;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>",      "<font color='#CC0000'>input video</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>codec</font>",  "<font color='#CC0000'>video codec name. e.g. `h264`. Defaults to `mpeg4`</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>height</font>", "<font color='#CC0000'>height of encoded stream. Defaults to whatever is in the video file</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>width</font>",  "<font color='#CC0000'>width of encoded stream. Defaults to whatever is in the video file</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>set_group_name</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>Help Options</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>",      "<font color='#CC0000'>alias of --help</font>"<font face='Lucida Console'>)</font>;
+    parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>",   "<font color='#CC0000'>display this message and exit</font>"<font face='Lucida Console'>)</font>;
+
+    parser.<font color='#BB00BB'>parse</font><font face='Lucida Console'>(</font>argc, argv<font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>const</font> <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> one_time_opts[] <font color='#5555FF'>=</font> <b>{</b>"<font color='#CC0000'>i</font>", "<font color='#CC0000'>codec</font>", "<font color='#CC0000'>height</font>", "<font color='#CC0000'>width</font>"<b>}</b>;
+    parser.<font color='#BB00BB'>check_one_time_options</font><font face='Lucida Console'>(</font>one_time_opts<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>h</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font><font color='#5555FF'>|</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>help</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        parser.<font color='#BB00BB'>print_options</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>const</font> std::string input_filepath <font color='#5555FF'>=</font> parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>i</font>"<font face='Lucida Console'>)</font>.<font color='#BB00BB'>argument</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// First, we open a video which we use to transmit and receive images over RTSP.
+</font>    demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font><b>{</b>input_filepath, video_enabled, audio_disabled<b>}</b><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Failed to open </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> input_filepath <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+        <font color='#0000FF'>return</font> EXIT_FAILURE;
+    <b>}</b>
+
+    <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>video_enabled</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>This video does not contain images.</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+        <font color='#0000FF'>return</font> EXIT_FAILURE;
+    <b>}</b>
+
+    <font color='#0000FF'>const</font> std::string url <font color='#5555FF'>=</font> "<font color='#CC0000'>rtsp://0.0.0.0:8000/stream</font>";
+
+    <font color='#009900'>// We start 2 threads:
+</font>    <font color='#009900'>//  - 1 for an RTSP server that listens for an incoming RTSP client and decodes the frames
+</font>    <font color='#009900'>//  - 1 for an RTSP client that connects and pushes/muxes image frames.
+</font>   
+    std::thread rx<b>{</b>[<font color='#5555FF'>&amp;</font>] 
+    <b>{</b>
+        <font color='#009900'>// This is an example that show-cases the usage of demuxer::args::format_options.
+</font>        <font color='#009900'>// This is used for AVFormatContext and demuxer-private options specific to the container.
+</font>        <font color='#009900'>// {"rtsp_flags", "listen"} tells the RTSP demuxer that it is a server
+</font>        <font color='#009900'>// {"rtsp_transport", "tcp"} configures RTSP over TCP transport. This way we don't loose any packets.
+</font>        <font color='#009900'>// We set a listening timeout of 5s.
+</font>
+        demuxer <font color='#BB00BB'>cap</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+            demuxer::args args;
+            args.filepath <font color='#5555FF'>=</font> url;
+            args.format_options["<font color='#CC0000'>rtsp_flags</font>"]       <font color='#5555FF'>=</font> "<font color='#CC0000'>listen</font>";
+            args.format_options["<font color='#CC0000'>rtsp_transport</font>"]   <font color='#5555FF'>=</font> "<font color='#CC0000'>tcp</font>";
+            args.connect_timeout <font color='#5555FF'>=</font> <font color='#979000'>5</font>s;
+            <font color='#0000FF'>return</font> args;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>cap.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Failed to receive connection from RTSP client</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+            <font color='#0000FF'>return</font>;
+        <b>}</b>
+
+        image_window win;
+        array2d<font color='#5555FF'>&lt;</font>rgb_pixel<font color='#5555FF'>&gt;</font> img;
+
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            win.<font color='#BB00BB'>set_image</font><font face='Lucida Console'>(</font>img<font face='Lucida Console'>)</font>;
+    <b>}</b><b>}</b>;
+
+    std::this_thread::<font color='#BB00BB'>sleep_for</font><font face='Lucida Console'>(</font><font color='#979000'>1</font>s<font face='Lucida Console'>)</font>;
+
+    std::thread tx<b>{</b>[<font color='#5555FF'>&amp;</font>] 
+    <b>{</b>
+        <font color='#009900'>// The muxer acts as an RTSP client, so we don't use {"rtsp_flags", "listen"}
+</font>        <font color='#009900'>// When using RTSP, it is usually a good idea to specify muxer::args::output_format = "rtsp"
+</font>        <font color='#009900'>// even though the URL has rtsp:// in its address. Whether or not you need to specify args.output_format = "rtsp"
+</font>        <font color='#009900'>// depends on your version of ffmpeg.
+</font>        muxer <font color='#BB00BB'>writer</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>] <b>{</b>
+            muxer::args args;
+            args.filepath       <font color='#5555FF'>=</font> url;
+            args.output_format  <font color='#5555FF'>=</font> "<font color='#CC0000'>rtsp</font>";
+            args.enable_image   <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+            args.enable_audio   <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+            args.format_options["<font color='#CC0000'>rtsp_transport</font>"] <font color='#5555FF'>=</font> "<font color='#CC0000'>tcp</font>";
+
+            args.args_image.codec_name  <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>codec</font>", "<font color='#CC0000'>mpeg4</font>"<font face='Lucida Console'>)</font>;
+            args.args_image.h           <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>height</font>", cap.<font color='#BB00BB'>height</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            args.args_image.w           <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>width</font>",  cap.<font color='#BB00BB'>width</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            args.args_image.fmt         <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>pixel_fmt</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            args.args_image.framerate   <font color='#5555FF'>=</font> cap.<font color='#BB00BB'>fps</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+ 
+            <font color='#0000FF'>return</font> args;
+        <b>}</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>writer.<font color='#BB00BB'>is_open</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Failed to open rtsp server</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+            <font color='#0000FF'>return</font>;
+        <b>}</b>
+
+        frame f;
+        <font color='#0000FF'>while</font> <font face='Lucida Console'>(</font>cap.<font color='#BB00BB'>read</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            writer.<font color='#BB00BB'>push</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b><b>}</b>;
+
+    tx.<font color='#BB00BB'>join</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    rx.<font color='#BB00BB'>join</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>return</font> EXIT_SUCCESS;
+<b>}</b>
+<font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font>
+<b>{</b>
+    <font color='#BB00BB'>printf</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>%s\n</font>", e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>return</font> EXIT_FAILURE;
+<b>}</b>
+</pre></body></html>

@@ -1,0 +1,116 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - constexpr_if.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2022  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_IF_CONSTEXPR_H
+<font color='#0000FF'>#define</font> DLIB_IF_CONSTEXPR_H
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='overloaded.h.html'>overloaded.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='type_traits.h.html'>type_traits.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>namespace</font> detail
+    <b>{</b>
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> _ <font color='#5555FF'>=</font> []<font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> arg<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font> <b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> std::forward<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>arg<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>arg<font face='Lucida Console'>)</font>; <b>}</b>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>... v<font color='#5555FF'>&gt;</font>
+    constexpr <font color='#0000FF'>auto</font> <b><a name='bools'></a>bools</b><font face='Lucida Console'>(</font>std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>, v<font color='#5555FF'>&gt;</font>...<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        ensures
+            - returns a type list of compile time booleans.
+    !*/</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> types_<font color='#5555FF'>&lt;</font>std::integral_constant<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font>,v<font color='#5555FF'>&gt;</font>...<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>;
+    <b>}</b>
+
+    <font color='#0000FF'>using</font> true_t  <font color='#5555FF'>=</font> types_<font color='#5555FF'>&lt;</font>std::true_type<font color='#5555FF'>&gt;</font>;
+    <font color='#0000FF'>using</font> false_t <font color='#5555FF'>=</font> types_<font color='#5555FF'>&lt;</font>std::false_type<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'>typename</font>... T,
+        <font color='#0000FF'>typename</font>... Cases
+    <font color='#5555FF'>&gt;</font>
+    constexpr <b><a name='decltype'></a>decltype</b><font face='Lucida Console'>(</font><font color='#0000FF'>auto</font><font face='Lucida Console'>)</font> <b><a name='switch_'></a>switch_</b><font face='Lucida Console'>(</font>
+        types_<font color='#5555FF'>&lt;</font>T...<font color='#5555FF'>&gt;</font> <font color='#009900'>/*meta_obj*/</font>,
+        Cases<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>...   cases
+    <font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        requires
+            - meta_obj combines a set of initial types. These are used as compile-time initial conditions.
+            - cases is a set of overload-able conditional branches.
+            - at least one of the cases is callable given meta_obj.
+            - each case statement has signature auto(types_&lt;&gt;..., auto _) where _ is an identity function
+              with identical behaviour to std::identity. This is used to make each generic lambda artificially
+              dependent on the function body. This allows semantic analysis of the lambdas to be performed AFTER
+              the correct lambda is chosen depending on meta_obj. This is the crucial bit that makes switch_() behave
+              in a similar way to "if constexpr()" in C++17. Make sure to use _ on one of the objects in the lambdas.
+        ensures
+            - calls the correct conditional branch.
+            - the correct conditional branch is selected at compile-time.
+            - Note, each branch can return different types, and the return type of the switch_() function
+              is that of the compile-time selected branch.
+
+            Here is an example:
+
+            template&lt;typename T&gt;
+            auto perform_correct_action(T&amp; obj)
+            {
+                return switch_(
+                    types_&lt;T&gt;{},
+                    [&amp;](types_&lt;A&gt;, auto _) {
+                        return _(obj).set_something_specific_to_A_and_return_something();
+                    },
+                    [&amp;](types_&lt;B&gt;, auto _) {
+                        return _(obj).set_something_specific_to_B_and_return_something();
+                    },
+                    [&amp;](auto...) {
+                        // Default case statement. Do something sensible.
+                        return false;
+                    }
+                );
+            }
+
+            Here is another example:
+
+            template&lt;typename T&gt;
+            auto transfer_state(T&amp; a, T&amp; b)
+            {
+                return switch_(
+                    bools(std::is_move_constructible&lt;T&gt;{}, std::is_copy_constructible&lt;T&gt;{}),
+                    [&amp;](true_t, auto, auto _) {
+                        // T is both move-constructible. Copy semantics can be anything
+                        a = std::move(_(b));
+                        return move_tag{}; // Just for fun, we return different types in each branch.
+                    },
+                    [&amp;](auto, true_t, auto _) {
+                        // T is copy-constructible, Move semantics can be anything. Though in this case,
+                        // if it had been move-constructible, the first branch would have been selected.
+                        // So in this case, it is not move-constructible.
+                        a = _(b);
+                        return copy_tag{};
+                    },
+                    [&amp;](auto...) {
+                        // Default case statement
+                        return dont_care_tag{};
+                    }
+                );
+            }
+      !*/</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> <font color='#BB00BB'>overloaded</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Cases<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>cases<font face='Lucida Console'>)</font>...<font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>types_<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><b>{</b><b>}</b>..., detail::_<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_IF_CONSTEXPR_H
+</font>
+</pre></body></html>

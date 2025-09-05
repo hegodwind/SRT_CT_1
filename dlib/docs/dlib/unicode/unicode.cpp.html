@@ -1,0 +1,123 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - unicode.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2008 Keita Mochizuki, Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_UNICODe_CPp_
+<font color='#0000FF'>#define</font> DLIB_UNICODe_CPp_
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='unicode.h.html'>unicode.h</a>"
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cwchar<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../string.h.html'>../string.h</a>"
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='unichar_to_surrogate_pair'></a>unichar_to_surrogate_pair</b><font face='Lucida Console'>(</font>unichar input, unichar <font color='#5555FF'>&amp;</font>first, unichar <font color='#5555FF'>&amp;</font>second<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> unicode_helpers;
+        first <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>input <font color='#5555FF'>-</font> SMP_TOP<font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> VALID_BITS<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font> SURROGATE_FIRST_TOP;
+        second <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>input <font color='#5555FF'>&amp;</font> SURROGATE_CLEARING_MASK<font face='Lucida Console'>)</font> <font color='#5555FF'>|</font> SURROGATE_SECOND_TOP;
+    <b>}</b>
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font> N<font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='ustring2wstr'></a>ustring2wstr</b>
+    <b>{</b>
+    <b>}</b>;
+
+    <font color='#009900'>// for the environment of sizeof(wchar_t) == 2 (i.e. Win32)
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='ustring2wstr'></a>ustring2wstr</b><font color='#5555FF'>&lt;</font><font color='#979000'>2</font><font color='#5555FF'>&gt;</font>
+    <b>{</b>
+        <font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font>wstr;
+        <font color='#0000FF'><u>size_t</u></font> wlen;
+        <b><a name='ustring2wstr'></a>ustring2wstr</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> ustring <font color='#5555FF'>&amp;</font>src<font face='Lucida Console'>)</font><b>{</b>
+            wlen <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> src.<font color='#BB00BB'>length</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>src[i] <font color='#5555FF'>&lt;</font> unicode_helpers::SMP_TOP<font face='Lucida Console'>)</font> wlen<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+                <font color='#0000FF'>else</font> wlen <font color='#5555FF'>+</font><font color='#5555FF'>=</font> <font color='#979000'>2</font>;
+            <b>}</b>
+            wstr <font color='#5555FF'>=</font> <font color='#0000FF'>new</font> <font color='#0000FF'><u>wchar_t</u></font>[wlen<font color='#5555FF'>+</font><font color='#979000'>1</font>];
+            wstr[wlen] <font color='#5555FF'>=</font> L'<font color='#FF0000'>\0</font>';
+
+            <font color='#0000FF'><u>size_t</u></font> wi <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> src.<font color='#BB00BB'>length</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>src[i] <font color='#5555FF'>&lt;</font> unicode_helpers::SMP_TOP<font face='Lucida Console'>)</font>
+                <b>{</b>
+                    wstr[wi<font color='#5555FF'>+</font><font color='#5555FF'>+</font>] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>wchar_t</u></font><font face='Lucida Console'>)</font>src[i];
+                <b>}</b>
+                <font color='#0000FF'>else</font>
+                <b>{</b>
+                    unichar high, low;
+                    <font color='#BB00BB'>unichar_to_surrogate_pair</font><font face='Lucida Console'>(</font>src[i], high, low<font face='Lucida Console'>)</font>;
+                    wstr[wi<font color='#5555FF'>+</font><font color='#5555FF'>+</font>] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>wchar_t</u></font><font face='Lucida Console'>)</font>high;
+                    wstr[wi<font color='#5555FF'>+</font><font color='#5555FF'>+</font>] <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>wchar_t</u></font><font face='Lucida Console'>)</font>low;
+                <b>}</b>
+            <b>}</b>
+        <b>}</b>
+        ~<b><a name='ustring2wstr'></a>ustring2wstr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#0000FF'>delete</font>[] wstr;
+        <b>}</b>
+    <b>}</b>;
+
+    <font color='#009900'>// for the environment of sizeof(wchar_t) == 4 (i.e. Unix gcc)
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>struct</font> <b><a name='ustring2wstr'></a>ustring2wstr</b><font color='#5555FF'>&lt;</font><font color='#979000'>4</font><font color='#5555FF'>&gt;</font>
+    <b>{</b>
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font>wstr;
+        <font color='#0000FF'><u>size_t</u></font> wlen;
+        <b><a name='ustring2wstr'></a>ustring2wstr</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> ustring <font color='#5555FF'>&amp;</font>src<font face='Lucida Console'>)</font><b>{</b>
+            wstr <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>wchar_t</u></font> <font color='#5555FF'>*</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+            wlen <font color='#5555FF'>=</font> src.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>const</font> ustring <b><a name='convert_utf8_to_utf32'></a>convert_utf8_to_utf32</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> str<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> convert_to_utf32<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>str<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>const</font> ustring <b><a name='convert_wstring_to_utf32'></a>convert_wstring_to_utf32</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::wstring<font color='#5555FF'>&amp;</font> str<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>return</font> convert_to_utf32<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>wchar_t</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>str<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>const</font> std::wstring <b><a name='convert_utf32_to_wstring'></a>convert_utf32_to_wstring</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> ustring <font color='#5555FF'>&amp;</font>src<font face='Lucida Console'>)</font>
+    <b>{</b>
+        ustring2wstr<font color='#5555FF'>&lt;</font><font color='#0000FF'>sizeof</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>wchar_t</u></font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>conv</font><font face='Lucida Console'>(</font>src<font face='Lucida Console'>)</font>;
+        std::wstring <font color='#BB00BB'>dest</font><font face='Lucida Console'>(</font>conv.wstr<font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> dest;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>const</font> std::wstring <b><a name='convert_mbstring_to_wstring'></a>convert_mbstring_to_wstring</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string <font color='#5555FF'>&amp;</font>src<font face='Lucida Console'>)</font>
+    <b>{</b>
+        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>wchar_t</u></font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>wstr</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>length</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>+</font><font color='#979000'>5</font><font face='Lucida Console'>)</font>;
+        std::<font color='#BB00BB'>mbstowcs</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>wstr[<font color='#979000'>0</font>], src.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, src.<font color='#BB00BB'>length</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>+</font><font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> std::<font color='#BB00BB'>wstring</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>wstr[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>const</font> std::string <b><a name='convert_wstring_to_mbstring'></a>convert_wstring_to_mbstring</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::wstring <font color='#5555FF'>&amp;</font>src<font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+        std::string str;
+        str.<font color='#BB00BB'>resize</font><font face='Lucida Console'>(</font><font face='Lucida Console'>(</font>src.<font color='#BB00BB'>length</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>*</font> MB_CUR_MAX<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>wcstombs</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>str[<font color='#979000'>0</font>], src.<font color='#BB00BB'>c_str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, str.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>return</font> std::<font color='#BB00BB'>string</font><font face='Lucida Console'>(</font><font color='#5555FF'>&amp;</font>str[<font color='#979000'>0</font>]<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_UNICODe_CPp_
+</font>
+
+</pre></body></html>

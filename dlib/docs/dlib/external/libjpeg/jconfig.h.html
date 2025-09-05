@@ -1,0 +1,63 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - jconfig.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/* jconfig.h.  Generated from jconfig.cfg by configure.  */</font>
+<font color='#009900'>/* jconfig.cfg --- source file edited by configure script */</font>
+<font color='#009900'>/* see jconfig.txt for explanations */</font>
+
+<font color='#0000FF'>#define</font> HAVE_PROTOTYPES <font color='#979000'>1</font>
+<font color='#0000FF'>#define</font> HAVE_UNSIGNED_CHAR <font color='#979000'>1</font>
+<font color='#0000FF'>#define</font> HAVE_UNSIGNED_SHORT <font color='#979000'>1</font>
+<font color='#009900'>/* #undef void */</font>
+<font color='#009900'>/* #undef const */</font>
+<font color='#009900'>/* #undef CHAR_IS_UNSIGNED */</font>
+<font color='#0000FF'>#define</font> HAVE_STDDEF_H <font color='#979000'>1</font>
+<font color='#0000FF'>#define</font> HAVE_STDLIB_H <font color='#979000'>1</font>
+<font color='#0000FF'>#define</font> HAVE_LOCALE_H <font color='#979000'>1</font>
+<font color='#009900'>/* #undef NEED_BSD_STRINGS */</font>
+<font color='#009900'>/* #undef NEED_SYS_TYPES_H */</font>
+<font color='#009900'>/* #undef NEED_FAR_POINTERS */</font>
+<font color='#009900'>/* #undef NEED_SHORT_EXTERNAL_NAMES */</font>
+<font color='#009900'>/* Define this if you get warnings about undefined structures. */</font>
+<font color='#009900'>/* #undef INCOMPLETE_TYPES_BROKEN */</font>
+
+<font color='#009900'>/* Define "boolean" as unsigned char, not enum, on Windows systems. */</font>
+<font color='#0000FF'>#ifdef</font> _WIN32
+<font color='#0000FF'>#ifndef</font> __RPCNDR_H__		<font color='#009900'>/* don't conflict if rpcndr.h already read */</font>
+<font color='#0000FF'>typedef</font> <font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>char</u></font> boolean;
+<font color='#0000FF'>#endif</font>
+<font color='#0000FF'>#ifndef</font> FALSE			<font color='#009900'>/* in case these macros already exist */</font>
+<font color='#0000FF'>#define</font> FALSE	<font color='#979000'>0</font>		<font color='#009900'>/* values of boolean */</font>
+<font color='#0000FF'>#endif</font>
+<font color='#0000FF'>#ifndef</font> TRUE
+<font color='#0000FF'>#define</font> TRUE	<font color='#979000'>1</font>
+<font color='#0000FF'>#endif</font>
+<font color='#0000FF'>#define</font> HAVE_BOOLEAN		<font color='#009900'>/* prevent jmorecfg.h from redefining it */</font>
+<font color='#0000FF'>#endif</font>
+
+<font color='#0000FF'>#ifdef</font> JPEG_INTERNALS
+
+<font color='#009900'>/* #undef RIGHT_SHIFT_IS_UNSIGNED */</font>
+<font color='#009900'>/* #define INLINE __inline__ */</font>
+<font color='#009900'>/* These are for configuring the JPEG memory manager. */</font>
+<font color='#009900'>/* #undef DEFAULT_MAX_MEM */</font>
+<font color='#009900'>/* #undef NO_MKTEMP */</font>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>/* JPEG_INTERNALS */</font>
+
+<font color='#0000FF'>#ifdef</font> JPEG_CJPEG_DJPEG
+
+<font color='#0000FF'>#define</font> BMP_SUPPORTED		<font color='#009900'>/* BMP image file format */</font>
+<font color='#0000FF'>#define</font> GIF_SUPPORTED		<font color='#009900'>/* GIF image file format */</font>
+<font color='#0000FF'>#define</font> PPM_SUPPORTED		<font color='#009900'>/* PBMPLUS PPM/PGM image file format */</font>
+<font color='#009900'>/* #undef RLE_SUPPORTED */</font>
+<font color='#0000FF'>#define</font> TARGA_SUPPORTED		<font color='#009900'>/* Targa image file format */</font>
+
+<font color='#009900'>/* #undef TWO_FILE_COMMANDLINE */</font>
+<font color='#009900'>/* #undef NEED_SIGNAL_CATCHER */</font>
+<font color='#009900'>/* #undef DONT_USE_B_MODE */</font>
+
+<font color='#009900'>/* Define this if you want percent-done progress reports from cjpeg/djpeg. */</font>
+<font color='#009900'>/* #undef PROGRESS_REPORT */</font>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>/* JPEG_CJPEG_DJPEG */</font>
+
+</pre></body></html>

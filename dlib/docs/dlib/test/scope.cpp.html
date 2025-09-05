@@ -1,0 +1,173 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - scope.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstdlib<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cstring<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>scope.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='tester.h.html'>tester.h</a>"
+
+<font color='#0000FF'>namespace</font>  
+<b>{</b>
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> test;
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+
+    logger <b><a name='dlog'></a>dlog</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>test.scope</font>"<font face='Lucida Console'>)</font>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_scope_exit'></a>test_scope_exit</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'><u>int</u></font> counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> s1 <font color='#5555FF'>=</font> <font color='#BB00BB'>make_scope_exit</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>]<b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;<b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_move_assignable<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> s2 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> s3 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s2<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> s4 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s3<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fn_inner <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]
+        <b>{</b>
+            <font color='#0000FF'>auto</font> s <font color='#5555FF'>=</font> <font color='#BB00BB'>make_scope_exit</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>]<b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;<b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> s;
+        <b>}</b>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fn_outer <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]
+        <b>{</b>
+            <font color='#0000FF'>auto</font> s <font color='#5555FF'>=</font> <font color='#BB00BB'>fn_inner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> s;
+        <b>}</b>;
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> s <font color='#5555FF'>=</font> <font color='#BB00BB'>fn_outer</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+
+<font color='#0000FF'>#ifdef</font> __cpp_deduction_guides
+
+        <b>{</b>
+            scope_exit s<b>{</b>[<font color='#5555FF'>&amp;</font>]<b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;<b>}</b><b>}</b>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>3</font><font face='Lucida Console'>)</font>;
+<font color='#0000FF'>#endif</font>
+
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_scope_exit_erased'></a>test_scope_exit_erased</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'><u>int</u></font> counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <b>{</b>
+            scope_exit_erased <font color='#BB00BB'>s1</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>]<b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;<b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_move_assignable<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> s2 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s1<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> s3 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s2<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>auto</font> s4 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s3<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fn_inner <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]
+        <b>{</b>
+            scope_exit_erased <font color='#BB00BB'>s</font><font face='Lucida Console'>(</font>[<font color='#5555FF'>&amp;</font>]<b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;<b>}</b><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> s;
+        <b>}</b>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fn_outer <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]
+        <b>{</b>
+            <font color='#0000FF'>auto</font> s <font color='#5555FF'>=</font> <font color='#BB00BB'>fn_inner</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> s;
+        <b>}</b>;
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> s <font color='#5555FF'>=</font> <font color='#BB00BB'>fn_outer</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>struct</font> <b><a name='results_with_delayed_C_library_resource_management'></a>results_with_delayed_C_library_resource_management</b>
+    <b>{</b>
+        <font color='#0000FF'><u>int</u></font>                 ndata<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font>               data<b>{</b>nullptr<b>}</b>;
+        scope_exit_erased   s;
+    <b>}</b>;
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_composition'></a>test_composition</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'><u>int</u></font> counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+        <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> fn <font color='#5555FF'>=</font> [<font color='#5555FF'>&amp;</font>]
+        <b>{</b>
+            <font color='#009900'>// Pretend you're in a cpp file using a C library which isn't exposed to the API via the header.
+</font>            <font color='#009900'>// You want to return some results, but those results are only valid so long as something returned by the C library is still alive
+</font>            <font color='#009900'>// You want to delay releasing any resources allocated by the C library until after you've returned your results and the caller is done using them.
+</font>            <font color='#009900'>// You could return a std::unique_ptr&lt;results&gt; object with a custom deleter which deletes that resource but because all types in std::unique_ptr
+</font>            <font color='#009900'>// must be complete types, you would have to pollute the header. You can use std::shared_ptr with a custom deleter, defined at runtime,
+</font>            <font color='#009900'>// but this is less efficient.
+</font>            <font color='#009900'>// You can use a scope_exit_erased object to wrap the resouce management function from the C library and delay the call further up the stack,
+</font>            <font color='#009900'>// all behind a type erased callback.
+</font>
+            <font color='#009900'>// pretend malloc() is a fancy function from some exotic C library.
+</font>            <font color='#009900'>// pretend free() is another fancy function which you don't want users to have to manually call, and you want to delay calling it until after the results are used
+</font>            <font color='#009900'>// pretend cstdlib is a fancy header you don't want to expose in your own header file.
+</font>            <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font> data <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font face='Lucida Console'>)</font>std::<font color='#BB00BB'>malloc</font><font face='Lucida Console'>(</font><font color='#979000'>100</font><font face='Lucida Console'>)</font>;
+            std::<font color='#BB00BB'>memset</font><font face='Lucida Console'>(</font>data, <font color='#979000'>0</font>, <font color='#979000'>100</font><font face='Lucida Console'>)</font>;
+            std::<font color='#BB00BB'>snprintf</font><font face='Lucida Console'>(</font>data, <font color='#979000'>100</font>, "<font color='#CC0000'>hello there!</font>"<font face='Lucida Console'>)</font>;
+            scope_exit_erased s<b>{</b>[<font color='#5555FF'>=</font>, <font color='#5555FF'>&amp;</font>counter] <b>{</b><font color='#BB00BB'>free</font><font face='Lucida Console'>(</font>data<font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>counter;<b>}</b><b>}</b>;
+
+            results_with_delayed_C_library_resource_management results<b>{</b><font color='#979000'>100</font>, data, std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>s<font face='Lucida Console'>)</font><b>}</b>;
+
+            <font color='#0000FF'>return</font> results;
+        <b>}</b>;
+
+        <b>{</b>
+            <font color='#009900'>// Oh, look at me. I'm using these results, blissfully unaware that some super complicated function in a C library will get called when i'm done using results.
+</font>            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> results <font color='#5555FF'>=</font> <font color='#BB00BB'>fn</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>results.ndata <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>100</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>strcmp</font><font face='Lucida Console'>(</font>results.data, "<font color='#CC0000'>hello there!</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;   
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>class</font> <b><a name='scope_tester'></a>scope_tester</b> : <font color='#0000FF'>public</font> tester
+    <b>{</b>
+    <font color='#0000FF'>public</font>:
+        <b><a name='scope_tester'></a>scope_tester</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> :
+            tester <font face='Lucida Console'>(</font>"<font color='#CC0000'>test_scope</font>",
+                    "<font color='#CC0000'>Runs tests on the scope_exit and related objects</font>"<font face='Lucida Console'>)</font>
+        <b>{</b><b>}</b>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='perform_test'></a>perform_test</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>test_scope_exit</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_scope_exit_erased</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_composition</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b> a;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+</pre></body></html>

@@ -1,0 +1,358 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - slm_basic_train_ex.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+    This program demonstrates a minimal example of a Very Small Language Model (VSLM)
+    using dlib's deep learning tools. It includes two modes:
+
+    1) --train  : Train a small Transformer-based language model on a character-based
+                  corpus extracted from "slm_data.h" (named shakespeare_text).
+
+    2) --generate: Generate new text from a trained model, given an initial prompt
+                   extracted from "slm_data.h" (named shakespeare_prompt).
+
+    The "slm_dels.h" header is expected to provide a comprehensive Transformer
+    definition with the following key elements:
+      - A configurable transformer_config
+      - The use of classification_head to output a single token
+      - The network_type&lt;true&gt; or network_type&lt;false&gt; for training vs inference
+      - The typical dlib constructs (input&lt;matrix&lt;int&gt;&gt;, etc.)
+
+    Character-level tokenization is used here. Each character is directly transformed
+    into an integer token. The model attempts to learn the sequence of characters in
+    shakespeare_text. Then you can ask the model to generate new text from a short
+    prompt.
+
+    This model is intentionally kept small (few neurons/parameters) to ensure
+    simplicity and efficiency. As a result, it may not generalize well to unseen
+    patterns or concepts. However, it effectively illustrates the principle of
+    attention and the ability to perfectly memorize and reproduce sequences from
+    the training data. This makes it a useful educational tool for understanding
+    the mechanics of Transformer models, even if it lacks the capacity for
+    sophisticated language understanding.
+*/</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>iostream<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>string<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>vector<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>algorithm<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cmath<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>random<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>data_io.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>cmd_line_parser.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>misc_api.h<font color='#5555FF'>&gt;</font>
+
+<font color='#009900'>// Include Transformer definitions
+</font><font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='slm_defs.h.html'>slm_defs.h</a>"
+
+<font color='#009900'>// This header "slm_data.h" is assumed to contain:
+</font><font color='#009900'>//   const std::string shakespeare_text;
+</font><font color='#009900'>//   const std::string shakespeare_prompt;
+</font><font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='slm_data.h.html'>slm_data.h</a>"
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> std;
+<font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+
+<font color='#009900'>// We treat each character as a token ID in [0..255].
+</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> MAX_TOKEN_ID <font color='#5555FF'>=</font> <font color='#979000'>255</font>;
+<font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> PAD_TOKEN <font color='#5555FF'>=</font> <font color='#979000'>256</font>; <font color='#009900'>// an extra "pad" token if needed
+</font>
+<font color='#009900'>// For simplicity, we assume each line from shakespeare_text is appended, ignoring them.
+</font>std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <b><a name='char_based_tokenize'></a>char_based_tokenize</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> text<font face='Lucida Console'>)</font>
+<b>{</b>
+    std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> tokens;
+    tokens.<font color='#BB00BB'>reserve</font><font face='Lucida Console'>(</font>text.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> c : text<font face='Lucida Console'>)</font>
+    <b>{</b>
+        tokens.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>min</font><font face='Lucida Console'>(</font>c, MAX_TOKEN_ID<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <font color='#0000FF'>return</font> tokens;
+<b>}</b>
+
+<font color='#009900'>// Function to shuffle samples and labels in sync
+</font><font color='#0000FF'><u>void</u></font> <b><a name='shuffle_samples_and_labels'></a>shuffle_samples_and_labels</b><font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> samples, std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> labels<font face='Lucida Console'>)</font> <b>{</b>
+    std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>size_t</u></font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>indices</font><font face='Lucida Console'>(</font>samples.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    std::<font color='#BB00BB'>iota</font><font face='Lucida Console'>(</font>indices.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, indices.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, <font color='#979000'>0</font><font face='Lucida Console'>)</font>; <font color='#009900'>// Fill with 0, 1, 2, ..., N-1
+</font>    std::<font color='#BB00BB'>shuffle</font><font face='Lucida Console'>(</font>indices.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, indices.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>, std::default_random_engine<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// Create temporary vectors to hold shuffled data
+</font>    std::vector<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>shuffled_samples</font><font face='Lucida Console'>(</font>samples.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>shuffled_labels</font><font face='Lucida Console'>(</font>labels.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+    <font color='#009900'>// Apply the shuffle
+</font>    <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> indices.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+    <b>{</b>
+        shuffled_samples[i] <font color='#5555FF'>=</font> samples[indices[i]];
+        shuffled_labels[i] <font color='#5555FF'>=</font> labels[indices[i]];
+    <b>}</b>
+
+    <font color='#009900'>// Replace the original data with shuffled data
+</font>    samples <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>shuffled_samples<font face='Lucida Console'>)</font>;
+    labels <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>shuffled_labels<font face='Lucida Console'>)</font>;
+<b>}</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<font color='#0000FF'><u>int</u></font> <b><a name='main'></a>main</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> argc, <font color='#0000FF'><u>char</u></font><font color='#5555FF'>*</font><font color='#5555FF'>*</font> argv<font face='Lucida Console'>)</font>
+<b>{</b>
+    <font color='#0000FF'>try</font>
+    <b>{</b>
+        command_line_parser parser;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>train</font>", "<font color='#CC0000'>Train a small transformer on the built-in Shakespeare text</font>"<font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>generate</font>", "<font color='#CC0000'>Generate text from a previously trained model (needs shakespeare_prompt)</font>"<font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>learning-rate</font>", "<font color='#CC0000'>Set the learning rate for training (default: 1e-4)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>batch-size</font>", "<font color='#CC0000'>Set the mini-batch size for training (default: 64)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>generation-length</font>", "<font color='#CC0000'>Set the length of generated text (default: 400)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>alpha</font>", "<font color='#CC0000'>Set the weight decay for Adam optimizer (default: 0.004)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>beta1</font>", "<font color='#CC0000'>Set the first moment coefficient (default: 0.9)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>beta2</font>", "<font color='#CC0000'>Set the second moment coefficient (default: 0.999)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>max-samples</font>", "<font color='#CC0000'>Set the maximum number of training samples (default: 50000)</font>", <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>add_option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>shuffle</font>", "<font color='#CC0000'>Shuffle training sequences and labels before training (default: false)</font>"<font face='Lucida Console'>)</font>;
+        parser.<font color='#BB00BB'>parse</font><font face='Lucida Console'>(</font>argc, argv<font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>number_of_arguments</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>train</font>"<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>generate</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            parser.<font color='#BB00BB'>print_options</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+        <b>}</b>
+
+        <font color='#009900'>// Default values
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> learning_rate <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>learning-rate</font>", <font color='#979000'>1e</font><font color='#5555FF'>-</font><font color='#979000'>4</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> batch_size <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>batch-size</font>", <font color='#979000'>64</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> generation_length <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>generation-length</font>", <font color='#979000'>400</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> alpha <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>alpha</font>", <font color='#979000'>0.004</font><font face='Lucida Console'>)</font>;       <font color='#009900'>// Initial learning rate for Adam
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> beta1 <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>beta1</font>", <font color='#979000'>0.9</font><font face='Lucida Console'>)</font>;         <font color='#009900'>// Decay rate for the first moment estimate
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>double</u></font> beta2 <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>beta2</font>", <font color='#979000'>0.999</font><font face='Lucida Console'>)</font>;       <font color='#009900'>// Decay rate for the second moment estimate
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> max_samples <font color='#5555FF'>=</font> <font color='#BB00BB'>get_option</font><font face='Lucida Console'>(</font>parser, "<font color='#CC0000'>max-samples</font>",<font color='#979000'>50000</font><font face='Lucida Console'>)</font>; <font color='#009900'>// Default maximum number of training samples
+</font>
+        <font color='#009900'>// We define a minimal config for demonstration
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> vocab_size <font color='#5555FF'>=</font> MAX_TOKEN_ID <font color='#5555FF'>+</font> <font color='#979000'>1</font> <font color='#5555FF'>+</font> <font color='#979000'>1</font>;   <font color='#009900'>// 256 for chars + 1 pad token
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> num_layers <font color='#5555FF'>=</font> <font color='#979000'>3</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> num_heads <font color='#5555FF'>=</font> <font color='#979000'>4</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> embedding_dim <font color='#5555FF'>=</font> <font color='#979000'>64</font>;
+        <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> max_seq_len <font color='#5555FF'>=</font> <font color='#979000'>80</font>;   <font color='#009900'>// a small sequence length for the example
+</font>        <font color='#0000FF'>const</font> <font color='#0000FF'><u>bool</u></font> use_squeezing <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+
+        <font color='#0000FF'>using</font> my_transformer_cfg <font color='#5555FF'>=</font> transformer::transformer_config<font color='#5555FF'>&lt;</font>
+            vocab_size,
+            num_layers,
+            num_heads,
+            embedding_dim,
+            max_seq_len,
+            use_squeezing,
+            gelu,
+            dropout_10
+        <font color='#5555FF'>&gt;</font>;
+
+        <font color='#009900'>// For GPU usage (if any), set gpus = {0} for a single GPU, etc.
+</font>        std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> gpus<b>{</b> <font color='#979000'>0</font> <b>}</b>;
+
+        <font color='#009900'>// The model file to store or load
+</font>        <font color='#0000FF'>const</font> std::string model_file <font color='#5555FF'>=</font> "<font color='#CC0000'>shakespeare_lm_char_model.dat</font>";
+
+        <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>        <font color='#009900'>// Train mode
+</font>        <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>train</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>=== TRAIN MODE ===\n</font>";
+
+            <font color='#009900'>// 1) Prepare training data (simple approach)
+</font>            <font color='#009900'>// We will store characters from shakespeare_text into a vector
+</font>            <font color='#009900'>// and then produce training samples of length (max_seq_len+1),
+</font>            <font color='#009900'>// where the last token is the label to predict from the preceding max_seq_len.
+</font>            <font color='#0000FF'>auto</font> full_tokens <font color='#5555FF'>=</font> <font color='#BB00BB'>char_based_tokenize</font><font face='Lucida Console'>(</font>shakespeare_text<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>full_tokens.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                cerr <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>ERROR: The Shakespeare text is empty. Please provide a valid training text.\n</font>";
+                <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+            <b>}</b>
+
+            <font color='#009900'>// Calculate the maximum number of sequences
+</font>            <font color='#0000FF'><u>size_t</u></font> max_sequences <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>full_tokens.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font>max_seq_len <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>
+                ? <font face='Lucida Console'>(</font>full_tokens.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>-</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font>max_seq_len <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                : <font color='#979000'>0</font>;
+
+            <font color='#009900'>// Display the size of the training text and the number of sequences
+</font>            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Training text size: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> full_tokens.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> characters\n</font>";
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Maximum number of sequences: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> max_sequences <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>";
+
+            <font color='#009900'>// Check if the text is too short
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>max_sequences <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                cerr <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>ERROR: The Shakespeare text is too short for training. It must contain at least </font>"
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font face='Lucida Console'>(</font>max_seq_len <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> characters.\n</font>";
+                <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+            <b>}</b>
+
+            std::vector<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> samples;
+            std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>unsigned</u></font> <font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font> labels;
+
+            <font color='#009900'>// Let's create a training set of about (N) samples from the text
+</font>            <font color='#009900'>// Each sample: [x0, x1, ..., x_(max_seq_len-1)] -&gt; y
+</font>            <font color='#009900'>// We'll store them in "samples" and "labels".
+</font>            <font color='#0000FF'>const</font> <font color='#0000FF'><u>size_t</u></font> N <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>max_sequences <font color='#5555FF'>&lt;</font> max_samples<font face='Lucida Console'>)</font> ? max_sequences : max_samples;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> start <font color='#5555FF'>=</font> <font color='#979000'>0</font>; start <font color='#5555FF'>&lt;</font> N; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>start<font face='Lucida Console'>)</font>
+            <b>{</b>
+                matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>seq</font><font face='Lucida Console'>(</font>max_seq_len, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> t <font color='#5555FF'>=</font> <font color='#979000'>0</font>; t <font color='#5555FF'>&lt;</font> max_seq_len; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>t<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>seq</font><font face='Lucida Console'>(</font>t, <font color='#979000'>0</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> full_tokens[start <font color='#5555FF'>+</font> t];
+                samples.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>seq<font face='Lucida Console'>)</font>;
+                labels.<font color='#BB00BB'>push_back</font><font face='Lucida Console'>(</font>full_tokens[start <font color='#5555FF'>+</font> max_seq_len]<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#009900'>// Shuffle samples and labels if the --shuffle option is enabled
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>shuffle</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Shuffling training sequences and labels...\n</font>";
+                <font color='#BB00BB'>shuffle_samples_and_labels</font><font face='Lucida Console'>(</font>samples, labels<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            <font color='#009900'>// 3) Construct the network in training mode
+</font>            <font color='#0000FF'>using</font> net_type <font color='#5555FF'>=</font> my_transformer_cfg::network_type<font color='#5555FF'>&lt;</font><font color='#979000'>true</font><font color='#5555FF'>&gt;</font>;
+            net_type net;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>file_exists</font><font face='Lucida Console'>(</font>model_file<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>model_file<font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> net;
+
+            <font color='#009900'>// 4) Create dnn_trainer
+</font>            dnn_trainer<font color='#5555FF'>&lt;</font>net_type, adam<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>trainer</font><font face='Lucida Console'>(</font>net, <font color='#BB00BB'>adam</font><font face='Lucida Console'>(</font>alpha, beta1, beta2<font face='Lucida Console'>)</font>, gpus<font face='Lucida Console'>)</font>;
+            trainer.<font color='#BB00BB'>set_learning_rate</font><font face='Lucida Console'>(</font>learning_rate<font face='Lucida Console'>)</font>;
+            trainer.<font color='#BB00BB'>set_min_learning_rate</font><font face='Lucida Console'>(</font><font color='#979000'>1e</font><font color='#5555FF'>-</font><font color='#979000'>6</font><font face='Lucida Console'>)</font>;
+            trainer.<font color='#BB00BB'>set_mini_batch_size</font><font face='Lucida Console'>(</font>batch_size<font face='Lucida Console'>)</font>;
+            trainer.<font color='#BB00BB'>set_iterations_without_progress_threshold</font><font face='Lucida Console'>(</font><font color='#979000'>15000</font><font face='Lucida Console'>)</font>;
+            trainer.<font color='#BB00BB'>set_max_num_epochs</font><font face='Lucida Console'>(</font><font color='#979000'>400</font><font face='Lucida Console'>)</font>;
+            trainer.<font color='#BB00BB'>be_verbose</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// 5) Train
+</font>            trainer.<font color='#BB00BB'>train</font><font face='Lucida Console'>(</font>samples, labels<font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// 6) Evaluate quickly on the training set
+</font>            <font color='#0000FF'>auto</font> predicted <font color='#5555FF'>=</font> <font color='#BB00BB'>net</font><font face='Lucida Console'>(</font>samples<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'><u>size_t</u></font> correct <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> labels.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>predicted[i] <font color='#5555FF'>=</font><font color='#5555FF'>=</font> labels[i]<font face='Lucida Console'>)</font>
+                    correct<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+            <font color='#0000FF'><u>double</u></font> accuracy <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>double</u></font><font face='Lucida Console'>)</font>correct <font color='#5555FF'>/</font> labels.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Training accuracy (on this sample set): </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> accuracy <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>";
+
+            <font color='#009900'>// 7) Save the model
+</font>            net.<font color='#BB00BB'>clean</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>serialize</font><font face='Lucida Console'>(</font>model_file<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> net;
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Model saved to </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> model_file <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>";
+        <b>}</b>
+
+        <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>        <font color='#009900'>// Generate mode
+</font>        <font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>parser.<font color='#BB00BB'>option</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>generate</font>"<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+        <b>{</b>
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>=== GENERATE MODE ===\n</font>";
+            <font color='#009900'>// 1) Load the trained model
+</font>            <font color='#0000FF'>using</font> net_infer <font color='#5555FF'>=</font> my_transformer_cfg::network_type<font color='#5555FF'>&lt;</font><font color='#979000'>false</font><font color='#5555FF'>&gt;</font>;
+            net_infer net;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#BB00BB'>file_exists</font><font face='Lucida Console'>(</font>model_file<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#BB00BB'>deserialize</font><font face='Lucida Console'>(</font>model_file<font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font> net;
+                cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Loaded model from </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> model_file <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>";
+            <b>}</b>
+            <font color='#0000FF'>else</font>
+            <b>{</b>
+                cerr <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Error: model file not found. Please run --train first.\n</font>";
+                <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+            <b>}</b>
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> my_transformer_cfg::model_info::<font color='#BB00BB'>describe</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Model parameters: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#BB00BB'>count_parameters</font><font face='Lucida Console'>(</font>net<font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+
+            <font color='#009900'>// 2) Get the prompt from the included slm_data.h
+</font>            std::string prompt_text <font color='#5555FF'>=</font> shakespeare_prompt;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>prompt_text.<font color='#BB00BB'>empty</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+            <b>{</b>
+                cerr <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>No prompt found in slm_data.h.\n</font>";
+                <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+            <b>}</b>
+            <font color='#009900'>// If prompt is longer than max_seq_len, we keep only the first window
+</font>            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>prompt_text.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&gt;</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font>max_seq_len<font face='Lucida Console'>)</font>
+                prompt_text.<font color='#BB00BB'>erase</font><font face='Lucida Console'>(</font>prompt_text.<font color='#BB00BB'>begin</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>+</font> max_seq_len, prompt_text.<font color='#BB00BB'>end</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// Convert prompt to a token sequence
+</font>            <font color='#0000FF'>const</font> <font color='#0000FF'>auto</font> prompt_tokens <font color='#5555FF'>=</font> <font color='#BB00BB'>char_based_tokenize</font><font face='Lucida Console'>(</font>prompt_text<font face='Lucida Console'>)</font>;
+
+            <font color='#009900'>// Put into a dlib matrix
+</font>            matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>input_seq</font><font face='Lucida Console'>(</font>max_seq_len, <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+            <font color='#009900'>// Fill with pad if prompt is shorter than max_seq_len
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> max_seq_len; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>size_t</u></font><font face='Lucida Console'>)</font>i <font color='#5555FF'>&lt;</font> prompt_tokens.<font color='#BB00BB'>size</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>input_seq</font><font face='Lucida Console'>(</font>i, <font color='#979000'>0</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> prompt_tokens[i];
+                <font color='#0000FF'>else</font>
+                    <font color='#BB00BB'>input_seq</font><font face='Lucida Console'>(</font>i, <font color='#979000'>0</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> PAD_TOKEN;
+            <b>}</b>
+
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\nInitial prompt:\n</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> prompt_text <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'> (...)\n\n\nGenerated text:\n</font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> prompt_text;
+
+            <font color='#009900'>// 3) Generate new text
+</font>            <font color='#009900'>// We'll predict one character at a time, then shift the window
+</font>            <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> generation_length; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+            <b>{</b>
+                <font color='#0000FF'>const</font> <font color='#0000FF'><u>int</u></font> next_char <font color='#5555FF'>=</font> <font color='#BB00BB'>net</font><font face='Lucida Console'>(</font>input_seq<font face='Lucida Console'>)</font>; <font color='#009900'>// single inference
+</font>
+                <font color='#009900'>// Print the generated character
+</font>                cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> <font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>char</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>min</font><font face='Lucida Console'>(</font>next_char, MAX_TOKEN_ID<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> flush;
+
+                <font color='#009900'>// Shift left by 1
+</font>                <font color='#0000FF'>for</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font> i <font color='#5555FF'>=</font> <font color='#979000'>0</font>; i <font color='#5555FF'>&lt;</font> max_seq_len <font color='#5555FF'>-</font> <font color='#979000'>1</font>; <font color='#5555FF'>+</font><font color='#5555FF'>+</font>i<font face='Lucida Console'>)</font>
+                    <font color='#BB00BB'>input_seq</font><font face='Lucida Console'>(</font>i, <font color='#979000'>0</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#BB00BB'>input_seq</font><font face='Lucida Console'>(</font>i <font color='#5555FF'>+</font> <font color='#979000'>1</font>, <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+                <font color='#BB00BB'>input_seq</font><font face='Lucida Console'>(</font>max_seq_len <font color='#5555FF'>-</font> <font color='#979000'>1</font>, <font color='#979000'>0</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> std::<font color='#BB00BB'>min</font><font face='Lucida Console'>(</font>next_char, MAX_TOKEN_ID<font face='Lucida Console'>)</font>;
+            <b>}</b>
+
+            cout <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n\n(end of generation)\n</font>";
+        <b>}</b>
+
+        <font color='#0000FF'>return</font> <font color='#979000'>0</font>;
+    <b>}</b>
+    <font color='#0000FF'>catch</font> <font face='Lucida Console'>(</font>exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font>
+    <b>{</b>
+        cerr <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Exception thrown: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> e.<font color='#BB00BB'>what</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> endl;
+        <font color='#0000FF'>return</font> <font color='#979000'>1</font>;
+    <b>}</b>
+<b>}</b>
+
+<font color='#009900'>/*
+ * This program demonstrates the training of a language model on about 15k sequences.
+ * The training process produces a data file of approximately 32MB on disk.
+ *
+ * - Transformer model configuration:
+ *    + vocabulary size: 257
+ *    + layers: 3
+ *    + attention heads: 4
+ *    + embedding dimension: 64
+ *    + max sequence length: 80
+ * - Number of parameters: 8,247,496
+ *
+ * The training cab be done using the following command line:
+ * &gt;./slm_basic_train_ex --train --shuffle
+ *
+ * After this phase, the model achieves perfect prediction accuracy (i.e acc=1).
+ * The generation option produces text that is very close to the original training data,
+ * as illustrated by the example below:
+ * &gt; Generated text:
+ * &gt; QUEEN ELIZABETH:
+ * &gt; But thou didst kill my children.
+ * &gt;
+ * &gt; KING RICHARD III:
+ * &gt; But in your daughter's womb I bury them:
+ * &gt; Where in that nest of spicery they shall breed
+ * &gt; Selves of themselves, to your recomforture.
+ * &gt;
+ * &gt; QUEEN ELIZABETH:
+ * &gt; Shall I go win my daughter to thy will?
+ * &gt;
+ * &gt; KING RICHARD III:
+ * &gt; And be a happy mother by the deed.
+ * &gt;
+ * &gt; QUEEN ELIZABETH:
+ * &gt; I go. Write to me very shortly.
+ * &gt; And you shall understand from me her mind.
+ */</font>
+
+</pre></body></html>

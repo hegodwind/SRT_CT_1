@@ -1,0 +1,276 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - any_function_abstract.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2011  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#undef</font> DLIB_AnY_FUNCTION_ABSTRACT_H_
+<font color='#0000FF'>#ifdef</font> DLIB_AnY_FUNCTION_ABSTRACT_H_
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='any_abstract.h.html'>any_abstract.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='../algs.h.html'>../algs.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'>class</font> <b><a name='Storage'></a>Storage</b>, 
+        <font color='#0000FF'>typename</font> function_type
+        <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>class</font> <b><a name='any_function_basic'></a>any_function_basic</b>
+    <b>{</b>
+        <font color='#009900'>/*!
+            REQUIREMENTS ON Storage
+                This must be one of the storage types from dlib/any/storage.hh
+                E.g. storage_heap, storage_stack, etc.
+
+                It determines the method by which any_function_basic holds onto the function it uses.
+
+            REQUIREMENTS ON function_type
+                This type should be a function signature.  Some examples are:
+                    void (int,int)  // a function returning nothing and taking two ints
+                    void ()         // a function returning nothing and taking no arguments
+                    char (double&amp;)  // a function returning a char and taking a reference to a double
+
+                The number of arguments in the function must be no greater than 10.
+
+            INITIAL VALUE
+                - is_empty() == true
+                - for all T: contains&lt;T&gt;() == false
+
+            WHAT THIS OBJECT REPRESENTS
+                This object is a version of dlib::any that is restricted to containing 
+                elements which are some kind of function object with an operator() which
+                matches the function signature defined by function_type.
+
+
+                Here is an example:
+                    #include &lt;iostream&gt;
+                    #include &lt;string&gt;
+                    #include "dlib/any.h"
+                    void print_message(string str) { cout &lt;&lt; str &lt;&lt; endl; }
+
+                    int main()
+                    {
+                        dlib::any_function&lt;void(string)&gt; f;
+                        f = print_message;
+                        f("hello world"); // calls print_message("hello world")
+                    }
+
+                Note that any_function_basic objects can be used to store general function 
+                objects (i.e. defined by a class with an overloaded operator()) in
+                addition to regular global functions.  
+        !*/</font>
+
+    <font color='#0000FF'>public</font>:
+
+        <font color='#009900'>// This is the type of object returned by function_type functions.
+</font>        <font color='#0000FF'>typedef</font> result_type_for_function_type result_type;
+
+        <b><a name='any_function_basic'></a>any_function_basic</b><font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - this object is properly initialized
+        !*/</font>
+
+        <b><a name='any_function_basic'></a>any_function_basic</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> any_function_basic<font color='#5555FF'>&amp;</font> item
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - copies the state of item into *this.  
+                - Note that *this and item will contain independent copies of the
+                  contents of item.  That is, this function performs a deep
+                  copy and therefore does not result in *this containing
+                  any kind of reference to item.
+        !*/</font>
+
+        <b><a name='any_function_basic'></a>any_function_basic</b> <font face='Lucida Console'>(</font>
+            any_function_basic<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> item
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - moves item into *this.
+                - The exact move semantics are determined by which Storage type is used.  E.g. 
+                  storage_heap will result in #item.is_empty()==true but storage_view would result
+                  in #item.is_empty() == false
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font> <font color='#0000FF'>typename</font> Funct <font color='#5555FF'>&gt;</font>
+        <b><a name='any_function_basic'></a>any_function_basic</b> <font face='Lucida Console'>(</font>
+            Funct<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> funct 
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - #contains&lt;T&gt;() == true
+                - #cast_to&lt;T&gt;() == item
+                  (i.e. calling operator() will invoke funct())
+        !*/</font>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='clear'></a>clear</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - #*this will have its default value.  I.e. #is_empty() == true
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>bool</u></font> <b><a name='contains'></a>contains</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - if (this object currently contains an object of type T) then
+                    - returns true
+                - else
+                    - returns false
+        !*/</font>
+
+        <font color='#0000FF'><u>bool</u></font> <b><a name='is_empty'></a>is_empty</b><font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - if (this object contains any kind of object) then
+                    - returns false 
+                - else
+                    - returns true 
+        !*/</font>
+
+        <font color='#0000FF'><u>bool</u></font> <b><a name='is_set'></a>is_set</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns !is_empty()
+        !*/</font>
+
+        <font color='#0000FF'>explicit</font> <b><a name='operator'></a>operator</b> <font color='#0000FF'><u>bool</u></font><font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns is_set()
+        !*/</font>
+
+        result_type <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font>Args... args<font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            requires
+                - is_empty() == false
+                - the signature defined by function_type takes no arguments
+            ensures
+                - Let F denote the function object contained within *this.  Then
+                  this function performs:
+                    return F(std::forward&lt;Args&gt;(args)...)
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+        T<font color='#5555FF'>&amp;</font> <b><a name='cast_to'></a>cast_to</b><font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - if (contains&lt;T&gt;() == true) then
+                    - returns a non-const reference to the object contained within *this
+                - else
+                    - throws bad_any_cast
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font> <b><a name='cast_to'></a>cast_to</b><font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - if (contains&lt;T&gt;() == true) then
+                    - returns a const reference to the object contained within *this
+                - else
+                    - throws bad_any_cast
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> T<font color='#5555FF'>&gt;</font>
+        T<font color='#5555FF'>&amp;</font> <b><a name='get'></a>get</b><font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - #is_empty() == false
+                - #contains&lt;T&gt;() == true
+                - if (contains&lt;T&gt;() == true)
+                    - returns a non-const reference to the object contained in *this.
+                - else
+                    - Constructs an object of type T inside *this
+                    - Any previous object stored in this any_function_basic object is destructed and its
+                      state is lost.
+                    - returns a non-const reference to the newly created T object.
+        !*/</font>
+
+        any_function_basic<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> any_function_basic<font color='#5555FF'>&amp;</font> item
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - copies the state of item into *this.  
+                - Note that the type of copy is determined by the Storage template argument.  E.g.
+                  storage_sbo will result in a deep copy, while storage_view would result in *this
+                  and item referring to the same underlying function.
+        !*/</font>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='swap'></a>swap</b> <font face='Lucida Console'>(</font>
+            any_function_basic<font color='#5555FF'>&amp;</font> item
+        <font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - swaps *this and item
+        !*/</font>
+
+    <b>}</b>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'>typename</font> T,
+        <font color='#0000FF'>typename</font> function_type
+        <font color='#5555FF'>&gt;</font> 
+    T<font color='#5555FF'>&amp;</font> <b><a name='any_cast'></a>any_cast</b><font face='Lucida Console'>(</font>
+        any_function_basic<font color='#5555FF'>&lt;</font>function_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> a
+    <font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> a.cast_to<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#009900'>/*!
+        ensures
+            - returns a.cast_to&lt;T&gt;()
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'>typename</font> T,
+        <font color='#0000FF'>typename</font> function_type
+        <font color='#5555FF'>&gt;</font> 
+    <font color='#0000FF'>const</font> T<font color='#5555FF'>&amp;</font> <b><a name='any_cast'></a>any_cast</b><font face='Lucida Console'>(</font>
+        <font color='#0000FF'>const</font> any_function_basic<font color='#5555FF'>&lt;</font>function_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> a
+    <font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> a.cast_to<font color='#5555FF'>&lt;</font>T<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#009900'>/*!
+        ensures
+            - returns a.cast_to&lt;T&gt;()
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <a name='any_function'/><font color='#009900'>/*!A any_function
+
+        A version of any_function_basic (defined above) that owns the function it contains.  Uses
+        the small buffer optimization to make working with small lambdas faster.
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='F'></a>F</b><font color='#5555FF'>&gt;</font> 
+    <font color='#0000FF'>using</font> any_function <font color='#5555FF'>=</font> any_function_basic<font color='#5555FF'>&lt;</font>te::storage_sbo<font color='#5555FF'>&lt;</font><font color='#979000'>16</font><font color='#5555FF'>&gt;</font>, F<font color='#5555FF'>&gt;</font>;
+
+    <a name='any_function_view'/><font color='#009900'>/*!A any_function_view
+
+        A version of any_function_basic (defined above) that *DOES NOT* own the function it
+        contains.  It merely holds a pointer to the function given to its constructor. 
+    !*/</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='F'></a>F</b><font color='#5555FF'>&gt;</font> 
+    <font color='#0000FF'>using</font> any_function_view <font color='#5555FF'>=</font> any_function_basic<font color='#5555FF'>&lt;</font>te::storage_view, F<font color='#5555FF'>&gt;</font>;
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_AnY_FUNCTION_ABSTRACT_H_
+</font>
+
+</pre></body></html>

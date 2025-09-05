@@ -1,0 +1,289 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - slm_defs.h</title></head><body bgcolor='white'><pre>
+<font color='#0000FF'>#ifndef</font> SlmNet_H
+<font color='#0000FF'>#define</font> SlmNet_H
+
+<font color='#009900'>/**
+ * @file slm_defs.h
+ * @brief Optimized Transformer neural architecture for language processing
+ *
+ * Implements a Transformer architecture with multi-head attention and RMS
+ * normalization, designed for efficient learning and inference. The architecture
+ * leverages cognitive principles of parallel information processing and
+ * selective attention.
+ *
+ * Key features:
+ * - RMS normalization for enhanced stability
+ * - Optimized residual connections
+ * - Causal masking for autoregressive attention
+ */</font>
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>dnn.h<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> transformer
+<b>{</b>
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+
+    <font color='#009900'>// Scale Weights Layer
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font> d_k_<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>class</font> <b><a name='scale_weights_'></a>scale_weights_</b> : <font color='#0000FF'>public</font> multiply_ <b>{</b>
+    <font color='#0000FF'>public</font>:
+        <font color='#0000FF'>explicit</font> <b><a name='scale_weights_'></a>scale_weights_</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> : multiply_<font face='Lucida Console'>(</font><font color='#979000'>1.0f</font> <font color='#5555FF'>/</font> std::sqrt<font face='Lucida Console'>(</font><font color='#0000FF'>static_cast</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>float</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>d_k_<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+    <b>}</b>;
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font> d_k, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> scale_weights <font color='#5555FF'>=</font> add_layer<font color='#5555FF'>&lt;</font>scale_weights_<font color='#5555FF'>&lt;</font>d_k<font color='#5555FF'>&gt;</font>, SUBNET<font color='#5555FF'>&gt;</font>;
+
+    <font color='#0000FF'>namespace</font> def <b>{</b>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font> num_heads, <font color='#0000FF'><u>long</u></font> d_model, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> query <font color='#5555FF'>=</font> extract<font color='#5555FF'>&lt;</font><font color='#979000'>0</font>, num_heads, d_model <font color='#5555FF'>/</font> num_heads, <font color='#979000'>1</font>, SUBNET<font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font> num_heads, <font color='#0000FF'><u>long</u></font> d_model, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> key <font color='#5555FF'>=</font> extract<font color='#5555FF'>&lt;</font>d_model, num_heads, <font color='#979000'>1</font>, d_model <font color='#5555FF'>/</font> num_heads, SUBNET<font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font> num_heads, <font color='#0000FF'><u>long</u></font> d_model, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> value <font color='#5555FF'>=</font> extract<font color='#5555FF'>&lt;</font><font face='Lucida Console'>(</font>d_model <font color='#5555FF'>*</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font>, num_heads, d_model <font color='#5555FF'>/</font> num_heads, <font color='#979000'>1</font>, SUBNET<font color='#5555FF'>&gt;</font>;
+
+        <font color='#009900'>/**
+         * Multi-Head Attention Layer
+         *
+         * Structure:
+         * 1. Input processing
+         *    - RMS normalization
+         *    - Single linear projection (d_model -&gt; 3*d_model) for Q,K,V
+         * 2. Parallel head processing (num_heads)
+         *    - Split into Q, K, V tensors
+         *    - Key transposition for attention computation
+         * 3. Attention mechanism
+         *    - Scaled dot-product (Q*K^T / sqrt(d_k))
+         *    - Causal masking (tril_mask)
+         *    - Softmax normalization
+         *    - Value weighting
+         * 4. Output
+         *    - Head concatenation
+         *    - Residual connection
+         *
+         * Template parameters:
+         * @param ACT: Activation function type
+         * @param DO: Dropout layer type
+         * @param d_model: Model dimension
+         * @param num_heads: Number of attention heads
+         * @param SUBNET: Input subnet type
+         */</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='DO'></a>DO</b>,
+            <font color='#0000FF'><u>long</u></font> d_model, <font color='#0000FF'><u>long</u></font> num_heads, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> multihead_attention <font color='#5555FF'>=</font> add_prev1<font color='#5555FF'>&lt;</font>DO<font color='#5555FF'>&lt;</font>extract<font color='#5555FF'>&lt;</font><font color='#979000'>0</font>, <font color='#979000'>1</font>, <font color='#979000'>1</font>, d_model, multm_prev3<font color='#5555FF'>&lt;</font>
+            DO<font color='#5555FF'>&lt;</font>softmaxm<font color='#5555FF'>&lt;</font>tril_mask<font color='#5555FF'>&lt;</font>
+            scale_weights<font color='#5555FF'>&lt;</font>d_model <font color='#5555FF'>/</font> num_heads,
+            multm_prev4<font color='#5555FF'>&lt;</font>query<font color='#5555FF'>&lt;</font>num_heads, d_model, skip2<font color='#5555FF'>&lt;</font>
+            tag4<font color='#5555FF'>&lt;</font>key<font color='#5555FF'>&lt;</font>num_heads, d_model, skip2<font color='#5555FF'>&lt;</font>
+            tag3<font color='#5555FF'>&lt;</font>value<font color='#5555FF'>&lt;</font>num_heads, d_model,
+            tag2<font color='#5555FF'>&lt;</font>fc_no_bias<font color='#5555FF'>&lt;</font>d_model <font color='#5555FF'>*</font> <font color='#979000'>3</font>, rms_norm<font color='#5555FF'>&lt;</font>
+            tag1<font color='#5555FF'>&lt;</font>SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+        <font color='#009900'>/**
+         * Feed-Forward Network Layer
+         *
+         * Structure:
+         * 1. Input processing
+         *    - RMS normalization
+         *    - Input tagged for residual connection
+         * 2. Transformation
+         *    - Expansion layer (d_model -&gt; 4*d_model)
+         *    - Activation function
+         *    - Projection layer (4*d_model -&gt; d_model)
+         * 3. Output
+         *    - Dropout
+         *    - Residual connection
+         *
+         * Template parameters:
+         * @param ACT: Activation function type
+         * @param DO: Dropout layer type
+         * @param d_model: Model dimension
+         * @param SUBNET: Input subnet type
+         */</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='DO'></a>DO</b>, <font color='#0000FF'><u>long</u></font> d_model, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> feed_forward <font color='#5555FF'>=</font>
+            add_prev5<font color='#5555FF'>&lt;</font>
+            DO<font color='#5555FF'>&lt;</font>extract<font color='#5555FF'>&lt;</font><font color='#979000'>0</font>, <font color='#979000'>1</font>, <font color='#979000'>1</font>, d_model,
+            fc<font color='#5555FF'>&lt;</font>d_model, ACT<font color='#5555FF'>&lt;</font>fc<font color='#5555FF'>&lt;</font>d_model <font color='#5555FF'>*</font> <font color='#979000'>4</font>, rms_norm<font color='#5555FF'>&lt;</font>
+            tag5<font color='#5555FF'>&lt;</font>SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+        <font color='#009900'>/**
+         * Transformer Block
+         *
+         * Combines sequentially:
+         * 1. Multi-head attention layer
+         * 2. Feed-forward network
+         *
+         * Template parameters:
+         * @param ACT: Activation function type
+         * @param DO: Dropout layer type
+         * @param d_model: Model dimension
+         * @param num_heads: Number of attention heads
+         * @param SUBNET: Input subnet type
+         */</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='DO'></a>DO</b>, <font color='#0000FF'><u>long</u></font> seq_len, <font color='#0000FF'><u>long</u></font> d_model, <font color='#0000FF'><u>long</u></font> num_heads, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> transformer_block <font color='#5555FF'>=</font>
+            feed_forward<font color='#5555FF'>&lt;</font>ACT, DO, d_model,
+            multihead_attention<font color='#5555FF'>&lt;</font>ACT, DO, d_model, num_heads, SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+    <b>}</b>
+
+    <font color='#009900'>// Positional Embeddings
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font> num_embeddings, <font color='#0000FF'><u>long</u></font> embedding_length, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> positional_embeddings <font color='#5555FF'>=</font> positional_encodings<font color='#5555FF'>&lt;</font>embeddings<font color='#5555FF'>&lt;</font>num_embeddings, embedding_length, SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+    <font color='#009900'>// Classification Head   
+</font>    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'><u>long</u></font> embedding_length, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> squeezing <font color='#5555FF'>=</font> fc<font color='#5555FF'>&lt;</font>embedding_length <font color='#5555FF'>/</font> <font color='#979000'>4</font>, ACT<font color='#5555FF'>&lt;</font>fc<font color='#5555FF'>&lt;</font>embedding_length <font color='#5555FF'>/</font> <font color='#979000'>8</font>, SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> USE_SQUEEZING, <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'><u>long</u></font> num_logits, <font color='#0000FF'><u>long</u></font> embedding_length, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='classification_head_impl'></a>classification_head_impl</b>;
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'><u>long</u></font> num_logits, <font color='#0000FF'><u>long</u></font> embedding_length, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='classification_head_impl'></a>classification_head_impl</b><font color='#5555FF'>&lt;</font><font color='#979000'>true</font>, ACT, num_logits, embedding_length, SUBNET<font color='#5555FF'>&gt;</font>
+    <b>{</b>
+        <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> loss_multiclass_log<font color='#5555FF'>&lt;</font>fc<font color='#5555FF'>&lt;</font>num_logits, squeezing<font color='#5555FF'>&lt;</font>ACT, embedding_length, rms_norm<font color='#5555FF'>&lt;</font>SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+    <b>}</b>;
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'><u>long</u></font> num_logits, <font color='#0000FF'><u>long</u></font> embedding_length, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='classification_head_impl'></a>classification_head_impl</b><font color='#5555FF'>&lt;</font><font color='#979000'>false</font>, ACT, num_logits, embedding_length, SUBNET<font color='#5555FF'>&gt;</font>
+    <b>{</b>
+        <font color='#0000FF'>using</font> type <font color='#5555FF'>=</font> loss_multiclass_log<font color='#5555FF'>&lt;</font>fc<font color='#5555FF'>&lt;</font>num_logits, rms_norm<font color='#5555FF'>&lt;</font>SUBNET<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+    <b>}</b>;
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> USE_SQUEEZING, <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='ACT'></a>ACT</b>, <font color='#0000FF'><u>long</u></font> num_logits, <font color='#0000FF'><u>long</u></font> embedding_length, <font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>using</font> classification_head <font color='#5555FF'>=</font> <font color='#0000FF'>typename</font> classification_head_impl<font color='#5555FF'>&lt;</font>USE_SQUEEZING, ACT, num_logits, embedding_length, SUBNET<font color='#5555FF'>&gt;</font>::type;
+
+    <font color='#009900'>/**
+     * @brief Transformer Model Configuration Template
+     *
+     * Provides a flexible and type-safe configuration mechanism for Transformer models
+     * with compile-time parameter validation and network generation.
+     *
+     * Template parameters:
+     * @param vocab_size Vocabulary size for token embedding
+     * @param num_layers Number of Transformer layers
+     * @param num_heads Number of attention heads
+     * @param embedding_dim Dimension of token embeddings
+     * @param max_seq_len Maximum sequence length
+     * @param use_squeezing Use squeezing layer
+     * @param activation_func Activation function type
+     * @param dropout_policy Dropout regularization policy
+     */</font>
+    <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'><u>long</u></font> vocab_size <font color='#5555FF'>=</font> <font color='#979000'>5000</font>,                                 <font color='#009900'>// Default vocabulary size
+</font>        <font color='#0000FF'><u>long</u></font> num_layers <font color='#5555FF'>=</font> <font color='#979000'>6</font>,                                    <font color='#009900'>// Default number of layers
+</font>        <font color='#0000FF'><u>long</u></font> num_heads <font color='#5555FF'>=</font> <font color='#979000'>8</font>,                                     <font color='#009900'>// Default number of attention heads
+</font>        <font color='#0000FF'><u>long</u></font> embedding_dim <font color='#5555FF'>=</font> <font color='#979000'>128</font>,                               <font color='#009900'>// Default embedding dimension
+</font>        <font color='#0000FF'><u>long</u></font> max_seq_len <font color='#5555FF'>=</font> <font color='#979000'>100</font>,                                 <font color='#009900'>// Default maximum sequence length
+</font>        <font color='#0000FF'><u>bool</u></font> use_squeezing <font color='#5555FF'>=</font> <font color='#979000'>false</font>,                             <font color='#009900'>// Default use squeezing layer
+</font>        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='activation_func'></a>activation_func</b> <font color='#5555FF'>=</font> gelu,       <font color='#009900'>// Default activation function
+</font>        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font><font color='#5555FF'>&gt;</font> <font color='#0000FF'>class</font> <b><a name='dropout_policy'></a>dropout_policy</b> <font color='#5555FF'>=</font> dropout_10   <font color='#009900'>// Default dropout policy
+</font>    <font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>struct</font> <b><a name='transformer_config'></a>transformer_config</b> <b>{</b>
+        <font color='#009900'>// Core model parameters
+</font>        <font color='#0000FF'>static</font> constexpr <font color='#0000FF'><u>long</u></font> VOCAB_SIZE <font color='#5555FF'>=</font> vocab_size;
+        <font color='#0000FF'>static</font> constexpr <font color='#0000FF'><u>long</u></font> NUM_LAYERS <font color='#5555FF'>=</font> num_layers;
+        <font color='#0000FF'>static</font> constexpr <font color='#0000FF'><u>long</u></font> NUM_HEADS <font color='#5555FF'>=</font> num_heads;
+        <font color='#0000FF'>static</font> constexpr <font color='#0000FF'><u>long</u></font> EMBEDDING_DIM <font color='#5555FF'>=</font> embedding_dim;
+        <font color='#0000FF'>static</font> constexpr <font color='#0000FF'><u>long</u></font> MAX_SEQ_LEN <font color='#5555FF'>=</font> max_seq_len;
+        <font color='#0000FF'>static</font> constexpr <font color='#0000FF'><u>bool</u></font> USE_SQUEEZING <font color='#5555FF'>=</font> use_squeezing;
+
+        <font color='#009900'>/**
+         * @brief Compile-time validation of model configuration
+         *
+         * Performs static assertions to ensure valid model parameters
+         */</font>
+        <font color='#0000FF'>struct</font> <b><a name='validation'></a>validation</b> <b>{</b>
+            <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>VOCAB_SIZE <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>, "<font color='#CC0000'>Vocabulary size must be positive</font>"<font face='Lucida Console'>)</font>;
+            <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>NUM_LAYERS <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>, "<font color='#CC0000'>Number of layers must be positive</font>"<font face='Lucida Console'>)</font>;
+            <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>NUM_HEADS <font color='#5555FF'>&gt;</font> <font color='#979000'>0</font>, "<font color='#CC0000'>Number of attention heads must be positive</font>"<font face='Lucida Console'>)</font>;
+            <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>EMBEDDING_DIM<font color='#5555FF'>%</font> NUM_HEADS <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font>, "<font color='#CC0000'>Embedding dimension must be divisible by number of heads</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>;
+
+        <font color='#009900'>/**
+         * @brief Network type generation based on training/inference mode
+         *
+         * Generates different network types for training and inference
+         * using the configured parameters
+         *
+         * Template parameters:
+         * @tparam is_training Determines training or inference network type
+         */</font>
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> t_transformer_block <font color='#5555FF'>=</font> def::transformer_block<font color='#5555FF'>&lt;</font>activation_func, dropout_policy, MAX_SEQ_LEN, EMBEDDING_DIM, NUM_HEADS, SUBNET<font color='#5555FF'>&gt;</font>;
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> SUBNET<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> i_transformer_block <font color='#5555FF'>=</font> def::transformer_block<font color='#5555FF'>&lt;</font>activation_func, multiply, MAX_SEQ_LEN, EMBEDDING_DIM, NUM_HEADS, SUBNET<font color='#5555FF'>&gt;</font>;
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'><u>bool</u></font> is_training<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>using</font> network_type <font color='#5555FF'>=</font> std::conditional_t<font color='#5555FF'>&lt;</font>is_training,
+            classification_head<font color='#5555FF'>&lt;</font>USE_SQUEEZING, activation_func, VOCAB_SIZE, EMBEDDING_DIM,
+                repeat<font color='#5555FF'>&lt;</font>NUM_LAYERS, t_transformer_block,
+                positional_embeddings<font color='#5555FF'>&lt;</font>VOCAB_SIZE, EMBEDDING_DIM, input<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>,
+            classification_head<font color='#5555FF'>&lt;</font>USE_SQUEEZING, activation_func, VOCAB_SIZE, EMBEDDING_DIM,
+                repeat<font color='#5555FF'>&lt;</font>NUM_LAYERS, i_transformer_block,
+                positional_embeddings<font color='#5555FF'>&lt;</font>VOCAB_SIZE, EMBEDDING_DIM, input<font color='#5555FF'>&lt;</font>matrix<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font>, <font color='#979000'>0</font>, <font color='#979000'>1</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>
+            <font color='#5555FF'>&gt;</font>;
+
+        <font color='#009900'>/**
+         * @brief Model configuration information and debugging utility
+         *
+         * Provides methods to generate human-readable model configuration details
+         */</font>
+        <font color='#0000FF'>struct</font> <b><a name='model_info'></a>model_info</b> <b>{</b>
+            <font color='#009900'>/**
+             * @brief Generate a detailed description of the model configuration
+             *
+             * @return String containing model configuration details
+             */</font>
+            <font color='#0000FF'>static</font> std::string <b><a name='describe'></a>describe</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+                std::stringstream ss;
+                ss <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>Transformer model configuration:\n</font>"
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>- vocabulary size: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> VOCAB_SIZE <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>"
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>- layers: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> NUM_LAYERS <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>"
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>- attention heads: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> NUM_HEADS <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>"
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>- embedding dimension: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> EMBEDDING_DIM <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>\n</font>"
+                    <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> "<font color='#CC0000'>- max sequence length: </font>" <font color='#5555FF'>&lt;</font><font color='#5555FF'>&lt;</font> MAX_SEQ_LEN;
+                <font color='#0000FF'>return</font> ss.<font color='#BB00BB'>str</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+        <b>}</b>;
+    <b>}</b>;
+
+    <font color='#0000FF'>using</font> vslm <font color='#5555FF'>=</font> transformer_config<font color='#5555FF'>&lt;</font><font color='#5555FF'>&gt;</font>; <font color='#009900'>// Very Small Language Model
+</font>
+    <font color='#009900'>/**
+     * @example Configuration and Usage Examples
+     *
+     * // Creating different transformer configurations
+     * using default_transformer = transformer_config&lt;&gt;;
+     * using large_transformer_with_squeezing = transformer_config&lt;
+     *     50000,  // Larger vocabulary
+     *     8,      // More layers
+     *     8,      // More heads
+     *     512,    // Larger embedding dimension
+     *     128,    // Longer sequences
+     *     true    // Use squeezing
+     * &gt;;
+     *
+     * // Network type instantiations for different modes
+     * using train_network = default_transformer::network_type&lt;true&gt;;
+     * using inference_network = default_transformer::network_type&lt;false&gt;;
+     *
+     * // Utility function to print model configuration
+     * void print_model_info() {
+     *     std::cout &lt;&lt; default_transformer::model_info::describe() &lt;&lt; std::endl;
+     * }
+     *
+     * @note
+     * - Supports compile-time configuration
+     * - Provides static validation of model parameters
+     * - Enables dynamic network type generation
+     * - Offers advanced hyperparameter tuning utilities
+     *
+     * @author Cydral
+     * @site https://github.com/Cydral/ERNIE
+     * @version 1.0
+     * @date 11/2024
+     */</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// SlmNet_H
+</font>
+</pre></body></html>

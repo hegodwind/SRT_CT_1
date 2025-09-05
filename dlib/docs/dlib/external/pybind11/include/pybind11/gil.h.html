@@ -1,0 +1,250 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - gil.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>/*
+    pybind11/gil.h: RAII helpers for managing the GIL
+
+    Copyright (c) 2016 Wenzel Jakob &lt;wenzel.jakob@epfl.ch&gt;
+
+    All rights reserved. Use of this source code is governed by a
+    BSD-style license that can be found in the LICENSE file.
+*/</font>
+
+<font color='#0000FF'>#pragma</font> once
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='detail/common.h.html'>detail/common.h</a>"
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>cassert<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font> <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> <font color='#5555FF'>!</font>defined<font face='Lucida Console'>(</font>PYBIND11_SIMPLE_GIL_MANAGEMENT<font face='Lucida Console'>)</font>
+#    include "<font color='#CC0000'>detail/internals.h</font>"
+<font color='#0000FF'>#endif</font>
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+<b><a name='PYBIND11_NAMESPACE_BEGIN'></a>PYBIND11_NAMESPACE_BEGIN</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#009900'>// forward declarations
+</font>PyThreadState <font color='#5555FF'>*</font><b><a name='get_thread_state_unchecked'></a>get_thread_state_unchecked</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>detail<font face='Lucida Console'>)</font>
+
+<font color='#0000FF'>#if</font> defined<font face='Lucida Console'>(</font>WITH_THREAD<font face='Lucida Console'>)</font>
+
+#    <font color='#0000FF'>if</font> <font color='#5555FF'>!</font><b><a name='defined'></a>defined</b><font face='Lucida Console'>(</font>PYBIND11_SIMPLE_GIL_MANAGEMENT<font face='Lucida Console'>)</font>
+
+<font color='#009900'>/* The functions below essentially reproduce the PyGILState_* API using a RAII
+ * pattern, but there are a few important differences:
+ *
+ * 1. When acquiring the GIL from an non-main thread during the finalization
+ *    phase, the GILState API blindly terminates the calling thread, which
+ *    is often not what is wanted. This API does not do this.
+ *
+ * 2. The gil_scoped_release function can optionally cut the relationship
+ *    of a PyThreadState and its associated thread, which allows moving it to
+ *    another thread (this is a fairly rare/advanced use case).
+ *
+ * 3. The reference count of an acquired thread state can be controlled. This
+ *    can be handy to prevent cases where callbacks issued from an external
+ *    thread would otherwise constantly construct and destroy thread state data
+ *    structures.
+ *
+ * See the Python bindings of NanoGUI (http://github.com/wjakob/nanogui) for an
+ * example which uses features 2 and 3 to migrate the Python thread of
+ * execution to another thread (to run the event loop on the original thread,
+ * in this case).
+ */</font>
+
+<font color='#0000FF'>class</font> <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b> <b>{</b>
+<font color='#0000FF'>public</font>:
+    PYBIND11_NOINLINE <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>internals <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        tstate <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font>PyThreadState <font color='#5555FF'>*</font><font face='Lucida Console'>)</font> <font color='#BB00BB'>PYBIND11_TLS_GET_VALUE</font><font face='Lucida Console'>(</font>internals.tstate<font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>tstate<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#009900'>/* Check if the GIL was acquired using the PyGILState_* API instead (e.g. if
+               calling from a Python thread). Since we use a different key, this ensures
+               we don't create a new thread state and deadlock in PyEval_AcquireThread
+               below. Note we don't save this state with internals.tstate, since we don't
+               create it we would fail to clear it (its reference count should be &gt; 0). */</font>
+            tstate <font color='#5555FF'>=</font> <font color='#BB00BB'>PyGILState_GetThisThreadState</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>tstate<font face='Lucida Console'>)</font> <b>{</b>
+            tstate <font color='#5555FF'>=</font> <font color='#BB00BB'>PyThreadState_New</font><font face='Lucida Console'>(</font>internals.istate<font face='Lucida Console'>)</font>;
+#        <font color='#0000FF'>if</font> <font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>PYBIND11_DETAILED_ERROR_MESSAGES<font face='Lucida Console'>)</font>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>tstate<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>scoped_acquire: could not create thread state!</font>"<font face='Lucida Console'>)</font>;
+            <b>}</b>
+#        endif
+            tstate<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>gilstate_counter <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+            <font color='#BB00BB'>PYBIND11_TLS_REPLACE_VALUE</font><font face='Lucida Console'>(</font>internals.tstate, tstate<font face='Lucida Console'>)</font>;
+        <b>}</b> <font color='#0000FF'>else</font> <b>{</b>
+            release <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_thread_state_unchecked</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> tstate;
+        <b>}</b>
+
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>release<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>PyEval_AcquireThread</font><font face='Lucida Console'>(</font>tstate<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#BB00BB'>inc_ref</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    gil_scoped_acquire <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='inc_ref'></a>inc_ref</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#5555FF'>+</font><font color='#5555FF'>+</font>tstate<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>gilstate_counter; <b>}</b>
+
+    PYBIND11_NOINLINE <font color='#0000FF'><u>void</u></font> <b><a name='dec_ref'></a>dec_ref</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#5555FF'>-</font><font color='#5555FF'>-</font>tstate<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>gilstate_counter;
+#        <font color='#0000FF'>if</font> <font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>PYBIND11_DETAILED_ERROR_MESSAGES<font face='Lucida Console'>)</font>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>detail::<font color='#BB00BB'>get_thread_state_unchecked</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> tstate<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>scoped_acquire::dec_ref(): thread state must be current!</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>tstate<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>gilstate_counter <font color='#5555FF'>&lt;</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>scoped_acquire::dec_ref(): reference count underflow!</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+#        endif
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>tstate<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>gilstate_counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font> <b>{</b>
+#        <font color='#0000FF'>if</font> <font color='#BB00BB'>defined</font><font face='Lucida Console'>(</font>PYBIND11_DETAILED_ERROR_MESSAGES<font face='Lucida Console'>)</font>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>release<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#BB00BB'>pybind11_fail</font><font face='Lucida Console'>(</font>"<font color='#CC0000'>scoped_acquire::dec_ref(): internal error!</font>"<font face='Lucida Console'>)</font>;
+            <b>}</b>
+#        endif
+            <font color='#BB00BB'>PyThreadState_Clear</font><font face='Lucida Console'>(</font>tstate<font face='Lucida Console'>)</font>;
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>active<font face='Lucida Console'>)</font> <b>{</b>
+                <font color='#BB00BB'>PyThreadState_DeleteCurrent</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <b>}</b>
+            <font color='#BB00BB'>PYBIND11_TLS_DELETE_VALUE</font><font face='Lucida Console'>(</font>detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.tstate<font face='Lucida Console'>)</font>;
+            release <font color='#5555FF'>=</font> <font color='#979000'>false</font>;
+        <b>}</b>
+    <b>}</b>
+
+    <font color='#009900'>/// This method will disable the PyThreadState_DeleteCurrent call and the
+</font>    <font color='#009900'>/// GIL won't be acquired. This method should be used if the interpreter
+</font>    <font color='#009900'>/// could be shutting down when this is called, as thread deletion is not
+</font>    <font color='#009900'>/// allowed during shutdown. Check _Py_IsFinalizing() on Python 3.7+, and
+</font>    <font color='#009900'>/// protect subsequent code.
+</font>    PYBIND11_NOINLINE <font color='#0000FF'><u>void</u></font> <b><a name='disarm'></a>disarm</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> active <font color='#5555FF'>=</font> <font color='#979000'>false</font>; <b>}</b>
+
+    PYBIND11_NOINLINE ~<b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>dec_ref</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>release<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>PyEval_SaveThread</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#0000FF'>private</font>:
+    PyThreadState <font color='#5555FF'>*</font>tstate <font color='#5555FF'>=</font> nullptr;
+    <font color='#0000FF'><u>bool</u></font> release <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+    <font color='#0000FF'><u>bool</u></font> active <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+<b>}</b>;
+
+<font color='#0000FF'>class</font> <b><a name='gil_scoped_release'></a>gil_scoped_release</b> <b>{</b>
+<font color='#0000FF'>public</font>:
+    <font color='#009900'>// PRECONDITION: The GIL must be held when this constructor is called.
+</font>    <font color='#0000FF'>explicit</font> <b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>bool</u></font> disassoc <font color='#5555FF'>=</font> <font color='#979000'>false</font><font face='Lucida Console'>)</font> : disassoc<font face='Lucida Console'>(</font>disassoc<font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>PyGILState_Check</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>// `get_internals()` must be called here unconditionally in order to initialize
+</font>        <font color='#009900'>// `internals.tstate` for subsequent `gil_scoped_acquire` calls. Otherwise, an
+</font>        <font color='#009900'>// initialization race could occur as multiple threads try `gil_scoped_acquire`.
+</font>        <font color='#0000FF'>auto</font> <font color='#5555FF'>&amp;</font>internals <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#009900'>// NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
+</font>        tstate <font color='#5555FF'>=</font> <font color='#BB00BB'>PyEval_SaveThread</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>disassoc<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#009900'>// Python &gt;= 3.7 can remove this, it's an int before 3.7
+</font>            <font color='#009900'>// NOLINTNEXTLINE(readability-qualified-auto)
+</font>            <font color='#0000FF'>auto</font> key <font color='#5555FF'>=</font> internals.tstate;
+            <font color='#BB00BB'>PYBIND11_TLS_DELETE_VALUE</font><font face='Lucida Console'>(</font>key<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+    <b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_release <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    gil_scoped_release <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_release <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+
+    <font color='#009900'>/// This method will disable the PyThreadState_DeleteCurrent call and the
+</font>    <font color='#009900'>/// GIL won't be acquired. This method should be used if the interpreter
+</font>    <font color='#009900'>/// could be shutting down when this is called, as thread deletion is not
+</font>    <font color='#009900'>/// allowed during shutdown. Check _Py_IsFinalizing() on Python 3.7+, and
+</font>    <font color='#009900'>/// protect subsequent code.
+</font>    PYBIND11_NOINLINE <font color='#0000FF'><u>void</u></font> <b><a name='disarm'></a>disarm</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> active <font color='#5555FF'>=</font> <font color='#979000'>false</font>; <b>}</b>
+
+    ~<b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font><font color='#5555FF'>!</font>tstate<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#0000FF'>return</font>;
+        <b>}</b>
+        <font color='#009900'>// `PyEval_RestoreThread()` should not be called if runtime is finalizing
+</font>        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>active<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#BB00BB'>PyEval_RestoreThread</font><font face='Lucida Console'>(</font>tstate<font face='Lucida Console'>)</font>;
+        <b>}</b>
+        <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>disassoc<font face='Lucida Console'>)</font> <b>{</b>
+            <font color='#009900'>// Python &gt;= 3.7 can remove this, it's an int before 3.7
+</font>            <font color='#009900'>// NOLINTNEXTLINE(readability-qualified-auto)
+</font>            <font color='#0000FF'>auto</font> key <font color='#5555FF'>=</font> detail::<font color='#BB00BB'>get_internals</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>.tstate;
+            <font color='#BB00BB'>PYBIND11_TLS_REPLACE_VALUE</font><font face='Lucida Console'>(</font>key, tstate<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#0000FF'>private</font>:
+    PyThreadState <font color='#5555FF'>*</font>tstate;
+    <font color='#0000FF'><u>bool</u></font> disassoc;
+    <font color='#0000FF'><u>bool</u></font> active <font color='#5555FF'>=</font> <font color='#979000'>true</font>;
+<b>}</b>;
+
+#    <font color='#0000FF'>else</font> <font color='#009900'>// PYBIND11_SIMPLE_GIL_MANAGEMENT
+</font>
+<font color='#0000FF'>class</font> <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b> <b>{</b>
+    PyGILState_STATE state;
+
+<font color='#0000FF'>public</font>:
+    <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> : state<b>{</b><font color='#BB00BB'>PyGILState_Ensure</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><b>}</b> <b>{</b><b>}</b>
+    <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    gil_scoped_acquire <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    ~<b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#BB00BB'>PyGILState_Release</font><font face='Lucida Console'>(</font>state<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'><u>void</u></font> <b><a name='disarm'></a>disarm</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+<b>}</b>;
+
+<font color='#0000FF'>class</font> <b><a name='gil_scoped_release'></a>gil_scoped_release</b> <b>{</b>
+    PyThreadState <font color='#5555FF'>*</font>state;
+
+<font color='#0000FF'>public</font>:
+    <font color='#009900'>// PRECONDITION: The GIL must be held when this constructor is called.
+</font>    <b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#BB00BB'>assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>PyGILState_Check</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        state <font color='#5555FF'>=</font> <font color='#BB00BB'>PyEval_SaveThread</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_release <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    gil_scoped_release <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_release <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    ~<b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b> <font color='#BB00BB'>PyEval_RestoreThread</font><font face='Lucida Console'>(</font>state<font face='Lucida Console'>)</font>; <b>}</b>
+    <font color='#0000FF'><u>void</u></font> <b><a name='disarm'></a>disarm</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+<b>}</b>;
+
+#    endif <font color='#009900'>// PYBIND11_SIMPLE_GIL_MANAGEMENT
+</font>
+<font color='#0000FF'>#else</font> <font color='#009900'>// WITH_THREAD
+</font>
+<font color='#0000FF'>class</font> <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b> <b>{</b>
+<font color='#0000FF'>public</font>:
+    <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#009900'>// Trick to suppress `unused variable` error messages (at call sites).
+</font>        <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <b><a name='gil_scoped_acquire'></a>gil_scoped_acquire</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    gil_scoped_acquire <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_acquire <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    <font color='#0000FF'><u>void</u></font> <b><a name='disarm'></a>disarm</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+<b>}</b>;
+
+<font color='#0000FF'>class</font> <b><a name='gil_scoped_release'></a>gil_scoped_release</b> <b>{</b>
+<font color='#0000FF'>public</font>:
+    <b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b>
+        <font color='#009900'>// Trick to suppress `unused variable` error messages (at call sites).
+</font>        <font face='Lucida Console'>(</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>)</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'>this</font> <font color='#5555FF'>+</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+    <b><a name='gil_scoped_release'></a>gil_scoped_release</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_release <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    gil_scoped_release <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> gil_scoped_release <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    <font color='#0000FF'><u>void</u></font> <b><a name='disarm'></a>disarm</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b><b>}</b>
+<b>}</b>;
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// WITH_THREAD
+</font>
+<b><a name='PYBIND11_NAMESPACE_END'></a>PYBIND11_NAMESPACE_END</b><font face='Lucida Console'>(</font>PYBIND11_NAMESPACE<font face='Lucida Console'>)</font>
+
+</pre></body></html>

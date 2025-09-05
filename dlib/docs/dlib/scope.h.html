@@ -1,0 +1,91 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - scope.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_SCOPE_H_
+<font color='#0000FF'>#define</font> DLIB_SCOPE_H_ 
+
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>utility<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>functional<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>type_traits<font color='#5555FF'>&gt;</font>
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Fn'></a>Fn</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>class</font> <b><a name='scope_exit'></a>scope_exit</b>
+    <b>{</b>
+    <font color='#009900'>/*!
+        WHAT THIS OBJECT REPRESENTS 
+            This is a standard's compliant backport of std::experimental::scope_exit that works with C++14.
+
+            Therefore, refer to https://en.cppreference.com/w/cpp/experimental/scope_exit for docs on the
+            interface of scope_exit.
+    !*/</font>
+
+    <font color='#0000FF'>private</font>:
+        Fn f_;
+        <font color='#0000FF'><u>bool</u></font> active_<b>{</b><font color='#979000'>true</font><b>}</b>;
+
+    <font color='#0000FF'>public</font>:
+        constexpr <b><a name='scope_exit'></a>scope_exit</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        constexpr <b><a name='scope_exit'></a>scope_exit</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> scope_exit <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>              <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        constexpr scope_exit <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> scope_exit <font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>   <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        constexpr scope_exit <font color='#5555FF'>&amp;</font><b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>scope_exit <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>        <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+
+        constexpr <b><a name='scope_exit'></a>scope_exit</b><font face='Lucida Console'>(</font>scope_exit <font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font>other<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>Fn<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        : f_<b>{</b>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>other.f_<font face='Lucida Console'>)</font><b>}</b>, active_<b>{</b>std::<font color='#BB00BB'>exchange</font><font face='Lucida Console'>(</font>other.active_, <font color='#979000'>false</font><font face='Lucida Console'>)</font><b>}</b>
+        <b>{</b><b>}</b>
+
+        <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font>
+        <font color='#0000FF'>class</font> <b><a name='F'></a>F</b>, 
+        std::enable_if_t<font color='#5555FF'>&lt;</font><font color='#5555FF'>!</font>std::is_same<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font>, scope_exit<font color='#5555FF'>&gt;</font>::value, <font color='#0000FF'><u>bool</u></font><font color='#5555FF'>&gt;</font> <font color='#5555FF'>=</font> <font color='#979000'>true</font>
+        <font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'>explicit</font> <b><a name='scope_exit'></a>scope_exit</b><font face='Lucida Console'>(</font>F<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font> <b><a name='noexcept'></a>noexcept</b><font face='Lucida Console'>(</font>std::is_nothrow_constructible<font color='#5555FF'>&lt;</font>Fn,F<font color='#5555FF'>&gt;</font>::value<font face='Lucida Console'>)</font>
+        : f_<b>{</b>std::forward<font color='#5555FF'>&lt;</font>F<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><b>}</b>, active_<b>{</b><font color='#979000'>true</font><b>}</b>
+        <b>{</b><b>}</b>
+    
+        ~<b><a name='scope_exit'></a>scope_exit</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> noexcept 
+        <b>{</b>
+            <font color='#0000FF'>if</font> <font face='Lucida Console'>(</font>active_<font face='Lucida Console'>)</font>
+                <font color='#BB00BB'>f_</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='release'></a>release</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> noexcept <b>{</b> active_ <font color='#5555FF'>=</font> <font color='#979000'>false</font>; <b>}</b>
+    <b>}</b>;
+
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Fn'></a>Fn</b><font color='#5555FF'>&gt;</font>
+    <font color='#0000FF'>auto</font> <b><a name='make_scope_exit'></a>make_scope_exit</b><font face='Lucida Console'>(</font>Fn<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font> f<font face='Lucida Console'>)</font>
+    <font color='#009900'>/*!
+        ensures:
+            - This is factory function that wraps the callback in a scope_exit object.
+    !*/</font>
+
+    <b>{</b>
+        <font color='#0000FF'>return</font> scope_exit<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font>Fn<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::forward<font color='#5555FF'>&lt;</font>Fn<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>f<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#0000FF'>#ifdef</font> __cpp_deduction_guides
+    <font color='#0000FF'>template</font><font color='#5555FF'>&lt;</font><font color='#0000FF'>class</font> <b><a name='Fn'></a>Fn</b><font color='#5555FF'>&gt;</font>
+    <b><a name='scope_exit'></a>scope_exit</b><font face='Lucida Console'>(</font>Fn<font face='Lucida Console'>)</font> <font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font> scope_exit<font color='#5555FF'>&lt;</font>Fn<font color='#5555FF'>&gt;</font>;
+<font color='#0000FF'>#endif</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>using</font> scope_exit_erased <font color='#5555FF'>=</font> scope_exit<font color='#5555FF'>&lt;</font>std::function<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>void</u></font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>;
+    <font color='#009900'>/*!
+        WHAT THIS OBJECT REPRESENTS 
+            This is a type erased version of scope_exit. I.e. there is no template parameter.
+            Use this object if you wish to hide the exact function signature, for example
+            if splitting a declaration and definition across a header file and cpp file.
+            This does come at a slight performance penalty since it may incur a heap allocation
+            and due to a pointer indirection, the compiler may not inline your callback.
+    !*/</font>
+
+<font color='#009900'>// ----------------------------------------------------------------------------------------
+</font>
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>//DLIB_SCOPE_H_</font>
+</pre></body></html>

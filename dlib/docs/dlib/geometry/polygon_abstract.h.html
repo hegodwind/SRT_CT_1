@@ -1,0 +1,113 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - polygon_abstract.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2022  Davis E. King (davis@dlib.net), Adrià Arrufat
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#undef</font> DLIB_POLYGOn_ABSTRACT_H_
+<font color='#0000FF'>#ifdef</font> DLIB_POLYGOn_ABSTRACT_H_
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='rectangle.h.html'>rectangle.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='vector.h.html'>vector.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>
+    <font color='#0000FF'>class</font> <b><a name='polygon'></a>polygon</b>
+    <b>{</b>
+        <font color='#009900'>/*!
+            WHAT THIS OBJECT REPRESENTS
+                This object represents a polygon inside a Cartesian coordinate system.
+                It is just a wrapper class for a std::vector&lt;point&gt; with some added
+                methods.
+
+                Note that the origin of the coordinate system, i.e. (0,0), is located
+                at the upper left corner.  That is, points such as (1,1) or (3,5)
+                represent locations that are below and to the right of the origin.
+
+                Moreover, the polygon is the area enclosed by the lines defined by all
+                pairwise lines between adjacent points in this object.  That is, if
+                you drew lines between all pairs of points polygon[i] and polygon[(i+1)%polygon.size()]
+                for all valid i, then the area enclosed by those lines is the polygon in 
+                question.
+        !*/</font>
+
+    <font color='#0000FF'>public</font>:
+        <font color='#0000FF'>using</font> size_type <font color='#5555FF'>=</font> std::vector<font color='#5555FF'>&lt;</font>point<font color='#5555FF'>&gt;</font>::size_type;
+
+        <b><a name='polygon'></a>polygon</b><font face='Lucida Console'>(</font>std::vector<font color='#5555FF'>&lt;</font>point<font color='#5555FF'>&gt;</font> points<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            ensures
+                - #*this represents a polygon defined by points.
+        !*/</font>
+
+        size_type <b><a name='size'></a>size</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns the number of points in the polygon.
+        !*/</font>
+
+        point<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> size_type idx<font face='Lucida Console'>)</font>;
+        <font color='#009900'>/*!
+            requires
+                - idx &lt; size()
+            ensures
+                - returns the point of the polygon at index idx.
+        !*/</font>
+
+        <font color='#0000FF'>const</font> point<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> size_type idx<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            requires
+                - idx &lt; size()
+            ensures
+                - returns the point of the polygon at index idx.
+        !*/</font>
+
+        <font color='#0000FF'>const</font> point<font color='#5555FF'>&amp;</font> <b><a name='at'></a>at</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> size_type idx<font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns the point of the polygon at index idx.
+            throws
+                - std::out_of_range if idx &gt;= size()
+        !*/</font>
+
+        rectangle <b><a name='get_rect'></a>get_rect</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - returns smallest rectangle that contains all points in the polygon.
+        !*/</font>
+
+        <font color='#0000FF'><u>double</u></font> <b><a name='area'></a>area</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!
+            ensures
+                - If you walk the points of #*this in order to make a closed polygon, what is its
+                  area?  This function returns that area.  It uses the shoelace formula to
+                  compute the result and so works for general non-self-intersecting polygons.
+        !*/</font>
+
+        <font color='#0000FF'>template</font> <font color='#5555FF'>&lt;</font><font color='#0000FF'>typename</font> alloc<font color='#5555FF'>&gt;</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='get_left_and_right_bounds'></a>get_left_and_right_bounds</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> top,
+            <font color='#0000FF'>const</font> <font color='#0000FF'><u>long</u></font> bottom,
+            std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>double</u></font>, alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> left_boundary,
+            std::vector<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>double</u></font>, alloc<font color='#5555FF'>&gt;</font><font color='#5555FF'>&amp;</font> right_boundary
+        <font face='Lucida Console'>)</font> <font color='#0000FF'>const</font>;
+        <font color='#009900'>/*!                                                                                
+            requires                                                                       
+                - 0 &lt;= top &lt;= bottom                                                       
+            ensures                                                                        
+                - Finds the left and right edges of the polygon for all y coordinate values in the
+                  range [top, bottom].
+                - #left_boundary.size() == bottom-top+1                                    
+                - #right_boundary.size() == bottom-top+1                                   
+                - for all top &lt;= y &lt;= bottom:                                              
+                    - #left_boundary[y-top] == the x coordinate for the left most side of  
+                      the polygon at coordinate y.                                         
+                    - #right_boundary[y-top] == the x coordinate for the right most side of
+                      the polygon at coordinate y.                                         
+        !*/</font>
+
+    <font color='#0000FF'>private</font>:
+        std::vector<font color='#5555FF'>&lt;</font>point<font color='#5555FF'>&gt;</font> points;
+    <b>}</b>;
+<b>}</b>
+
+<font color='#0000FF'>#endif</font>  <font color='#009900'>// DLIB_POLYGOn_ABSTRACT_H_
+</font>
+</pre></body></html>

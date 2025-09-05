@@ -1,0 +1,467 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - optional.cpp</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2023  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font>
+<font color='#0000FF'>#include</font> <font color='#5555FF'>&lt;</font>dlib<font color='#5555FF'>/</font>optional.h<font color='#5555FF'>&gt;</font>
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='tester.h.html'>tester.h</a>"
+
+<font color='#0000FF'>namespace</font>  
+<b>{</b>
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> test;
+    <font color='#0000FF'>using</font> <font color='#0000FF'>namespace</font> dlib;
+
+    logger <b><a name='dlog'></a>dlog</b><font face='Lucida Console'>(</font>"<font color='#CC0000'>test.optional</font>"<font face='Lucida Console'>)</font>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>struct</font> <b><a name='trivial_type'></a>trivial_type</b> 
+    <b>{</b>
+        <b><a name='trivial_type'></a>trivial_type</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> trivial_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b><a name='trivial_type'></a>trivial_type</b><font face='Lucida Console'>(</font>trivial_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        trivial_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> trivial_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        trivial_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>trivial_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        ~<b><a name='trivial_type'></a>trivial_type</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+    <b>}</b>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_trivially_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_nothrow_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>struct</font> <b><a name='non_trivial_type'></a>non_trivial_type</b>
+    <b>{</b>
+        <b><a name='non_trivial_type'></a>non_trivial_type</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> non_trivial_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>               <b>{</b><b>}</b>
+        <b><a name='non_trivial_type'></a>non_trivial_type</b><font face='Lucida Console'>(</font>non_trivial_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                    <b>{</b><b>}</b>;
+        non_trivial_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> non_trivial_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>    <b>{</b> <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>; <b>}</b>
+        non_trivial_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>non_trivial_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>         <b>{</b> <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>; <b>}</b>;
+        ~<b><a name='non_trivial_type'></a>non_trivial_type</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>                                     <b>{</b><b>}</b>
+    <b>}</b>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_trivially_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_trivially_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_trivially_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_trivially_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_trivially_destructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_nothrow_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_nothrow_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_nothrow_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_nothrow_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>non_trivial_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>struct</font> <b><a name='nothing_works'></a>nothing_works</b>
+    <b>{</b>
+        <b><a name='nothing_works'></a>nothing_works</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> nothing_works<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        <b><a name='nothing_works'></a>nothing_works</b><font face='Lucida Console'>(</font>nothing_works<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        nothing_works<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> nothing_works<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        nothing_works<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>nothing_works<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    <b>}</b>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>nothing_works<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>nothing_works<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>nothing_works<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>nothing_works<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+    <font color='#0000FF'>struct</font> <b><a name='copyable_type'></a>copyable_type</b> 
+    <b>{</b>
+        <b><a name='copyable_type'></a>copyable_type</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> copyable_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        <b><a name='copyable_type'></a>copyable_type</b><font face='Lucida Console'>(</font>copyable_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        copyable_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> copyable_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        copyable_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>copyable_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+    <b>}</b>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>copyable_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,     "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>copyable_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,        "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <font color='#009900'>//copyable_type can still be moved, but it will just copy.
+</font>
+    <font color='#0000FF'>struct</font> <b><a name='moveable_type'></a>moveable_type</b> 
+    <b>{</b>
+        <b><a name='moveable_type'></a>moveable_type</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> moveable_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>             <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        <b><a name='moveable_type'></a>moveable_type</b><font face='Lucida Console'>(</font>moveable_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>                  <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+        moveable_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> moveable_type<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>  <font color='#5555FF'>=</font> <font color='#0000FF'>delete</font>;
+        moveable_type<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>moveable_type<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font>       <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+    <b>}</b>;
+
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>moveable_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,    "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>std::is_copy_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>moveable_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,       "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_constructible<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>moveable_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,     "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b><a name='static_assert'></a>static_assert</b><font face='Lucida Console'>(</font>std::is_move_assignable<font color='#5555FF'>&lt;</font>dlib::optional<font color='#5555FF'>&lt;</font>moveable_type<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value,        "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_optional_int'></a>test_optional_int</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o1;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o1<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o1.<font color='#BB00BB'>has_value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o1.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>2</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+        <font color='#0000FF'><u>int</u></font> throw_counter<b>{</b><font color='#979000'>0</font><b>}</b>;
+        <font color='#0000FF'>try</font>  <b>{</b>
+            o1.<font color='#BB00BB'>value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b> <font color='#0000FF'>catch</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::exception<font color='#5555FF'>&amp;</font> e<font face='Lucida Console'>)</font> <b>{</b>
+            throw_counter<font color='#5555FF'>+</font><font color='#5555FF'>+</font>;
+        <b>}</b>
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>throw_counter <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o1 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> dlib::nullopt<font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o2 <font color='#5555FF'>=</font> dlib::nullopt;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>o2 <font color='#5555FF'>=</font> dlib::nullopt<font face='Lucida Console'>)</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o2<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o2.<font color='#BB00BB'>has_value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o2.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>3</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>3</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o3 <font color='#5555FF'>=</font> <font color='#979000'>42</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o3 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3.<font color='#BB00BB'>value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>3</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#979000'>42</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> o3<font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o4 <font color='#5555FF'>=</font> o3;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>o4 <font color='#5555FF'>=</font> o3<font face='Lucida Console'>)</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o3 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o4 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o4 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#979000'>42</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> o4<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o4.<font color='#BB00BB'>value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o5 <font color='#5555FF'>=</font> o1;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>o5 <font color='#5555FF'>=</font> o1<font face='Lucida Console'>)</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o1<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o5<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o5.<font color='#BB00BB'>has_value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o6 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>o3<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>o6 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>o3<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o6 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o6.<font color='#BB00BB'>value</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>short</u></font><font color='#5555FF'>&gt;</font> o7 <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>short</u></font><font face='Lucida Console'>)</font><font color='#979000'>42</font>;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font>o7 <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>short</u></font><font face='Lucida Console'>)</font><font color='#979000'>42</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o7 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o8 <font color='#5555FF'>=</font> o7;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o7 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o8 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o9 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>o7<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o9 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o10;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o10<font face='Lucida Console'>)</font>;
+        o10 <font color='#5555FF'>=</font> o3;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o10 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        o10 <font color='#5555FF'>=</font> dlib::nullopt;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o10<font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o11;
+        o11 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>o3<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o11 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        o11 <font color='#5555FF'>=</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>short</u></font><font face='Lucida Console'>)</font><font color='#979000'>12</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o11 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>12</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o12;
+        <font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font>o12, o4<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o12<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o4<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o12 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#BB00BB'>noexcept</font><font face='Lucida Console'>(</font><font color='#BB00BB'>swap</font><font face='Lucida Console'>(</font>o12, o4<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+        o4.<font color='#BB00BB'>reset</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o4<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_optional_int_constexpr'></a>test_optional_int_constexpr</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <b>{</b>
+            constexpr dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o2<b>{</b><b>}</b>;
+            constexpr dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o3 <font color='#5555FF'>=</font> <b>{</b><b>}</b>;
+            constexpr dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o4 <font color='#5555FF'>=</font> dlib::nullopt;
+            constexpr dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o5 <font color='#5555FF'>=</font> <b>{</b>dlib::nullopt<b>}</b>;
+            constexpr dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> <font color='#BB00BB'>o6</font><font face='Lucida Console'>(</font>dlib::nullopt<font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o2, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o3, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o4, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o5, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>!</font>o6, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o2.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o3.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o4.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o5.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o6.<font color='#BB00BB'>value_or</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o2 <font color='#5555FF'>!</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#979000'>1</font> <font color='#5555FF'>!</font><font color='#5555FF'>=</font> o2, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_optional_int_monads'></a>test_optional_int_monads</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o1<b>{</b><font color='#979000'>42</font><b>}</b>;
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o1.<font color='#BB00BB'>and_then</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>i<font face='Lucida Console'>)</font>; <b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font>, dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o1.<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> <font face='Lucida Console'>(</font><font color='#0000FF'><u>long</u></font><font face='Lucida Console'>)</font>i; <b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font>, dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o1.<font color='#BB00BB'>and_then</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font>std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>i<font face='Lucida Console'>)</font><font face='Lucida Console'>)</font>; <b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font>, dlib::optional<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>42</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o1.<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font> <b>{</b> <font color='#0000FF'>return</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>i<font face='Lucida Console'>)</font>; <b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font>, dlib::optional<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>42</font>"<font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o1.<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font>                   <b>{</b><font color='#0000FF'>return</font> i<font color='#5555FF'>+</font><font color='#979000'>1</font>;<b>}</b><font face='Lucida Console'>)</font>
+                         .<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font>                   <b>{</b><font color='#0000FF'>return</font> i<font color='#5555FF'>*</font><font color='#979000'>2</font>;<b>}</b><font face='Lucida Console'>)</font>
+                         .<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font>                   <b>{</b><font color='#0000FF'>return</font> std::<font color='#BB00BB'>to_string</font><font face='Lucida Console'>(</font>i<font face='Lucida Console'>)</font>;<b>}</b><font face='Lucida Console'>)</font>
+                         .<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> str<font face='Lucida Console'>)</font>  <b>{</b><font color='#0000FF'>return</font> std::<font color='#BB00BB'>stoi</font><font face='Lucida Console'>(</font>str<font face='Lucida Console'>)</font>;<b>}</b><font face='Lucida Console'>)</font>
+                         .<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font>                   <b>{</b><font color='#0000FF'>return</font> i <font color='#5555FF'>-</font> <font color='#979000'>2</font>;<b>}</b><font face='Lucida Console'>)</font>
+                         .<font color='#BB00BB'>or_else</font><font face='Lucida Console'>(</font>[]                            <b>{</b><font color='#0000FF'>return</font> dlib::make_optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>;<b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font>, dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>84</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+
+        dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o2;
+
+        <b>{</b>
+            <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o2.<font color='#BB00BB'>transform</font><font face='Lucida Console'>(</font>[]<font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font>   <b>{</b><font color='#0000FF'>return</font> i<font color='#5555FF'>+</font><font color='#979000'>1</font>;<b>}</b><font face='Lucida Console'>)</font>
+                         .<font color='#BB00BB'>or_else</font><font face='Lucida Console'>(</font>[]            <b>{</b><font color='#0000FF'>return</font> dlib::make_optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>0</font><font face='Lucida Console'>)</font>;<b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font>, dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_optional_int_constexpr_monads'></a>test_optional_int_constexpr_monads</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        constexpr dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font> o1<b>{</b><font color='#979000'>42</font><b>}</b>;
+
+        <b>{</b>
+            <font color='#0000FF'>struct</font> <b><a name='callback'></a>callback</b>
+            <b>{</b>
+                constexpr <font color='#0000FF'>auto</font> <b><a name='operator'></a>operator</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i<font face='Lucida Console'>)</font> <b>{</b><font color='#0000FF'>return</font> dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><b>{</b>i<b>}</b>; <b>}</b>;
+            <b>}</b>;
+
+            constexpr <font color='#0000FF'>auto</font> res <font color='#5555FF'>=</font> o1.<font color='#BB00BB'>and_then</font><font face='Lucida Console'>(</font>callback<b>{</b><b>}</b><font face='Lucida Console'>)</font>;
+
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>res<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>, dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>long</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad map</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>res <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>42</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>int</u></font> constructor_count<b>{</b><font color='#979000'>0</font><b>}</b>;
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>int</u></font> copy_constructor_count<b>{</b><font color='#979000'>0</font><b>}</b>;
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>int</u></font> move_constructor_count<b>{</b><font color='#979000'>0</font><b>}</b>;
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>int</u></font> copy_assign_count<b>{</b><font color='#979000'>0</font><b>}</b>;
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>int</u></font> move_assign_count<b>{</b><font color='#979000'>0</font><b>}</b>;
+
+    <font color='#0000FF'>static</font> <font color='#0000FF'><u>void</u></font> <b><a name='reset_counters'></a>reset_counters</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        constructor_count           <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+        copy_constructor_count      <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+        move_constructor_count      <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+        copy_assign_count           <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+        move_assign_count           <font color='#5555FF'>=</font> <font color='#979000'>0</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>struct</font> <b><a name='optional_dummy'></a>optional_dummy</b>
+    <b>{</b>
+        <b><a name='optional_dummy'></a>optional_dummy</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>constructor_count;<b>}</b>
+        <b><a name='optional_dummy'></a>optional_dummy</b><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_dummy<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>copy_constructor_count;<b>}</b>
+        <b><a name='optional_dummy'></a>optional_dummy</b><font face='Lucida Console'>(</font>optional_dummy<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>move_constructor_count;<b>}</b>
+        optional_dummy<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font><font color='#0000FF'>const</font> optional_dummy<font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>copy_assign_count; <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;<b>}</b>
+        optional_dummy<font color='#5555FF'>&amp;</font> <b><a name='operator'></a>operator</b><font color='#5555FF'>=</font><font face='Lucida Console'>(</font>optional_dummy<font color='#5555FF'>&amp;</font><font color='#5555FF'>&amp;</font><font face='Lucida Console'>)</font> <b>{</b><font color='#5555FF'>+</font><font color='#5555FF'>+</font>move_assign_count; <font color='#0000FF'>return</font> <font color='#5555FF'>*</font><font color='#0000FF'>this</font>;<b>}</b>
+    <b>}</b>;
+
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_constructors'></a>test_constructors</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        dlib::optional<font color='#5555FF'>&lt;</font>optional_dummy<font color='#5555FF'>&gt;</font> val;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+
+        val <font color='#5555FF'>=</font> optional_dummy<b>{</b><b>}</b>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>reset_counters</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font>optional_dummy<font color='#5555FF'>&gt;</font> val2<b>{</b>val<b>}</b>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>reset_counters</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font>optional_dummy<font color='#5555FF'>&gt;</font> val3<b>{</b>std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>val<font face='Lucida Console'>)</font><b>}</b>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>reset_counters</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        val2 <font color='#5555FF'>=</font> val;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>reset_counters</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+
+        val3 <font color='#5555FF'>=</font> std::<font color='#BB00BB'>move</font><font face='Lucida Console'>(</font>val<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_constructor_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>copy_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>0</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>move_assign_count <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>reset_counters</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_emplace'></a>test_emplace</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        <font color='#0000FF'>struct</font> <b><a name='A'></a>A</b>
+        <b>{</b>
+            <b><a name='A'></a>A</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font> <font color='#5555FF'>=</font> <font color='#0000FF'>default</font>;
+            <font color='#0000FF'>explicit</font> <b><a name='A'></a>A</b><font face='Lucida Console'>(</font><font color='#0000FF'><u>int</u></font> i, <font color='#0000FF'><u>float</u></font> f, <font color='#0000FF'>const</font> std::string<font color='#5555FF'>&amp;</font> str<font face='Lucida Console'>)</font> : i_<b>{</b>i<b>}</b>, f_<b>{</b>f<b>}</b>, str_<b>{</b>str<b>}</b> <b>{</b><b>}</b>
+
+            <font color='#0000FF'><u>int</u></font>         i_<b>{</b><font color='#979000'>0</font><b>}</b>;
+            <font color='#0000FF'><u>float</u></font>       f_<b>{</b><font color='#979000'>0.0f</font><b>}</b>;
+            std::string str_;
+        <b>}</b>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font>A<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>o1</font><font face='Lucida Console'>(</font>dlib::in_place, <font color='#979000'>1</font>, <font color='#979000'>2.5f</font>, "<font color='#CC0000'>hello there</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o1<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o1<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>i_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o1<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>f_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>2.5f</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o1<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>str_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>hello there</font>"<font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font>A<font color='#5555FF'>&gt;</font> o2;
+        o2.<font color='#BB00BB'>emplace</font><font face='Lucida Console'>(</font><font color='#979000'>2</font>, <font color='#979000'>5.1f</font>, "<font color='#CC0000'>general kenobi</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o2<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o2<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>i_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>2</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o2<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>f_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>5.1f</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o2<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>str_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>general kenobi</font>"<font face='Lucida Console'>)</font>;
+
+        <font color='#0000FF'>auto</font> o3 <font color='#5555FF'>=</font> dlib::make_optional<font color='#5555FF'>&lt;</font>A<font color='#5555FF'>&gt;</font><font face='Lucida Console'>(</font><font color='#979000'>3</font>, <font color='#979000'>3.141592f</font>, "<font color='#CC0000'>from a certain point of view</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>i_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>3</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>f_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>3.141592f</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o3<font color='#5555FF'>-</font><font color='#5555FF'>&gt;</font>str_ <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>from a certain point of view</font>"<font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font> <font color='#BB00BB'>o4</font><font face='Lucida Console'>(</font>dlib::in_place, <b>{</b>'<font color='#FF0000'>a</font>', '<font color='#FF0000'>b</font>', '<font color='#FF0000'>c</font>'<b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o4<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o4 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>abc</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o4 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>abc</font>"<font face='Lucida Console'>)</font>;
+
+        dlib::optional<font color='#5555FF'>&lt;</font>std::string<font color='#5555FF'>&gt;</font> o5;
+        o5.<font color='#BB00BB'>emplace</font><font face='Lucida Console'>(</font><b>{</b>'<font color='#FF0000'>a</font>', '<font color='#FF0000'>b</font>', '<font color='#FF0000'>c</font>'<b>}</b><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font>o5<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>DLIB_TEST</font><font face='Lucida Console'>(</font><font color='#5555FF'>*</font>o5 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> "<font color='#CC0000'>abc</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+<font color='#009900'>// ---------------------------------------------------------------------------------------------------
+</font>
+    <font color='#0000FF'><u>void</u></font> <b><a name='test_make_optional'></a>test_make_optional</b><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>
+    <b>{</b>
+        constexpr <font color='#0000FF'>auto</font> o1 <font color='#5555FF'>=</font> dlib::<font color='#BB00BB'>make_optional</font><font face='Lucida Console'>(</font><font color='#979000'>1</font><font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>std::is_same<font color='#5555FF'>&lt;</font>std::decay_t<font color='#5555FF'>&lt;</font><font color='#BB00BB'>decltype</font><font face='Lucida Console'>(</font>o1<font face='Lucida Console'>)</font><font color='#5555FF'>&gt;</font>, dlib::optional<font color='#5555FF'>&lt;</font><font color='#0000FF'><u>int</u></font><font color='#5555FF'>&gt;</font><font color='#5555FF'>&gt;</font>::value, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font>o1 <font color='#5555FF'>=</font><font color='#5555FF'>=</font> <font color='#979000'>1</font>, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+        <font color='#BB00BB'>static_assert</font><font face='Lucida Console'>(</font><font color='#979000'>1</font> <font color='#5555FF'>=</font><font color='#5555FF'>=</font> o1, "<font color='#CC0000'>bad</font>"<font face='Lucida Console'>)</font>;
+    <b>}</b>
+
+    <font color='#0000FF'>class</font> <b><a name='optional_tester'></a>optional_tester</b> : <font color='#0000FF'>public</font> tester
+    <b>{</b>
+    <font color='#0000FF'>public</font>:
+        <b><a name='optional_tester'></a>optional_tester</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font> :
+            tester <font face='Lucida Console'>(</font>"<font color='#CC0000'>test_optional</font>",
+                    "<font color='#CC0000'>Runs tests on the optional object</font>"<font face='Lucida Console'>)</font>
+        <b>{</b><b>}</b>
+
+        <font color='#0000FF'><u>void</u></font> <b><a name='perform_test'></a>perform_test</b> <font face='Lucida Console'>(</font>
+        <font face='Lucida Console'>)</font>
+        <b>{</b>
+            <font color='#BB00BB'>test_optional_int</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_optional_int_constexpr</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_optional_int_monads</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_optional_int_constexpr_monads</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_constructors</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_emplace</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+            <font color='#BB00BB'>test_make_optional</font><font face='Lucida Console'>(</font><font face='Lucida Console'>)</font>;
+        <b>}</b>
+    <b>}</b> a;
+<b>}</b>
+</pre></body></html>

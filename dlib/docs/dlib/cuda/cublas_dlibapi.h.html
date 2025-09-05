@@ -1,0 +1,84 @@
+<html><!-- Created using the cpp_pretty_printer from the dlib C++ library.  See http://dlib.net for updates. --><head><title>dlib C++ Library - cublas_dlibapi.h</title></head><body bgcolor='white'><pre>
+<font color='#009900'>// Copyright (C) 2015  Davis E. King (davis@dlib.net)
+</font><font color='#009900'>// License: Boost Software License   See LICENSE.txt for the full license.
+</font><font color='#0000FF'>#ifndef</font> DLIB_DNN_CuBLAS_H_
+<font color='#0000FF'>#define</font> DLIB_DNN_CuBLAS_H_
+
+<font color='#0000FF'>#ifdef</font> DLIB_USE_CUDA
+
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='tensor.h.html'>tensor.h</a>"
+<font color='#0000FF'>#include</font> "<a style='text-decoration:none' href='cuda_errors.h.html'>cuda_errors.h</a>"
+
+<font color='#0000FF'>namespace</font> dlib
+<b>{</b>    
+    <font color='#0000FF'>namespace</font> cuda 
+    <b>{</b>        
+
+    <font color='#009900'>// -----------------------------------------------------------------------------------
+</font>
+        <font color='#0000FF'><u>void</u></font> <b><a name='gemm'></a>gemm</b> <font face='Lucida Console'>(</font>
+            <font color='#0000FF'><u>float</u></font> beta,
+            tensor<font color='#5555FF'>&amp;</font> dest,
+            <font color='#0000FF'><u>float</u></font> alpha,
+            <font color='#0000FF'>const</font> tensor<font color='#5555FF'>&amp;</font> lhs,
+            <font color='#0000FF'><u>bool</u></font> trans_lhs,
+            <font color='#0000FF'>const</font> tensor<font color='#5555FF'>&amp;</font> rhs,
+            <font color='#0000FF'><u>bool</u></font> trans_rhs,
+            operation_mode mode <font color='#5555FF'>=</font> operation_mode::CHANNEL_WISE
+        <font face='Lucida Console'>)</font>;
+    <font color='#009900'>/*!
+        requires
+            - The dimensions of lhs and rhs must be compatible for matrix multiplication.
+                The specific requirements depend on the mode:
+
+                For CHANNEL_WISE mode (default):
+                    - Let L == trans_lhs ? trans(mat(lhs)) : mat(lhs)
+                    - Let R == trans_rhs ? trans(mat(rhs)) : mat(rhs)
+                    - Let D == mat(dest)
+                    - D.nr() == L.nr() &amp;&amp; D.nc() == R.nc()
+                        (i.e. dest must be preallocated and have the correct output dimensions)
+                    - L.nc() == R.nr()
+
+                For PLANE_WISE mode:
+                    - lhs.num_samples() == rhs.num_samples() &amp;&amp; lhs.k() == rhs.k()
+                    - If !trans_lhs &amp;&amp; !trans_rhs:
+                        lhs.nc() == rhs.nr()
+                        dest.nr() == lhs.nr() &amp;&amp; dest.nc() == rhs.nc()
+                    - If trans_lhs &amp;&amp; !trans_rhs:
+                        lhs.nr() == rhs.nr()
+                        dest.nr() == lhs.nc() &amp;&amp; dest.nc() == rhs.nc()
+                    - If !trans_lhs &amp;&amp; trans_rhs:
+                        lhs.nc() == rhs.nc()
+                        dest.nr() == lhs.nr() &amp;&amp; dest.nc() == rhs.nr()
+                    - If trans_lhs &amp;&amp; trans_rhs:
+                        lhs.nr() == rhs.nc()
+                        dest.nr() == lhs.nc() &amp;&amp; dest.nc() == rhs.nr()
+
+        ensures
+            - Performs matrix multiplication based on the specified mode:
+
+                For CHANNEL_WISE mode:
+                    - performs: dest = alpha*L*R + beta*mat(dest)
+                        where L, R, and D are as defined above.
+
+                For PLANE_WISE mode:
+                    - Performs matrix multiplication for each corresponding 2D plane (nr x nc)
+                        in lhs and rhs across all samples and channels.
+                    - The operation is equivalent to performing the following for each sample
+                        and channel:
+                        dest[s][k] = alpha * (lhs[s][k] * rhs[s][k]) + beta * dest[s][k]
+                        where [s][k] represents the 2D plane for sample s and channel k.
+    !*/</font>
+
+    <font color='#009900'>// ------------------------------------------------------------------------------------
+</font>
+    <b>}</b>  
+<b>}</b>
+
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_USE_CUDA
+</font>
+<font color='#0000FF'>#endif</font> <font color='#009900'>// DLIB_DNN_CuBLAS_H_
+</font>
+
+
+</pre></body></html>
