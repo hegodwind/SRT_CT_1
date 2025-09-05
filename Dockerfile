@@ -34,7 +34,7 @@ COPY curve_calculate.cpp .
 
 
 
-RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -o process_csr_app ERF2.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread -lX11
+RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -o curve_calculate_app curve_calculate.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread -lX11
 
 
 FROM python:3.12-slim-bookworm
@@ -58,3 +58,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 10000
 
 CMD ["waitress-serve", "--host=0.0.0.0", "--port=10000", "app:app"]
+
