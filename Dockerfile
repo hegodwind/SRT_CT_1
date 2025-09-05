@@ -32,7 +32,7 @@ COPY dlib/ dlib/
 # -Idlib: 指定Dlib头文件路径
 # dlib/dlib/all/source.cpp: 这是编译Dlib所必需的
 # `pkg-config ...`: 自动链接OpenCV库
-RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -o process_csr_app ERF2.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread -lX11
+RUN g++ -std=c++17 -O3 -I/usr/include/opencv4 -Idlib -o curve_calculate_app curve_calculate.cpp dlib/dlib/all/source.cpp `pkg-config --cflags --libs opencv4` -lpthread -lX11
 
 
 # --- Stage 2: Final Production Environment ---
@@ -68,3 +68,4 @@ EXPOSE 10000
 # 定义容器启动时运行的命令
 
 CMD ["waitress-serve", "--host=0.0.0.0", "--port=10000", "app:app"]
+
