@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # 复制C++相关文件到构建环境中
-COPY ERF2.cpp .
+COPY curve_calculate.cpp .
 COPY json.hpp .
 COPY dlib/ dlib/
 
@@ -66,4 +66,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 10000
 
 # 定义容器启动时运行的命令
+
 CMD ["waitress-serve", "--host=0.0.0.0", "--port=10000", "app:app"]
