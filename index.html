@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CT图像分析平台</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        :root { --bs-body-bg: #f8f9fa; }
+        .sidebar { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            bottom: 0; 
+            width: 280px; 
+            padding: 20px; 
+            background-color: #fff; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.1); 
+            overflow-y: auto; 
+        }
+        .main-content { 
+            margin-left: 280px; 
+            padding: 30px; 
+        }
+        .upload-zone { 
+            border: 2px dashed #0d6efd; 
+            border-radius: 10px; 
+            padding: 40px; 
+            text-align: center; 
+            cursor: pointer; 
+            background-color: #f8f9fa; 
+            transition: background-color 0.2s; 
+        }
+        .upload-zone:hover { 
+            background-color: #e9ecef; 
+        }
+        #csr-file { 
+            display: none; 
+        }
+        .results-container, .spinner-container { 
+            display: none; 
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3 class="text-primary mb-4"><i class="fas fa-chart-line me-2"></i>分析平台</h3>
+        <p class="text-muted">上传CSR文件以进行ERF, PSF, MTF分析。</p>
+        <hr>
+        <div class="mt-3" id="params-container" style="display: none;">
+             <h5><i class="fas fa-cogs me-2"></i>图像参数</h5>
+             <div class="card bg-light border-0">
+                <div class="card-body">
+                    <strong>Bin Size:</strong> 
+                    
+                    <span id="binsize-value" class="badge bg-primary fs-6">N/A</span>
+                    <strong>像素</strong>
+                </div>
+             </div>
+             <div class="card bg-light border-0">
+                <div class="card-body">
+                    <strong>MTF:</strong> 
+                    <strong>0.01 线对/像素</strong>
+                    
+                    
+                </div>
+             </div>
+        </div>
+        <div class="mt-4" id="controls-container" style="display: none;">
+             <h5><i class="fas fa-check-square me-2"></i>图表显示选项</h5>
+             <div class="list-group">
+                <label class="list-group-item"><input class="form-check-input me-2" type="checkbox" id="toggle-erf"> ERF 曲线</label>
+                <label class="list-group-item"><input class="form-check-input me-2" type="checkbox" id="toggle-psf"> PSF 曲线</label>
+                <label class="list-group-item"><input class="form-check-input me-2" type="checkbox" id="toggle-mtf"> MTF 曲线</label>
+             </div>
+        </div>
+        <div class="mt-4" id="image-container" style="display: none;">
+             <h5><i class="fas fa-image me-2"></i>图像导出</h5>
+             <div class="d-grid">
+                <button id="download-image-btn" class="btn btn-info"><i class="fas fa-camera-retro me-2"></i>下载原始图像</button>
+             </div>
+        </div>
+        <div class="mt-4" id="download-container" style="display: none;">
+             <h5><i class="fas fa-download me-2"></i>数据导出</h5>
+             <div class="d-grid">
+                <button id="download-excel-btn" class="btn btn-success"><i class="fas fa-file-excel me-2"></i>下载为 Excel</button>
+             </div>
+        </div>
+        <div class="position-absolute bottom-0 start-0 p-3 text-muted small">
+            &copy; 2025 Your Company
+        </div>
+    </div>
+
+    <main class="main-content">
+        <div class="container-fluid">
+            <h1 class="mb-4">图像上传与分析</h1>
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <form id="upload-form">
+                        <div id="upload-zone" class="upload-zone">
+                            <i class="fas fa-cloud-upload-alt icon"></i>
+                            <p><strong>拖拽文件到此处</strong> 或 <strong>点击选择文件</strong></p>
+                            <span id="file-name" class="text-muted"></span>
+                        </div>
+                        <input type="file" id="csr-file" name="file" accept=".csr, image/*">
+                        <div class="d-grid gap-2 mt-3">
+                             <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-paper-plane me-2"></i>开始分析</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div id="status-alert" class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>请上传文件以查看分析结果。
+            </div>
+            <div id="spinner-container" class="spinner-container card shadow-sm">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                    <p class="ms-3 mb-0">正在进行深度计算...</p>
+                </div>
+            </div>
+            
+            <div id="results-container" class="results-container">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div id="chart-container" style="width: 100%; height: 600px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // --- DOM元素获取 ---
+        const form = document.getElementById('upload-form');
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('csr-file');
+        const fileNameSpan = document.getElementById('file-name');
+        const statusAlert = document.getElementById('status-alert');
+        const spinnerContainer = document.getElementById('spinner-container');
+        const resultsContainer = document.getElementById('results-container');
+        const chartDom = document.getElementById('chart-container');
+        const myChart = echarts.init(chartDom);
+        
+        const paramsContainer = document.getElementById('params-container');
+        const controlsContainer = document.getElementById('controls-container');
+        const imageContainer = document.getElementById('image-container');
+        const downloadContainer = document.getElementById('download-container');
+        const binsizeValue = document.getElementById('binsize-value');
+        
+        const toggleERF = document.getElementById('toggle-erf');
+        const togglePSF = document.getElementById('toggle-psf');
+        const toggleMTF = document.getElementById('toggle-mtf');
+        
+        const downloadImageBtn = document.getElementById('download-image-btn');
+        const downloadBtn = document.getElementById('download-excel-btn');
+        
+        let chartData = null; // 全局变量，用于存储所有返回的数据
+
+        // --- 事件监听 ---
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.backgroundColor = '#e9ecef'; });
+        uploadZone.addEventListener('dragleave', (e) => { e.preventDefault(); uploadZone.style.backgroundColor = '#f8f9fa'; });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.style.backgroundColor = '#f8f9fa';
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileName();
+            }
+        });
+        
+        fileInput.addEventListener('change', updateFileName);
+        
+        function updateFileName() {
+            fileNameSpan.textContent = fileInput.files.length > 0 ? `已选择: ${fileInput.files[0].name}` : '';
+        }
+
+        [toggleERF, togglePSF, toggleMTF].forEach(toggle => {
+            toggle.addEventListener('change', renderChart);
+        });
+        
+        downloadImageBtn.addEventListener('click', downloadOriginalImage);
+        downloadBtn.addEventListener('click', downloadExcel);
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!fileInput.files[0]) {
+                updateStatus('请先选择一个文件！', 'alert-danger');
+                return;
+            }
+
+            // 重置UI
+            updateStatus('正在上传并处理文件...', 'alert-info');
+            spinnerContainer.style.display = 'block';
+            resultsContainer.style.display = 'none';
+            paramsContainer.style.display = 'none';
+            controlsContainer.style.display = 'none';
+            imageContainer.style.display = 'none';
+            downloadContainer.style.display = 'none';
+            chartData = null;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/api/process-csr', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.details || data.error || '未知服务器错误');
+
+                chartData = data;
+                binsizeValue.textContent = chartData.binSize;
+                updateStatus('分析成功！请在左侧勾选需要显示的曲线。', 'alert-success');
+                
+                // 显示结果和控制区域
+                resultsContainer.style.display = 'block';
+                paramsContainer.style.display = 'block';
+                controlsContainer.style.display = 'block';
+                downloadContainer.style.display = 'block';
+                // 【已修改】现在只检查Image字段是否存在
+                if (chartData.Image) {
+                    imageContainer.style.display = 'block';
+                }
+
+                renderChart();
+
+            } catch (error) {
+                updateStatus(`分析失败: ${error.message}`, 'alert-danger');
+            } finally {
+                spinnerContainer.style.display = 'none';
+            }
+        });
+
+        // --- 核心函数 ---
+        function renderChart() {
+            if (!chartData) return;
+
+            let series = [];
+            let legends = [];
+
+            if (toggleERF.checked) {
+                legends.push('ERF');
+                series.push({ name: 'ERF', type: 'line', smooth: true, yAxisIndex: 0, data: chartData.erf });
+            }
+            if (togglePSF.checked) {
+                legends.push('PSF');
+                series.push({ name: 'PSF', type: 'line', smooth: true, yAxisIndex: 0, data: chartData.psf });
+            }
+            if (toggleMTF.checked) {
+                legends.push('MTF');
+                series.push({ name: 'MTF', type: 'line', smooth: true, yAxisIndex: 1, data: chartData.mtf });
+            }
+            
+            const option = {
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: legends, top: 'bottom' },
+                grid: { left: '5%', right: '5%', bottom: '10%', containLabel: true },
+                xAxis: { type: 'category', boundaryGap: false, name: '采样点' },
+                yAxis: [
+                    { type: 'value', name: 'ERF / PSF 值', position: 'left' },
+                    { type: 'value', name: 'MTF 值', position: 'right', min: 0, max: 1.1 }
+                ],
+                series: series,
+                dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+            };
+            myChart.setOption(option, true);
+        }
+
+        // 【已修改】函数重命名并简化逻辑
+        function downloadOriginalImage() {
+            if (!chartData || !chartData.Image) {
+                alert("没有可供下载的图像数据！");
+                return;
+            }
+            
+            // Base64字符串转Blob对象
+            const byteCharacters = atob(chartData.Image);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {type: 'image/png'}); // 假设总是PNG格式
+
+            // 使用FileSaver.js下载
+            saveAs(blob, "original_image.png");
+        }
+
+        function downloadExcel() {
+            if (!chartData) {
+                alert("没有可供下载的数据！");
+                return;
+            }
+            const dataToExport = [];
+            const maxLength = Math.max(
+                chartData.erf ? chartData.erf.length : 0, 
+                chartData.psf ? chartData.psf.length : 0, 
+                chartData.mtf ? chartData.mtf.length : 0
+            );
+            for (let i = 0; i < maxLength; i++) {
+                dataToExport.push({
+                    'Index': i,
+                    'ERF': (chartData.erf && chartData.erf[i]) || null,
+                    'PSF': (chartData.psf && chartData.psf[i]) || null,
+                    'MTF': (chartData.mtf && chartData.mtf[i]) || null,
+                });
+            }
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Analysis Data");
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            saveAs(new Blob([wbout], { type: "application/octet-stream" }), "csr_analysis_data.xlsx");
+        }
+
+        function updateStatus(message, type = 'alert-info') {
+            statusAlert.textContent = message;
+            statusAlert.className = `alert ${type}`;
+        }
+        
+        window.addEventListener('resize', () => {
+            if (myChart && !myChart.isDisposed()) {
+                myChart.resize();
+            }
+        });
+    </script>
+</body>
+</html>
