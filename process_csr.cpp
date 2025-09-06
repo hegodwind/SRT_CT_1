@@ -267,7 +267,7 @@ std::vector<double> calculatePSF(const std::vector<double>& erf, int windowSize 
 
 
 
-void fft(std::vector<std::complex<double>>& a) {
+void my_fft(std::vector<std::complex<double>>& a) {
     int n = a.size();
     if (n <= 1) return;
 
@@ -281,8 +281,8 @@ void fft(std::vector<std::complex<double>>& a) {
     }
 
     for (int len = 2; len <= n; len <<= 1) {
-		double M_PI = 3.14159265358979323846;   
-        double ang = -2 * M_PI / len;
+		double Mi_PI = 3.14159265358979323846;   
+        double ang = -2 * Mi_PI / len;
         std::complex<double> wlen(cos(ang), sin(ang));
         for (int i = 0; i < n; i += len) {
             std::complex<double> w(1);
@@ -816,6 +816,7 @@ int main(int argc, char* argv[]) {
     // 6. 程序成功运行，返回0
     return 0;
 }
+
 
 
 
