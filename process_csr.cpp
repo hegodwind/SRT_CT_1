@@ -302,10 +302,6 @@ std::vector<double> calculateMTF(const parameter_vector& param , const double& b
     double sigma = param(3)*binsize;
     int mtf_size = 100/sigma;
     std::vector<double> mtf(mtf_size);
-
-    // The DC component is the magnitude of the first element.
-
-    // Calculate the magnitude for each frequency component and normalize it.
     for (int i = 0; i < mtf_size; i++) {
         mtf[i] = exp(-2*pi*pi*sigma*sigma*i*i/10000);
     }
@@ -313,7 +309,7 @@ std::vector<double> calculateMTF(const parameter_vector& param , const double& b
 }
 
 
-//将主函数一开始霍夫圆检测的部分改写为一个类
+//霍夫圆检测的类，其中包含原始数据
 class CircleDetector {
 public:  
     CircleDetector(const string& csrPath) {
@@ -344,7 +340,7 @@ public:
         int height = blurImage.rows;
         int weight = blurImage.cols;
         int minDist = 30;   // 最小距离
-        int param1 = 100;     // Canny边缘检测高阈值  # 保持和和前面Canny的阈值一致
+        int param1 = 100;     // Canny边缘检测高阈值  
         int param2 = 60;     // Hough变换高阈值
         int minRadius = 100;   // 最小半径
         int maxRadius = 3000;   // 最大半径
@@ -352,14 +348,13 @@ public:
         HoughCircles(blurImage, this->circles, HOUGH_GRADIENT, 1, minDist, param1, param2, minRadius, maxRadius);
 
         cvtColor(this->Image, this->Image, COLOR_GRAY2BGR);
-
+		
+		//将检测出的圆画出来
         for (size_t i = 0; i < this->circles.size(); i++)
         {
             Point center(cvRound(this->circles[i][0]), cvRound(this->circles[i][1]));
             int radius = cvRound(this->circles[i][2]);
-            // Draw the circle outline
             circle(this->Image, center, radius, Scalar(0, 255, 0), 2, LINE_AA);
-            // Draw the circle center
             circle(this->Image, center, 3, Scalar(0, 0, 255), -1, LINE_AA);
         }
 
@@ -444,27 +439,27 @@ public:
     void interpolateERF() {
         for (int i = 0; i < numBins; i++) {
             if (binCounts[i] == 0) {
-                // 向前寻找有效值
+             
                 int prev = i - 1;
                 while (prev >= 0 && binCounts[prev] == 0) prev--;
                 
-                // 向后寻找有效值
+              
                 int next = i + 1;
                 while (next < numBins && binCounts[next] == 0) next++;
         
-                // 插值逻辑
+          
                 if (prev >= 0 && next < numBins) {
-                    // 线性插值
+                 
                     double alpha = static_cast<double>(i - prev) / (next - prev);
                     erf[i] = erf[prev] * (1 - alpha) + erf[next] * alpha;
                 } else if (prev >= 0) {
-                    // 末尾缺失：延续前值
+             
                     erf[i] = erf[prev];
                 } else if (next < numBins) {
-                    // 开头缺失：延续后值
+                
                     erf[i] = erf[next];
                 } else {
-                    // 极端情况全空：保持0
+                  
                     erf[i] = 0.0;
                 }
             }
@@ -523,7 +518,7 @@ public:
 //plot函数
 template <typename T>
 cv::Mat plotVector(const std::vector<T>& data, int width = 1000, int height = 600, float binSize = 0.05) {
-    // 1. 输入验证
+  
     if (data.size() <= 1) {
         cv::Mat errorImage = cv::Mat::zeros(height, width, CV_8UC3);
         cv::putText(errorImage, "Data vector has <= 1 element.", cv::Point(20, height / 2),
@@ -531,11 +526,10 @@ cv::Mat plotVector(const std::vector<T>& data, int width = 1000, int height = 60
         return errorImage;
     }
 
-    // 2. 创建画布
-    // BGR 颜色: 这里创建一个白色背景的画布
+   
     cv::Mat plotImage = cv::Mat(height, width, CV_8UC3, cv::Scalar(255, 255, 255));
 
-    // 3. 定义图表区域的边距和尺寸
+    // 定义图表区域的边距和尺寸
     int margin = 50;
     int graphWidth = width - 4 * margin;
     int graphHeight = height - 2 * margin;
@@ -543,18 +537,16 @@ cv::Mat plotVector(const std::vector<T>& data, int width = 1000, int height = 60
     int graphX = 2 * margin;
     int graphY = margin;
 
-    // 4. 寻找数据的最大值和最小值，用于Y轴的缩放
+    // 寻找数据的最大值和最小值，用于Y轴的缩放
     auto minmax_it = std::minmax_element(data.begin(), data.end());
     T minVal = *minmax_it.first;
     T maxVal = *minmax_it.second;
 
-    // 如果所有值都相同，为了避免除以0，人为创建一个范围
     if (maxVal == minVal) {
         maxVal += static_cast<T>(1.0);
     }
 
-    // 5. 绘制背景网格和坐标轴
-    // 在表格正上方写出标题
+    // 绘制背景网格和坐标轴
     std::string title = "Custom Plot";
     int baseline = 0;
     cv::Size textSize = cv::getTextSize(title, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline);
@@ -562,43 +554,40 @@ cv::Mat plotVector(const std::vector<T>& data, int width = 1000, int height = 60
     int textY = margin / 2 + textSize.height / 2;
     cv::putText(plotImage, title, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 0), 2);
 
-    // 留一些空白并绘制背景网格和坐标轴
+ 
     int numGridLines = 5;
-    // 绘制水平网格线
+
     for (int i = 0; i <= numGridLines; ++i) {
         int y = graphY + (i * graphHeight / numGridLines);
         cv::line(plotImage, cv::Point(graphX, y), cv::Point(graphX + graphWidth, y), cv::Scalar(220, 220, 220));
     }
-    // 绘制垂直网格线
+
     for (int i = 0; i <= numGridLines; ++i) {
         int x = graphX + (i * graphWidth / numGridLines);
         cv::line(plotImage, cv::Point(x, graphY), cv::Point(x, graphY + graphHeight), cv::Scalar(220, 220, 220));
     }
-    // 绘制坐标轴边框
+ 
     cv::rectangle(plotImage, cv::Point(graphX, graphY), cv::Point(graphX + graphWidth, graphY + graphHeight), cv::Scalar(0, 0, 0), 1);
 
-    // 6. 绘制数据点之间的连线
+    // 绘制数据点之间的连线
     std::vector<cv::Point> plotPoints;
     for (size_t i = 0; i < data.size(); ++i) {
-        // --- 核心映射逻辑 ---
-        // 将数据索引 i 映射到图表的X像素坐标
+     
         int px = graphX + static_cast<int>((i / (double)(data.size() - 1)) * graphWidth);
 
-        // 将数据值 data[i] 映射到图表的Y像素坐标
-        // 注意：图像的Y轴是向下增长的，所以需要用 graphHeight 减去计算值
         int py = graphY + graphHeight - static_cast<int>(((data[i] - minVal) / (maxVal - minVal)) * graphHeight);
 
         plotPoints.push_back(cv::Point(px, py));
     }
-    // 使用 polylines 一次性绘制所有线段，效率更高
+   
     cv::polylines(plotImage, plotPoints, false, cv::Scalar(255, 0, 0), 2); // 蓝色线条
 
-    // 7. 绘制坐标轴上的标签，
-    // Y轴标签 (最大值和最小值),保留一位小数即可
+    //  绘制坐标轴上的标签，
+
     cv::putText(plotImage, cv::format("%.1f", static_cast<double>(maxVal)), cv::Point(margin - 45, margin + 10), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0));
     cv::putText(plotImage, cv::format("%.1f", static_cast<double>(minVal)), cv::Point(margin - 45, margin + graphHeight), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0));
 
-    // X轴标签 (第一个和最后一个索引)
+
     cv::putText(plotImage, "0", cv::Point(margin, margin + graphHeight + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0));
     cv::putText(plotImage, std::to_string((data.size() - 1) * binSize), cv::Point(width - margin - 20, margin + graphHeight + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0));
 
@@ -738,7 +727,7 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        // 2. 执行核心的计算逻辑 
+        // 执行核心的计算逻辑 
         double binSize = 0.05; // 每个bin的宽度，单位像素
         CircleDetector detector(csr_filename);
         detector.detectCircles();
@@ -781,16 +770,16 @@ int main(int argc, char* argv[]) {
                 input = i;
                 psf_Gaussian.push_back(model(input, params));
             }
+			//计算MTF
             mtf = calculateMTF(params, binSize);
         }
         catch (std::exception& e)
         {
             std::cerr << e.what() << endl;
         }
-        // 计算MTF
         
         
-        // 3. 将计算结果打包成JSON对象
+        // 将计算结果打包成JSON对象
         json result_json;
         result_json["circle"] = detector.circles[0][0];
         result_json["Image"] = matToBase64(detector.Image);
@@ -807,15 +796,16 @@ int main(int argc, char* argv[]) {
         
 
     } catch (const std::exception& e) {
-        // 5. 捕获处理过程中可能发生的任何异常 (如文件打不开、未检测到圆等)
+        // 捕获处理过程中可能发生的任何异常 (如文件打不开、未检测到圆等)
         // 将错误信息输出到标准错误(stderr)
         std::cerr << "An error occurred during processing: " << e.what() << std::endl;
         return 1; 
     }
      
-    // 6. 程序成功运行，返回0
+    // 程序成功运行，返回0
     return 0;
 }
+
 
 
 
