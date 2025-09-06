@@ -224,7 +224,7 @@
                 paramsContainer.style.display = 'block';
                 controlsContainer.style.display = 'block';
                 downloadContainer.style.display = 'block';
-                // 【已修改】现在只检查Image字段是否存在
+           
                 if (chartData.Image) {
                     imageContainer.style.display = 'block';
                 }
@@ -273,7 +273,7 @@
             myChart.setOption(option, true);
         }
 
-        // 【已修改】函数重命名并简化逻辑
+  
         function downloadOriginalImage() {
             if (!chartData || !chartData.Image) {
                 alert("没有可供下载的图像数据！");
@@ -331,4 +331,5 @@
         });
     </script>
 </body>
+
 </html>
