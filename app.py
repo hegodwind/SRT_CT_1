@@ -5,7 +5,7 @@ import subprocess
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 
-# --- 配置 ---
+
 UPLOAD_FOLDER = 'temp_uploads'
 ALLOWED_EXTENSIONS = {'csr'}
 
@@ -19,11 +19,11 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 160 * 1024 * 1024  # 限制上传大小为160MB
 
-# 确保上传目录存在
+
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# --- 辅助函数 ---
+
 def allowed_file(filename):
     """检查文件扩展名"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -52,13 +52,13 @@ def process_csr_file():
     try:
         file.save(temp_filepath)
 
-        # --- 核心：调用C++可执行程序 ---
+  
         command = [CPP_EXECUTABLE_PATH, temp_filepath]
         result = subprocess.run(
             command, 
             capture_output=True, 
             text=True, 
-            check=True  # 如果C++程序出错，则抛出异常
+            check=True  
         )
 
         # 解析C++程序的JSON输出并返回给前端
@@ -76,7 +76,7 @@ def process_csr_file():
         return jsonify({"error": f"服务器错误: 找不到C++可执行文件 '{CPP_EXECUTABLE_PATH}'"}), 500
 
     finally:
-        # 无论成功或失败，都清理临时文件
+      
         if os.path.exists(temp_filepath):
             os.remove(temp_filepath)
 
@@ -84,4 +84,5 @@ def process_csr_file():
 if __name__ == '__main__':
 
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
